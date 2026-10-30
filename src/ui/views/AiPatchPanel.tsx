@@ -10,7 +10,7 @@ import { usePlan } from '../../state/store';
 /**
  * X1 — the differentiated AI flow: AI proposes -> the ENGINE dry-runs in the browser ->
  * the family sees the exact before/after -> accept (one undo step) or reject.
- * Gemini never writes the plan directly.
+ * The AI never writes the plan directly.
  */
 export function AiPatchPanel({ plan }: { plan: Plan }) {
   const store = usePlan();

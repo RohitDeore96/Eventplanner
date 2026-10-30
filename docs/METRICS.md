@@ -20,5 +20,6 @@ npm ci
 node scripts/gen-metrics.mjs
 ```
 
-AI features are not exercised by these checks: they need a `GEMINI_API_KEY` and are
+AI features are not exercised by these checks: they need the AI provider key (see
+`.env.example`) and are
 therefore marked **Not run here**. The route tests cover the AI paths with a mocked model.

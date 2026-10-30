@@ -7,7 +7,8 @@ config  <-  engine  <-  schemas  <-  api (Vercel functions)
 
 - `src/config/limits.ts`: every limit and default, imported by everything, imports nothing.
 - `src/engine`: pure functions. No UI, no network, no clock (`today` is passed in), no runtime dependencies. Enforced by `.dependency-cruiser.cjs`.
-- `src/schemas`, `src/api`, `src/components`: not built yet.
+- `src/schemas` (zod contracts, including the patch-union schema), `src/lib` (typed API
+  client), `src/state` (store, persistence), `src/ui` (views): all shipped.
 
 ## Data flow
 
@@ -25,14 +26,17 @@ AI text --> patch (validated) --> dry run ----+        ^
 3. If the patch adds an error-level warning, `blockedBy` is non-empty and `applyPatch` refuses.
 4. `acceptPatch` pushes the result as a single history entry so one undo reverts it.
 
-Not built yet: the Gemini call that produces the patch, its schema validation, and the deterministic fallback.
+The AI call that produces the patch is shipped: `api/propose-patch.ts` builds a
+response schema from the same zod union, validates the reply server-side, walks a model
+chain with failover, and degrades to a deterministic 503 `AI_UNAVAILABLE` when no key is
+configured — the engine, not the model, remains the gate.
 
 ## The AI patch flow (added M3)
 
 1. The family types what they want changed in the Assistant tab.
 2. The client sends a compact facts summary (built from `summarize`) plus the instruction to
    `POST /api/propose-patch`, guarded like every route.
-3. Gemini returns a small JSON patch (at most 10 ops of `task/add`, `task/update`,
+3. The AI returns a small JSON patch (at most 10 ops of `task/add`, `task/update`,
    `task/delay`, `budget/move`, `category/add`), schema-validated server-side and client-side.
 4. The ENGINE dry-runs the patch in the browser (`dryRunPatch`): any change that would
    enlarge an error condition (over-allocation, over-commitment) or introduce a new error is

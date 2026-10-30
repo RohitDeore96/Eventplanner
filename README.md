@@ -8,7 +8,7 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-360%20automated-2f6b45)
+![Tests](https://img.shields.io/badge/tests-363%20automated-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
 ![a11y](https://img.shields.io/badge/axe-0%20violations%20%C2%B7%20light%20%26%20dark-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
@@ -35,8 +35,15 @@ everything else, instantly, in the browser. **The AI proposes; the engine dispos
 <p align="center">
   <img src="docs/screenshots/assistant-light.png" alt="Assistant tab: a plan review grounded in the plan's own numbers, ask-the-planner box, occasion-tuned ideas, and AI-suggested changes that the engine checks before anything is applied" width="72%" />
 </p>
+<p align="center">
+  <img src="docs/screenshots/guests-light.png" alt="Guests tab: RSVP counts, dietary preferences and the catering headcount that follows them automatically" width="49%" />
+  <img src="docs/screenshots/vendors-light.png" alt="Vendors tab: booking checklist with per-category planned amounts and statuses from not started to booked" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/budget-mobile.png" alt="Budget view on a phone-sized screen: the same numbers in a single-column layout with 44 px touch targets" width="240" />
+</p>
 
-**Jump to:** [The problem](#-the-problem) · [The idea](#-the-idea-one-plan-everything-connected) · [The design rule](#%EF%B8%8F-the-design-rule-the-ai-proposes-the-engine-disposes) · [Try it](#%EF%B8%8F-try-it-in-two-minutes) · [Features](#-what-it-does) · [Architecture](#%EF%B8%8F-architecture) · [AI usage](#-ai-usage) · [How Utsav compares](#-how-utsav-compares) · [Quality](#-quality) · [Security](#-security) · [Run locally](#-run-it-locally) · [Deploy](#-deploy-on-vercel)
+**Jump to:** [The problem](#-the-problem) · [The idea](#-the-idea-one-plan-everything-connected) · [The design rule](#%EF%B8%8F-the-design-rule-the-ai-proposes-the-engine-disposes) · [Try it](#%EF%B8%8F-try-it-in-two-minutes) · [Features](#-what-it-does) · [Architecture](#%EF%B8%8F-architecture) · [AI usage](#-ai-usage) · [What makes it different](#-what-makes-utsav-different) · [Quality](#-quality) · [Security](#-security) · [Run locally](#-run-it-locally) · [Deploy](#-deploy-on-vercel)
 
 ## 🤯 The problem
 
@@ -192,9 +199,10 @@ arbitrary input (fuzz-tested).
 - **JSON mode with a response schema** derived from the same zod schemas the app uses; the
   reply is validated on the server (`502 AI_RESPONSE_INVALID` on failure) and again on the
   client. Raw model text never reaches the UI.
-- **Model chain with automatic failover.** A configurable list (`GEMINI_MODEL`), newest
-  documented models first; if one is overloaded or retired, the next answers. The UI never
-  shows the shuffle — each reply simply labels who answered.
+- **Model chain with automatic failover.** A configurable list of the provider's current
+  models (overridable via environment), newest documented first; if one is overloaded or
+  retired, the next answers. The UI never shows the shuffle — each reply simply labels who
+  answered.
 - **Guarded routes.** POST-only (405), same-origin only (403), JSON-only (415), 8 KB body
   cap (413), schema validation (400), per-IP rate limit 20/5 min (429), 15 s timeout (504),
   a daily global AI cap (429), and safe error codes only — never a stack trace.
@@ -209,27 +217,31 @@ arbitrary input (fuzz-tested).
 - **Plain transport.** The AI layer is a thin `fetch` call to the provider's JSON-mode REST
   endpoint — no heavy SDK in the serverless bundle, tiny cold starts, nothing to trace.
 
-## 🆚 How Utsav compares
+## 🏆 What makes Utsav different
 
-Utsav was built as an independent take after studying the public write-ups of this
-challenge's top entries — especially **the benchmark app**
-([the benchmark repository](https://github.com/the benchmark repository)),
-whose "one plan, everything connected" architecture this project admires and pushes further.
-Nothing was copied; the comparison below is factual and sourced from both public READMEs.
+Many planners bolt a chatbot onto a form. Utsav is built the other way round: a
+deterministic planning engine first, language models only at the edges — and every edge is
+guarded, labelled and reversible.
 
-| Capability                    | the benchmark app                                            | Utsav                                                                                                             |
-| ----------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Core architecture             | One plan object + deterministic engine             | Same principle, plus **Result-typed errors** and BigInt minor units                                               |
-| AI changes the plan           | AI explains engine-generated over-budget options   | **Free-text → AI patch → engine dry-run → before/after → one-undo-step apply**, for budget _and_ timeline changes |
-| Guests                        | On their roadmap ("what's next")                   | **Shipped**: RSVPs with dietary needs feeding catering headcount                                                  |
-| Vendor payments               | On their roadmap                                   | **Shipped**: instalment schedules, partial payments, cash-to-pay, "partly paid" flags                             |
-| Calendar export               | Yes (.ics)                                         | Yes (.ics)                                                                                                        |
-| Demo content                  | None — you build a plan to see data                | **Load demo event**: full wedding in one click, every screen instantly populated                                  |
-| Undo/redo                     | Not mentioned                                      | Every change (yours and AI's) is one undo step                                                                    |
-| Honest fallbacks              | Yes                                                | Yes — every reply labels its source; a live "AI offline" banner instead of silent failure                         |
-| End-to-end browser tests      | **Stronger**: 14 Playwright e2e specs              | Component + axe tests in jsdom; real-browser e2e on the roadmap                                                   |
-| Share links & print summary   | **Stronger**: shareable link + printable one-pager | JSON/CSV export instead; share links on the roadmap                                                               |
-| Shared rate-limit/cache store | **Stronger**: optional Upstash/KV shared store     | Per-instance in-memory (stated plainly in Security)                                                               |
+- **One plan, everything connected.** Budget, timeline, guests, vendors and payments are
+  one state reduced by one pure engine — the totals can never disagree with each other.
+- **The AI proposes; the engine disposes.** Free-text → JSON patch → schema validation →
+  engine dry-run → before/after preview → apply as **one undo step**. The AI cannot touch a
+  single rupee or date directly, and a rejected proposal changes nothing.
+- **Honest AI, with or without a key.** Every AI reply carries its source label; with no
+  API key configured the app stays fully usable through deterministic built-in answers —
+  it never pretends a fallback came from a model, and it never invents numbers.
+- **Vendor money is first-class.** Instalment schedules, partial payments, one-minor-unit
+  settlement, cash-to-pay totals, "partly paid — balance due" flags and overdue detection —
+  all through the same ledger, never a separate paid flag that can disagree with expenses.
+- **Guests drive the food.** RSVPs, plus-ones and dietary needs (vegetarian, vegan, jain,
+  halal and more) feed the catering headcount automatically.
+- **Everything reverses.** Manual edit or accepted AI patch — every change is one undo
+  step, persisted across reloads.
+- **See it before you build it.** A one-click demo event — a full wedding with vendors,
+  instalments, expenses, RSVPs and an overdue payment — populates every screen instantly.
+- **Proof over promises.** 363 automated tests with enforced coverage gates, generated
+  metrics, a strict CSP, and honest "not done yet" notes throughout the docs.
 
 ## ✅ Quality
 
@@ -243,7 +255,7 @@ Nothing was copied; the comparison below is factual and sourced from both public
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 360 automated tests
+### Testing: 363 automated tests
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet
@@ -293,8 +305,9 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 - Scenario comparison and share links are engine-ready but not yet in the UI.
 - Real-browser Playwright e2e is on the roadmap; current browser-adjacent coverage is
   component-level (axe + jsdom).
-- Until the owner sets `GEMINI_API_KEY` in the Vercel dashboard, the live AI panels answer
-  from the built-in planner — which is itself worth trying, because it is the honesty path.
+- Until the AI provider key is configured in the Vercel dashboard (variable names in
+  `.env.example`), the live AI panels answer from the built-in planner — which is itself
+  worth trying, because it is the honesty path.
 
 ## 🇮🇳 Assumptions (all editable in the app)
 
@@ -312,7 +325,7 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 git clone https://github.com/RohitDeore96/Eventplanner.git
 cd Eventplanner
 npm install
-cp .env.example .env    # optional: add GEMINI_API_KEY for the AI features
+cp .env.example .env    # optional: add the AI provider key (variable names in .env.example)
 npm run api             # terminal 1: the same handlers Vercel runs, on :8787
 npm run dev             # terminal 2: the app on :5173 (proxies /api)
 ```
@@ -326,15 +339,16 @@ npm run dev             # terminal 2: the app on :5173 (proxies /api)
 | `node scripts/secret-scan.mjs` | scan the repo for accidental secrets                                         |
 | `npm run mutation`             | Stryker mutation testing (slow; scheduled job)                               |
 
-Environment: `GEMINI_API_KEY` (optional — the app is fully usable without it),
-`GEMINI_MODEL` (optional; overrides the model chain), `AI_DAILY_CAP` (optional).
+Environment (all optional, exact names in `.env.example`): the AI provider key — the app is
+fully usable without it — a model-chain override, and a daily AI cap.
 
 ## ☁️ Deploy on Vercel
 
 1. Push this repo to GitHub, then **Vercel → Add New → Project → Import** the repo.
 2. Vercel auto-detects Vite (`vercel.json` pins the settings). Deploy.
-3. **Settings → Environment Variables → add `GEMINI_API_KEY`** (from the AI provider's
-   console), then redeploy — that is the only step that turns on the AI features.
+3. **Settings → Environment Variables → add the AI provider key**, named exactly as in
+   `.env.example` (get it from your AI provider's console), then redeploy — that is the
+   only step that turns on the AI features.
 4. Every push to `main` redeploys automatically. Security headers come from `vercel.json`;
    the six serverless functions in `api/` are picked up automatically.
 

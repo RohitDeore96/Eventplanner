@@ -4,7 +4,8 @@ Single source of truth for scope, decisions and acceptance. Status is updated as
 
 ## Scope decisions
 
-- Stack: Vite + React + TypeScript (strict), Vercel serverless functions, Gemini (server-side key only), zod. The repo was empty, so this is a choice, not a migration.
+- Stack: Vite + React + TypeScript (strict), Vercel serverless functions, a hosted LLM behind same-origin routes (server-side key
+  only, provider-agnostic), zod. The repo was empty, so this is a choice, not a migration.
 - Layers: `config` (leaf constants) <- `engine` (pure, no clock, no I/O, `today` injected) <- `schemas` <- `api` <- `components`. Enforced by dependency-cruiser.
 - Money: integer minor units only. Category splits are template constants in basis points; only the resulting amounts are stored.
 - Every plan change, manual or AI-proposed, is a `PlanAction` handled by one reducer.
@@ -36,17 +37,17 @@ Quoted, contacted and cancelled vendors commit nothing. A scheduled payment (ins
 
 ## Acceptance status
 
-| Item                                                                   | Status                                      | Evidence                                                                |
-| ---------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
-| P1 connected plan (pure recalculation)                                 | Engine done                                 | `summarize`, `tests/engine/*.test.ts`                                   |
-| P3 money, expenses, payment schedule, warnings                         | Engine done                                 | `budget.ts`, `reducers/budget.ts`, `reducers/vendors.ts`, `warnings.ts` |
-| P4 timeline, task CRUD, cycle prevention, compression, `.ics`          | Engine done                                 | `tasks.ts`, `milestones.ts`, `timeline.ts`, `ics.ts`                    |
-| P5 guests, RSVP, plus-ones, dietary, catering                          | Engine done                                 | `guests.ts`, `reducers/guests.ts`                                       |
-| P6 vendor records                                                      | Engine done; quote analysis not started     | `reducers/vendors.ts`                                                   |
-| P7 scenarios                                                           | Comparison done; UI not started             | `scenario.ts`                                                           |
-| P8 patch dry-run, apply, undo                                          | Engine done; Gemini integration not started | `patch.ts`, `history.ts`                                                |
-| P2 events, P9 persistence and export                                   | Not started                                 |                                                                         |
-| API handlers, schemas, security headers, UI, a11y, e2e, CI, deployment | Not started                                 |                                                                         |
+| Item                                                                   | Status                                                                                                                                     | Evidence                                                                |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| P1 connected plan (pure recalculation)                                 | Engine done                                                                                                                                | `summarize`, `tests/engine/*.test.ts`                                   |
+| P3 money, expenses, payment schedule, warnings                         | Engine done                                                                                                                                | `budget.ts`, `reducers/budget.ts`, `reducers/vendors.ts`, `warnings.ts` |
+| P4 timeline, task CRUD, cycle prevention, compression, `.ics`          | Engine done                                                                                                                                | `tasks.ts`, `milestones.ts`, `timeline.ts`, `ics.ts`                    |
+| P5 guests, RSVP, plus-ones, dietary, catering                          | Engine done                                                                                                                                | `guests.ts`, `reducers/guests.ts`                                       |
+| P6 vendor records                                                      | Done end-to-end incl. AI quote extraction                                                                                                  | `reducers/vendors.ts`, `api/extract-quote.ts`, Vendors view             |
+| P7 scenarios                                                           | Comparison done; UI not started                                                                                                            | `scenario.ts`                                                           |
+| P8 patch dry-run, apply, undo                                          | Done end-to-end (AI patch → dry-run → apply → undo)                                                                                        | `patch.ts`, `history.ts`, `api/propose-patch.ts`                        |
+| P2 events, P9 persistence and export                                   | P9 done: localStorage + `schemaVersion` migration, JSON/CSV export. Multi-event list not built                                             | `state/persistence.ts`, export actions                                  |
+| API handlers, schemas, security headers, UI, a11y, e2e, CI, deployment | Shipped: 6 guarded routes, header set in `vercel.json`, views + axe tests, CI workflow, live Vercel deployment. Real-browser e2e not built | `api/`, `vercel.json`, `src/ui/`, `.github/workflows/`                  |
 
 ## Requirement classification (v6)
 
@@ -54,18 +55,18 @@ P0 = must work for a judge. P1 = needed for a top score. P2 = differentiator. St
 
 ### A. Challenge requirements
 
-| ID  | Requirement                                                                        | Pri | Status                                                        |
-| --- | ---------------------------------------------------------------------------------- | --- | ------------------------------------------------------------- |
-| R1  | Create / edit wedding, birthday, community events with validation                  | P0  | Engine done; UI in M1-M2                                      |
-| R2  | Budget: allocate, expenses, remaining, over-allocation                             | P0  | Engine done (D1, D4, D8 open)                                 |
-| R3  | Timeline: milestones, short-notice, overdue, task CRUD                             | P0  | Engine done (D10 open)                                        |
-| R4  | Vendor checklist per occasion with booking / payment status                        | P0  | Partial: vendor records exist, per-occasion checklist pending |
-| R5  | Personalised ideas driven by event inputs                                          | P0  | Not started (M3)                                              |
-| R6  | GenAI planning: intake, review, ask-the-planner, quote extraction, patch proposals | P0  | Not started (M3)                                              |
-| R7  | Guests with RSVP feeding catering                                                  | P1  | Engine done (D9 open)                                         |
-| R8  | Persistence, multiple events, export with real data                                | P0  | Not started (M4)                                              |
-| R9  | Live on Vercel                                                                     | P0  | Not started (M1)                                              |
-| R10 | Repo under 10 MB                                                                   | P0  | ~0.4 MB; CI size check pending                                |
+| ID  | Requirement                                                                        | Pri | Status                                                             |
+| --- | ---------------------------------------------------------------------------------- | --- | ------------------------------------------------------------------ |
+| R1  | Create / edit wedding, birthday, community events with validation                  | P0  | Done end-to-end (Setup + Intake, engine-validated)                 |
+| R2  | Budget: allocate, expenses, remaining, over-allocation                             | P0  | Done end-to-end (Budget view; D1/D4 fixed with tests)              |
+| R3  | Timeline: milestones, short-notice, overdue, task CRUD                             | P0  | Done end-to-end (Timeline view + .ics export)                      |
+| R4  | Vendor checklist per occasion with booking / payment status                        | P0  | Done end-to-end (checklist, statuses, payment schedules)           |
+| R5  | Personalised ideas driven by event inputs                                          | P0  | Done end-to-end (`api/suggest-ideas.ts`, occasion-tuned)           |
+| R6  | GenAI planning: intake, review, ask-the-planner, quote extraction, patch proposals | P0  | Done: 6 guarded endpoints, mocked-model tests, built-in fallbacks  |
+| R7  | Guests with RSVP feeding catering                                                  | P1  | Done end-to-end (Guests view: RSVP, plus-ones, dietary)            |
+| R8  | Persistence, multiple events, export with real data                                | P0  | Partly: persistence + JSON/CSV export shipped; multi-event pending |
+| R9  | Live on Vercel                                                                     | P0  | Live: https://eventplanner-mocha.vercel.app/ (verified 2026-10-30) |
+| R10 | Repo under 10 MB                                                                   | P0  | ~0.11 MB with CI size gate                                         |
 
 ### B. Scoring criteria
 
