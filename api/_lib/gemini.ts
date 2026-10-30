@@ -269,16 +269,20 @@ export async function generateJson<T>(
       } catch {
         // Upstream error pages are not always JSON (HTML/plain). Still a failed attempt.
         lastError = new Error(`AI_HTTP_${response.status}`, { cause: 'non-JSON reply' });
+        console.error(`[ai] ${options.name}: ${model} -> HTTP ${response.status} (non-JSON reply)`);
         continue;
       }
       if (!response.ok) {
         lastError = new Error(`AI_HTTP_${response.status}`, { cause: reply.error?.message });
+        // Server log only: status and the provider's own reason. No prompts, no key, no user text.
+        console.error(`[ai] ${options.name}: ${model} -> HTTP ${response.status}`);
         continue;
       }
       const candidate = fillNullables(extractJson(extractText(reply)), options.schema);
       const parsed = options.schema.safeParse(candidate);
       if (!parsed.success) {
         lastError = new Error('AI_RESPONSE_INVALID', { cause: parsed.error });
+        console.error(`[ai] ${options.name}: ${model} -> reply failed schema validation`);
         continue;
       }
       cacheSet(key, parsed.data);
