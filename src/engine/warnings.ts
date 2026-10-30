@@ -1,5 +1,11 @@
 import { BPS_TOTAL, CONTINGENCY_KEY, CONTINGENCY_MIN_BPS } from '../config/limits';
-import { budgetTotals, categoryFigures, type VendorPayments, vendorPayments } from './budget';
+import {
+  budgetTotals,
+  categoryFigures,
+  instalmentPayments,
+  type VendorPayments,
+  vendorPayments,
+} from './budget';
 import { daysBetween, type ISODate } from './dates';
 import { headcount } from './guests';
 import { formatMoney } from './money';
@@ -76,13 +82,13 @@ interface VendorContext {
   readonly today: ISODate;
   readonly money: Money;
   readonly payments: VendorPayments;
-  /** Instalment ids that an expense has already settled. */
-  readonly settled: ReadonlySet<string>;
+  /** Money paid against each instalment id; an instalment settles when payments reach its amount. */
+  readonly instalmentPaid: ReadonlyMap<string, number>;
 }
 
 function vendorWarnings(
   vendor: Vendor,
-  { today, money, payments, settled }: VendorContext,
+  { today, money, payments, instalmentPaid }: VendorContext,
 ): Warning[] {
   const out: Warning[] = [];
   const paid = payments.get(vendor.id) ?? 0;
@@ -107,14 +113,24 @@ function vendorWarnings(
     });
   }
   for (const instalment of vendor.schedule) {
+    const settled = instalmentPaid.get(instalment.id) ?? 0;
     const late = daysBetween(instalment.dueISO, today) ?? 0;
-    if (!settled.has(instalment.id) && late > 0) {
+    if (settled < instalment.amountMinor && late > 0) {
       out.push({
         id: `PAYMENT_OVERDUE:${instalment.id}`,
         code: 'PAYMENT_OVERDUE',
         severity: 'error',
-        message: `${vendor.name}: ${money(instalment.amountMinor)} was due ${instalment.dueISO}.`,
-        fix: 'Pay it, or ask the vendor to agree a new date and update the schedule.',
+        message: `${vendor.name}: ${money(instalment.amountMinor - settled)} of ${money(instalment.amountMinor)} was due ${instalment.dueISO}.`,
+        fix: 'Pay the balance, or ask the vendor to agree a new date and update the schedule.',
+      });
+    }
+    if (settled > instalment.amountMinor) {
+      out.push({
+        id: `INSTALMENT_OVERPAID:${instalment.id}`,
+        code: 'INSTALMENT_OVERPAID',
+        severity: 'warning',
+        message: `${vendor.name} has received ${money(settled)} against a scheduled payment of ${money(instalment.amountMinor)}.`,
+        fix: 'Check the schedule, or ask the vendor for a refund or credit.',
       });
     }
   }
@@ -152,10 +168,8 @@ function taskWarnings(plan: Plan, today: ISODate): Warning[] {
 export function computeWarnings(plan: Plan, today: ISODate): Warning[] {
   const money: Money = (minor) => formatMoney(minor, plan.currency, plan.locale);
   const payments = vendorPayments(plan.expenses);
-  const settled = new Set(
-    plan.expenses.flatMap((e) => (e.instalmentId === null ? [] : [e.instalmentId])),
-  );
-  const context: VendorContext = { plan, today, money, payments, settled };
+  const instalmentPaid = instalmentPayments(plan.expenses);
+  const context: VendorContext = { plan, today, money, payments, instalmentPaid };
   return [
     ...budgetWarnings(plan, money, payments),
     ...categoryWarnings(plan, money, payments),

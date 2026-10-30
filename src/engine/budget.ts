@@ -36,6 +36,25 @@ export function vendorPayments(expenses: readonly Expense[]): VendorPayments {
   return totals;
 }
 
+/**
+ * Money paid against each scheduled instalment id. An instalment settles only when the summed
+ * payments reach its amount; partial and multiple payments are allowed.
+ */
+export type InstalmentPayments = ReadonlyMap<string, Minor>;
+
+export function instalmentPayments(expenses: readonly Expense[]): InstalmentPayments {
+  const totals = new Map<string, Minor>();
+  for (const expense of expenses) {
+    if (expense.instalmentId !== null) {
+      totals.set(
+        expense.instalmentId,
+        (totals.get(expense.instalmentId) ?? 0) + expense.amountMinor,
+      );
+    }
+  }
+  return totals;
+}
+
 /** A vendor commits money only while booked. Payments above the agreed price count as committed. */
 function vendorCommitted(vendor: Vendor, paid: Minor): Minor {
   const agreed = vendor.status === 'booked' ? (vendor.committedMinor ?? 0) : 0;

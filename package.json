@@ -1,5 +1,5 @@
 {
-  "name": "utsav-ai",
+  "name": "utsav",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "test:cov": "vitest run --coverage",
     "mutation": "stryker run",
     "arch": "depcruise src --config .dependency-cruiser.cjs",
-    "unused": "knip",
+    "unused": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
     "bench": "tsx scripts/bench-engine.ts",
     "check": "npm run format && npm run lint && npm run typecheck && npm run arch && npm run unused && npm run test:cov"
   },

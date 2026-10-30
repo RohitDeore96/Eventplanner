@@ -1,5 +1,6 @@
 import { CATERING_KEY, CONTINGENCY_KEY } from '../config/limits';
 import { daysBetween, type ISODate } from './dates';
+import { OCCASIONS } from './enums';
 import { generateMilestones } from './milestones';
 import { allocateByWeights, currencyExponent, isValidMinor } from './money';
 import { fail, ok, type Result } from './result';
@@ -63,6 +64,10 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
   if (!id.ok) return id;
   const name = checkName(input.name, 'name', 'Event name');
   if (!name.ok) return name;
+  const occasionRaw: unknown = input.occasion;
+  if (typeof occasionRaw !== 'string' || !(OCCASIONS as readonly string[]).includes(occasionRaw)) {
+    return fail('INVALID_OCCASION', 'Choose one of: wedding, birthday, community.', 'occasion');
+  }
   const date = checkDate(input.dateISO, 'dateISO');
   if (!date.ok) return date;
   if ((daysBetween(today, input.dateISO) ?? 0) < 0) {

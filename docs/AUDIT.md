@@ -1,6 +1,6 @@
 # Baseline audit (Phase 0)
 
-Taken before any change, from a fresh clone of `RohitDeore98/challenge5` on 2026-10-30.
+Taken before any change, from a fresh clone of `RohitDeore96/Eventplanner` on 2026-10-30.
 
 | Item                                                   | Finding                                            |
 | ------------------------------------------------------ | -------------------------------------------------- |
@@ -25,3 +25,27 @@ Taken before any change, from a fresh clone of `RohitDeore98/challenge5` on 2026
 | Accessibility            | Not configured                     |
 
 Consequence: there was nothing to repair. This is a greenfield build, and every claim in later docs must come from a command run after this point (see `docs/METRICS.md` once generated).
+
+## Phase 1 baseline (2026-10-30, after the engine landed)
+
+Ran on a fresh clone of `RohitDeore96/Eventplanner`, before any M0 change.
+
+| Check | Command | Raw result |
+| --- | --- | --- |
+| Install | `npm ci` | OK (npm warn: esbuild postinstall script not approved) |
+| Unit / property tests | `npx vitest run` | 237 passed (11 files), 2.31 s |
+| Typecheck | `npx tsc --noEmit` | 0 errors |
+| Lint | `npx eslint . --max-warnings 0` | 0 findings |
+| Architecture | `npx depcruise src --config .dependency-cruiser.cjs` | no violations (25 modules, 92 deps) |
+| Unused code | `npx knip` | crashes without `KNIP_DISABLE_RAW_TRANSFER=1` (see D16); with it: clean |
+| Mutation | `npx stryker run` | Not run in this pass (slow, ~3 s per mutant; scheduled job only) |
+| CI, build, deploy | — | Not configured at this point |
+
+## Defect fixes verified in M0 (all with failing tests written first)
+
+| Defect | Fix | Proving test |
+| --- | --- | --- |
+| D1 action leakage | `task/add`, `vendor/add`, `expense/add`, `guest/add` build records from named fields | `tests/engine/defects.test.ts` — exact key-set assertions on all four record types |
+| D2 throws on malformed input | `reducePlan` entry guard (`Object.hasOwn`, `UNKNOWN_ACTION`); all validators accept `unknown`; enums checked at runtime; arrays validated | 14 malformed-action cases + fast-check fuzz: arbitrary JSON never throws |
+| D3 patch gate bypass | `dryRunPatch` blocks patches that enlarge an error footprint (rupee overage + error count + new error ids) | grow-block / unchanged-allow cases on an over-allocated plan |
+| D4 one-paisa settlement | Instalments settle only when summed payments reach the amount; partial and multiple payments allowed; `INSTALMENT_OVERPAID` warning added | partial-then-final settlement, 1-minor-unit case, overpay warning |

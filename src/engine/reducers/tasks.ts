@@ -1,8 +1,8 @@
-import { MAX_TASKS } from '../../config/limits';
+import { MAX_DEPENDENCIES_PER_TASK, MAX_TASKS } from '../../config/limits';
 import { delayTask, removeTask, reorderTask, setDependencies } from '../tasks';
 import { fail, ok, type Result } from '../result';
 import type { Plan, Task } from '../types';
-import { checkDate, checkId, checkName } from '../validate';
+import { checkDate, checkId, checkName, checkStringList } from '../validate';
 
 export function addTask(plan: Plan, input: Omit<Task, 'done'>): Result<Plan> {
   const id = checkId(input.id, 'id');
@@ -11,15 +11,33 @@ export function addTask(plan: Plan, input: Omit<Task, 'done'>): Result<Plan> {
   if (!title.ok) return title;
   const date = checkDate(input.dueISO, 'dueISO');
   if (!date.ok) return date;
+  const assigneeRaw: unknown = input.assignee;
+  const assignee =
+    assigneeRaw === null || assigneeRaw === undefined
+      ? ok(null)
+      : checkName(assigneeRaw, 'assignee', 'Assignee');
+  if (!assignee.ok) return assignee;
+  const dependsOn = checkStringList(
+    input.dependsOn,
+    'dependsOn',
+    'Dependencies',
+    MAX_DEPENDENCIES_PER_TASK,
+  );
+  if (!dependsOn.ok) return dependsOn;
   if (plan.tasks.length >= MAX_TASKS)
     return fail('TOO_MANY_TASKS', `A plan can have at most ${MAX_TASKS} tasks.`);
   if (plan.tasks.some((t) => t.id === input.id))
     return fail('DUPLICATE_ID', 'That task already exists.', 'id');
-  const withTask = {
-    ...plan,
-    tasks: [...plan.tasks, { ...input, title: title.value, dependsOn: [], done: false }],
+  const task: Task = {
+    id: input.id,
+    title: title.value,
+    dueISO: date.value,
+    dependsOn: [],
+    assignee: assignee.value,
+    done: false,
   };
-  const linked = setDependencies(withTask.tasks, input.id, input.dependsOn);
+  const withTask = { ...plan, tasks: [...plan.tasks, task] };
+  const linked = setDependencies(withTask.tasks, input.id, dependsOn.value);
   return linked.ok ? ok({ ...plan, tasks: linked.value }) : linked;
 }
 
@@ -39,7 +57,7 @@ export function updateTask(
   if (changes.dueISO !== undefined) {
     const date = checkDate(changes.dueISO, 'dueISO');
     if (!date.ok) return date;
-    next = { ...next, dueISO: changes.dueISO };
+    next = { ...next, dueISO: date.value };
   }
   if (changes.assignee !== undefined) {
     if (changes.assignee === null) next = { ...next, assignee: null };
@@ -49,7 +67,11 @@ export function updateTask(
       next = { ...next, assignee: assignee.value };
     }
   }
-  if (changes.done !== undefined) next = { ...next, done: changes.done };
+  if (changes.done !== undefined) {
+    if (typeof changes.done !== 'boolean')
+      return fail('INVALID_VALUE', 'Done must be true or false.', 'done');
+    next = { ...next, done: changes.done };
+  }
   return ok({ ...plan, tasks: plan.tasks.map((t) => (t.id === id ? next : t)) });
 }
 

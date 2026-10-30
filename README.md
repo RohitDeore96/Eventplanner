@@ -1,4 +1,4 @@
-# utsav AI
+# Utsav
 
 A planner for weddings, birthdays and community events. This repository currently contains the **tested planning engine** only. The UI, API, Gemini integration, persistence and deployment are not built yet; `docs/SPEC.md` has the honest status table.
 

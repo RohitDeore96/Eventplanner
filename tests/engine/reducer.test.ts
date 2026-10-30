@@ -344,12 +344,13 @@ describe('expenses', () => {
   ] as [PlanAction, string][])('rejects %#: %s', (action, code) => {
     expect(errorCode(base, action)).toBe(code);
   });
-  it('rejects duplicate ids and paying the same instalment twice', () => {
+  it('rejects duplicate ids and allows split payments on one instalment (D4)', () => {
     const paid = run(base, expense({ instalmentId: 'i1' }));
     expect(errorCode(paid, expense({ id: 'x1' }))).toBe('DUPLICATE_ID');
-    expect(errorCode(paid, expense({ id: 'x2', instalmentId: 'i1' }))).toBe(
-      'INSTALMENT_ALREADY_PAID',
-    );
+    // A second payment toward the same instalment is a partial payment, not an error.
+    const split = run(paid, expense({ id: 'x2', instalmentId: 'i1', amountMinor: 500_000 }));
+    expect(split.expenses).toHaveLength(2);
+    expect(budgetTotals(split).paid).toBe(1_500_000);
   });
   it('rejects bad edits and missing targets', () => {
     const added = run(base, expense());

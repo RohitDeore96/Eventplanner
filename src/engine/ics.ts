@@ -53,7 +53,7 @@ export function buildIcs(
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//utsav AI//Event Planner//EN',
+    'PRODID:-//Utsav//Event Planner//EN',
     'CALSCALE:GREGORIAN',
   ];
   lines.push(`X-WR-CALNAME:${escapeIcsText(calendarName)}`);

@@ -1,4 +1,4 @@
-# utsav AI: specification
+# Utsav: specification
 
 Single source of truth for scope, decisions and acceptance. Status is updated as work lands. "Done" means implemented and covered by a test that runs in CI.
 
@@ -47,3 +47,30 @@ Quoted, contacted and cancelled vendors commit nothing. A scheduled payment (ins
 | P8 patch dry-run, apply, undo                                          | Engine done; Gemini integration not started | `patch.ts`, `history.ts`                                                |
 | P2 events, P9 persistence and export                                   | Not started                                 |                                                                         |
 | API handlers, schemas, security headers, UI, a11y, e2e, CI, deployment | Not started                                 |                                                                         |
+
+## Requirement classification (v6)
+
+P0 = must work for a judge. P1 = needed for a top score. P2 = differentiator. Status updated as work lands.
+
+### A. Challenge requirements
+
+| ID | Requirement | Pri | Status |
+| --- | --- | --- | --- |
+| R1 | Create / edit wedding, birthday, community events with validation | P0 | Engine done; UI in M1-M2 |
+| R2 | Budget: allocate, expenses, remaining, over-allocation | P0 | Engine done (D1, D4, D8 open) |
+| R3 | Timeline: milestones, short-notice, overdue, task CRUD | P0 | Engine done (D10 open) |
+| R4 | Vendor checklist per occasion with booking / payment status | P0 | Partial: vendor records exist, per-occasion checklist pending |
+| R5 | Personalised ideas driven by event inputs | P0 | Not started (M3) |
+| R6 | GenAI planning: intake, review, ask-the-planner, quote extraction, patch proposals | P0 | Not started (M3) |
+| R7 | Guests with RSVP feeding catering | P1 | Engine done (D9 open) |
+| R8 | Persistence, multiple events, export with real data | P0 | Not started (M4) |
+| R9 | Live on Vercel | P0 | Not started (M1) |
+| R10 | Repo under 10 MB | P0 | ~0.4 MB; CI size check pending |
+
+### B. Scoring criteria
+
+Q1 code quality gates (enforced), Q2 generated metrics (pending), S1 route guards (M3), S2 injection handling (M3), S3 strict CSP (M1), S4 daily AI cap (M3), S5 secret scan + audit (M1), E1 engine-does-maths + AI hygiene (M3), E2 bundle budget (M5), T1 test pyramid (ongoing), T2 AI eval suite (M3), A1 WCAG 2.1 AA + token contrast (M1/M5), A2 keyboard-only journey (M5).
+
+### C. Differentiators
+
+X1 AI patch -> engine dry-run -> user approve -> undo (engine part done: `dryRunPatch` blocks plan-breaking patches) · X2 what-if scenarios (engine done, UI pending) · X3 demo event · X4 expense log + payment schedule + cash-to-pay (engine done) · X5 README evidence table · X6 stress test (+20% guests, -15% budget, +10% vendor prices) · X7 plan health score · X8 cash-flow calendar · X9 activity log from undo history · X10 optional Hindi/Marathi labels.

@@ -122,6 +122,8 @@ function checkExpenseLinks(plan: Plan, e: NewExpense): Result<null> {
       ? ok(null)
       : fail('INSTALMENT_NEEDS_VENDOR', 'A scheduled payment belongs to a vendor.', 'instalmentId');
   }
+  if (typeof e.vendorId !== 'string')
+    return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'vendorId');
   const vendor = plan.vendors.find((v) => v.id === e.vendorId);
   if (!vendor) return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'vendorId');
   if (vendor.categoryId !== e.categoryId)
@@ -131,14 +133,10 @@ function checkExpenseLinks(plan: Plan, e: NewExpense): Result<null> {
       'categoryId',
     );
   if (e.instalmentId === null) return ok(null);
+  if (typeof e.instalmentId !== 'string')
+    return fail('INSTALMENT_NOT_FOUND', 'That scheduled payment does not exist.', 'instalmentId');
   if (!vendor.schedule.some((i) => i.id === e.instalmentId))
     return fail('INSTALMENT_NOT_FOUND', 'That scheduled payment does not exist.', 'instalmentId');
-  if (plan.expenses.some((x) => x.instalmentId === e.instalmentId))
-    return fail(
-      'INSTALMENT_ALREADY_PAID',
-      'That scheduled payment is already marked paid.',
-      'instalmentId',
-    );
   return ok(null);
 }
 
@@ -159,7 +157,17 @@ export function addExpense(plan: Plan, e: NewExpense): Result<Plan> {
   if (!note.ok) return note;
   const links = checkExpenseLinks(plan, e);
   if (!links.ok) return links;
-  const expense: Expense = { ...e, note: note.value };
+  // Built from named fields so action keys ("type") or extras never reach storage.
+  // Several expenses may target one instalment: payments settle it once they add up.
+  const expense: Expense = {
+    id: e.id,
+    categoryId: e.categoryId,
+    vendorId: e.vendorId,
+    instalmentId: e.instalmentId,
+    dateISO: date.value,
+    amountMinor: amount.value,
+    note: note.value,
+  };
   return ok({ ...plan, expenses: [...plan.expenses, expense] });
 }
 

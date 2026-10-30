@@ -1,7 +1,8 @@
 import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits';
+import { BOOKING_STATUSES } from '../enums';
 import { fail, ok, type Result } from '../result';
 import type { BookingStatus, Instalment, Plan, Vendor } from '../types';
-import { checkAmount, checkDate, checkId, checkName, checkNote } from '../validate';
+import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate';
 
 function firstFailure(results: readonly Result<unknown>[]): Result<never> | undefined {
   for (const result of results) if (!result.ok) return result;
@@ -23,6 +24,19 @@ function checkBooking(status: BookingStatus, committedMinor: number | null): Res
         'committedMinor',
       )
     : ok(null);
+}
+
+/** Validates status and agreed price that arrive from untrusted input. */
+function checkStatusInput(
+  status: unknown,
+  committedMinor: unknown,
+): Result<{ status: BookingStatus; committedMinor: number | null }> {
+  const checked = checkEnum(status, BOOKING_STATUSES, 'status', 'Booking status');
+  if (!checked.ok) return checked;
+  if (committedMinor === null || committedMinor === undefined)
+    return ok({ status: checked.value, committedMinor: null });
+  const amount = checkAmount(committedMinor, 'committedMinor', 'Agreed price');
+  return amount.ok ? ok({ status: checked.value, committedMinor: amount.value }) : amount;
 }
 
 interface NewVendor {
@@ -54,9 +68,20 @@ export function addVendor(plan: Plan, input: NewVendor): Result<Plan> {
       'name',
     );
   }
-  const booking = checkBooking(input.status, input.committedMinor);
+  const statusInput = checkStatusInput(input.status, input.committedMinor);
+  if (!statusInput.ok) return statusInput;
+  const booking = checkBooking(statusInput.value.status, statusInput.value.committedMinor);
   if (!booking.ok) return booking;
-  const vendor: Vendor = { ...input, name: name.value, contactNote: note.value, schedule: [] };
+  // Built from named fields so action keys ("type") or extras never reach storage.
+  const vendor: Vendor = {
+    id: input.id,
+    categoryId: input.categoryId,
+    name: name.value,
+    contactNote: note.value,
+    status: statusInput.value.status,
+    committedMinor: statusInput.value.committedMinor,
+    schedule: [],
+  };
   return ok({ ...plan, vendors: [...plan.vendors, vendor] });
 }
 
@@ -68,9 +93,12 @@ interface VendorChanges {
   readonly committedMinor?: number | null;
 }
 
-export function updateVendor(plan: Plan, id: string, changes: VendorChanges): Result<Plan> {
-  const current = plan.vendors.find((v) => v.id === id);
-  if (!current) return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'id');
+/** Applies the text and category parts of an update; the caller handles status and price. */
+function applyVendorTextChanges(
+  plan: Plan,
+  current: Vendor,
+  changes: VendorChanges,
+): Result<Vendor> {
   let next: Vendor = current;
   if (changes.name !== undefined) {
     const name = checkName(changes.name, 'name', 'Vendor name');
@@ -85,7 +113,7 @@ export function updateVendor(plan: Plan, id: string, changes: VendorChanges): Re
   if (changes.categoryId !== undefined && changes.categoryId !== current.categoryId) {
     if (!plan.categories.some((c) => c.id === changes.categoryId))
       return fail('CATEGORY_NOT_FOUND', 'Choose an existing category.', 'categoryId');
-    if (plan.expenses.some((e) => e.vendorId === id)) {
+    if (plan.expenses.some((e) => e.vendorId === current.id)) {
       return fail(
         'VENDOR_HAS_PAYMENTS',
         'This vendor already has payments recorded, so its category cannot change.',
@@ -94,11 +122,31 @@ export function updateVendor(plan: Plan, id: string, changes: VendorChanges): Re
     }
     next = { ...next, categoryId: changes.categoryId };
   }
-  next = {
-    ...next,
-    ...(changes.status === undefined ? {} : { status: changes.status }),
-    ...(changes.committedMinor === undefined ? {} : { committedMinor: changes.committedMinor }),
-  };
+  return ok(next);
+}
+
+export function updateVendor(plan: Plan, id: string, changes: VendorChanges): Result<Plan> {
+  const current = plan.vendors.find((v) => v.id === id);
+  if (!current) return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'id');
+  const textApplied = applyVendorTextChanges(plan, current, changes);
+  if (!textApplied.ok) return textApplied;
+  let next: Vendor = textApplied.value;
+  if (changes.status !== undefined || changes.committedMinor !== undefined) {
+    // Explicit null (clearing the price) must survive, so absent is checked against
+    // unknown-typed locals instead of ??, which would swallow the null.
+    const statusRaw: unknown = changes.status;
+    const committedRaw: unknown = changes.committedMinor;
+    const statusInput = checkStatusInput(
+      statusRaw === undefined ? next.status : statusRaw,
+      committedRaw === undefined ? next.committedMinor : committedRaw,
+    );
+    if (!statusInput.ok) return statusInput;
+    next = {
+      ...next,
+      status: statusInput.value.status,
+      committedMinor: statusInput.value.committedMinor,
+    };
+  }
   const booking = checkBooking(next.status, next.committedMinor);
   if (!booking.ok) return booking;
   if (
@@ -131,7 +179,11 @@ export function deleteVendor(plan: Plan, id: string): Result<Plan> {
 export function setSchedule(plan: Plan, id: string, schedule: readonly Instalment[]): Result<Plan> {
   if (!plan.vendors.some((v) => v.id === id))
     return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'id');
-  if (schedule.length > MAX_INSTALMENTS_PER_VENDOR) {
+  const raw: unknown = schedule;
+  if (!Array.isArray(raw))
+    return fail('INVALID_LIST', 'The payment schedule must be a list.', 'schedule');
+  const list = raw as readonly Instalment[];
+  if (list.length > MAX_INSTALMENTS_PER_VENDOR) {
     return fail(
       'TOO_MANY_INSTALMENTS',
       `A vendor can have at most ${MAX_INSTALMENTS_PER_VENDOR} scheduled payments.`,
@@ -139,7 +191,7 @@ export function setSchedule(plan: Plan, id: string, schedule: readonly Instalmen
     );
   }
   const ids = new Set<string>();
-  for (const item of schedule) {
+  for (const item of list) {
     const failure = firstFailure([
       checkId(item.id, 'schedule'),
       checkDate(item.dueISO, 'schedule'),

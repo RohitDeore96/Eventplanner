@@ -19,7 +19,7 @@ import {
   updateTask,
 } from './reducers/tasks';
 import { addVendor, deleteVendor, setSchedule, updateVendor } from './reducers/vendors';
-import type { Result } from './result';
+import { fail, ok, type Result } from './result';
 import type { Plan } from './types';
 
 type ActionOf<T extends PlanAction['type']> = Extract<PlanAction, { type: T }>;
@@ -60,12 +60,25 @@ const handlers: Handlers = {
  * The only way a plan changes. Pure: same plan + action + context always yields the same result,
  * and invalid actions return an error instead of throwing. Manual edits and accepted AI patches
  * both come through here.
+ *
+ * Actions come from untrusted sources (forms, AI patches, imported files, storage), so the
+ * entry guard validates the shape before dispatch. `Object.hasOwn` (not a lookup) keeps
+ * prototype keys like "constructor" from matching a handler.
  */
 export function reducePlan(plan: Plan, action: PlanAction, context: ReduceContext): Result<Plan> {
-  const handler = handlers[action.type] as (
+  // Actions come from untrusted sources, so the runtime shape is checked even though the
+  // parameter is typed: tests and network input can carry anything.
+  const raw: unknown = action;
+  const type: unknown =
+    typeof raw === 'object' && raw !== null ? (raw as { type?: unknown }).type : undefined;
+  if (typeof type !== 'string' || !Object.hasOwn(handlers, type)) {
+    return fail('UNKNOWN_ACTION', 'That kind of change is not recognised.', 'type');
+  }
+  const handler = handlers[type as PlanAction['type']] as (
     p: Plan,
     a: PlanAction,
     c: ReduceContext,
   ) => Result<Plan>;
-  return handler(plan, action, context);
+  const result = handler(plan, action, context);
+  return result.ok ? ok(result.value) : result;
 }
