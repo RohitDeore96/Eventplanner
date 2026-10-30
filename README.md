@@ -8,7 +8,7 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-438%20unit%20%C2%B7%2014%20browser-2f6b45)
+![Tests](https://img.shields.io/badge/tests-466%20unit%20%C2%B7%2036%20browser-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
 ![a11y](https://img.shields.io/badge/axe-0%20violations%20%C2%B7%20light%20%26%20dark-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
@@ -72,8 +72,11 @@ flowchart LR
   P --> W
 ```
 
-The engine is deterministic, integer-only (BigInt minor units), and has no clock and no
-network: `today` is passed in, so tests can prove behaviour on any date.
+The engine is deterministic, integer-only, and has no clock and no network: `today` is
+passed in, so tests can prove behaviour on any date. Money is stored as integer minor units
+(JavaScript numbers, always inside the safe range); BigInt handles the intermediate
+arithmetic where exact products could overflow. Nothing divides by a hardcoded 100 — every
+conversion goes through the currency's real exponent (JPY 0, INR 2, KWD 3).
 
 ## ⚖️ The design rule: the AI proposes, the engine disposes
 
@@ -92,6 +95,11 @@ flowchart LR
 
 - The patch is a list of engine actions, not free-form edits — the AI can only do what an
   action expresses, and `reducePlan` re-validates everything.
+- **One money boundary.** The model never does exponent arithmetic: it states amounts as
+  plain decimal strings in major units, exactly as a human writes them ("8 lakh" → `800000`,
+  "KWD 100.125" → `100.125`), and the serverless route converts exactly once with the plan's
+  currency (INR ×100, JPY ×1, KWD ×1000). Every `*Minor` field in the app, the storage and
+  the exports is true minor units — ₹8,00,000 is always exactly 80,000,000 paise.
 - Every AI reply is labelled with its source: the model that answered, or **"built-in"**.
 - **With no API key the app stays fully usable**: every AI panel answers from a built-in
   deterministic planner and says so. Nothing is ever invented.
@@ -278,7 +286,7 @@ guarded, labelled and reversible.
   step, persisted across reloads.
 - **See it before you build it.** A one-click demo event — a full wedding with vendors,
   instalments, expenses, RSVPs and an overdue payment — populates every screen instantly.
-- **Proof over promises.** 438 automated unit/integration tests plus 14 real-browser
+- **Proof over promises.** 466 automated unit/integration tests plus 36 real-browser
   Playwright journeys (desktop and mobile, on the production build), enforced coverage gates,
   generated metrics, a strict CSP, and honest "not done yet" notes throughout the docs.
 
@@ -294,14 +302,18 @@ guarded, labelled and reversible.
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 438 automated tests + 14 real-browser journeys
+### Testing: 466 automated tests + 36 real-browser journeys
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet
 that may only move up). **Playwright E2E** (`npm run test:e2e`) runs the production build in
-real Chromium — desktop and mobile — through the core journeys: intake, budget moves, vendor
-payments with reload persistence, dietary needs, AI-patch reject/apply/undo, offline-AI
-fallbacks and a zero-console-error walk. AI endpoints are mocked for determinism.
+real Chromium — desktop and mobile — through the core journeys: `8,00,000` and `8.5 lakh`
+storing as exactly 80,000,000 / 85,000,000 minor units, JPY/KWD/USD exponent plans, the full
+autosave lifecycle (modify → reload → undo → reload), currency-lock protection, corrupt- and
+legacy-storage recovery and migration, vendor payments surviving reloads, dietary needs,
+AI-patch reject/apply/undo, honest offline-AI fallbacks and a zero-console-error walk. AI
+endpoints are mocked for determinism; an opt-in live smoke test (`npm run smoke:ai`) checks
+the real provider against every response schema when a key is configured.
 
 - **Engine**: unit tests per module, snapshot tests for occasion presets, and **property
   tests with fast-check**: arbitrary JSON as an action never throws, category totals always
@@ -327,15 +339,15 @@ support. **Not yet tested with real screen readers** — stated honestly.
 
 ## 🔒 Security
 
-| Area         | What Utsav does                                                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secrets      | API key only inside serverless functions; `.env` gitignored; `.env.example` has placeholders; secret scan in the repo (`scripts/secret-scan.mjs`)          |
-| Input        | zod validation on every endpoint and on every AI reply; 8 KB body cap; oversized/invalid → 400/413                                                         |
-| Abuse        | POST only, JSON only, **same-origin only** (403 otherwise — other sites cannot spend the AI quota), per-IP rate limit (20/5 min), daily global AI cap      |
-| Output       | Schema-validated before returning; errors carry a code only, never a stack trace or user text                                                              |
-| Browser      | Strict CSP **without `unsafe-inline`**, HSTS (2 years, preload), `frame-ancestors 'none'`, nosniff, COOP, referrer + permissions policy (`vercel.json`)    |
-| Persistence  | Saved plans are untrusted: size cap → schema → `schemaVersion` migration → engine re-validation; the reducer never throws on arbitrary input (fuzz-tested) |
-| Supply chain | `npm audit` clean at high severity for runtime deps, lockfile committed, CI uses `npm ci`                                                                  |
+| Area         | What Utsav does                                                                                                                                                                                                                                                                                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secrets      | API key only inside serverless functions; `.env` gitignored; `.env.example` has placeholders; secret scan in the repo (`scripts/secret-scan.mjs`)                                                                                                                                                                                                                     |
+| Input        | zod validation on every endpoint and on every AI reply; 8 KB body cap; oversized/invalid → 400/413                                                                                                                                                                                                                                                                    |
+| Abuse        | POST only, JSON only, **same-origin only** (403 otherwise — other sites cannot spend the AI quota), per-IP rate limit (20/5 min), daily global AI cap                                                                                                                                                                                                                 |
+| Output       | Schema-validated before returning; errors carry a code only, never a stack trace or user text                                                                                                                                                                                                                                                                         |
+| Browser      | Strict CSP **without `unsafe-inline`**, HSTS (2 years, preload), `frame-ancestors 'none'`, nosniff, COOP, referrer + permissions policy (`vercel.json`)                                                                                                                                                                                                               |
+| Persistence  | Saved plans are untrusted: size cap → deep zod schema (every nested record) → duplicate-id, currency, calendar-date and cross-vendor checks → `schemaVersion` migration; unusable data never reaches the app and is never silently deleted — a recovery notice offers an exportable copy and a fresh start; the reducer never throws on arbitrary input (fuzz-tested) |
+| Supply chain | `npm audit` clean at high severity for runtime deps, lockfile committed, CI uses `npm ci`                                                                                                                                                                                                                                                                             |
 
 Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 
@@ -346,9 +358,11 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 - The quote reader depends on what the pasted text says; unstated fields stay empty on purpose.
 - Share links are not built. Scenario comparison IS in the UI now (Budget → What-if
   scenarios); printing a summary is on the roadmap.
-- Real-browser Playwright e2e is on the roadmap; current browser-adjacent coverage is
-  component-level (axe + jsdom).
-- Until the AI provider key is configured in the Vercel dashboard (variable names in
+- Multi-event storage is a single active plan; an event library is future work.
+- The keyboard-only walk is covered at component level (labelled controls, focus order) but
+  not yet scripted as a separate Playwright journey.
+- Live AI answers are not exercised by CI (no key in the pipeline); `npm run smoke:ai` is the
+  opt-in live check. Until the AI provider key is configured in the Vercel dashboard (variable names in
   `.env.example`), the live AI panels answer from the built-in planner — which is itself
   worth trying, because it is the honesty path.
 
@@ -358,8 +372,10 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
   attire 6%, contingency 10%) are documented starting points, not market data.
 - A scheduled payment settles only when summed payments reach its amount; partial and
   multiple payments are supported; overpaying warns instead of hiding.
-- ₹ formatting uses Indian digit grouping (`₹8,00,000`); currency is switchable (USD, EUR,
-  GBP, AED, JPY) and the whole plan re-formats.
+- Money display follows each currency's real exponent and the selected locale; currency is
+  switchable (INR, USD, EUR, GBP, AED, JPY, KWD) and the whole plan re-formats. A plan's
+  currency is locked once vendor agreements or payments exist — switching would silently
+  reinterpret every amount.
 - AI intake and quote readings are suggestions to verify — every reply says where it came from.
 
 ## 🚀 Run it locally

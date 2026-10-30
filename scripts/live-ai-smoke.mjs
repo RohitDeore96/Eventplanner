@@ -33,7 +33,8 @@ const CASES = [
       if (body.occasion !== 'wedding') return `occasion: ${JSON.stringify(body.occasion)}`;
       if (body.guests !== 200) return `guests: ${JSON.stringify(body.guests)}`;
       // "8 lakh" must become exactly 80,000,000 paise via budgetMajor + one conversion.
-      if (body.budgetMinor !== 80_000_000) return `budgetMinor: ${JSON.stringify(body.budgetMinor)}`;
+      if (body.budgetMinor !== 80_000_000)
+        return `budgetMinor: ${JSON.stringify(body.budgetMinor)}`;
       if (body.budgetMajor !== undefined) return 'budgetMajor leaked into the response';
       return null;
     },
@@ -69,13 +70,20 @@ const CASES = [
     name: 'propose-patch',
     body: {
       instruction: 'add one haldi task and move 20000 from decor to catering',
-      facts: 'Categories: Venue planned 2000000, Decor planned 1000000, Catering planned 3000000. Budget 6000000.',
+      facts:
+        'Categories: Venue planned 2000000, Decor planned 1000000, Catering planned 3000000. Budget 6000000.',
       today: new Date().toISOString().slice(0, 10),
       currency: 'INR',
     },
     check(body) {
       if (!Array.isArray(body.actions) || body.actions.length === 0) return 'no actions';
-      const allowed = new Set(['task/add', 'task/update', 'task/delay', 'budget/move', 'category/add']);
+      const allowed = new Set([
+        'task/add',
+        'task/update',
+        'task/delay',
+        'budget/move',
+        'category/add',
+      ]);
       for (const action of body.actions) {
         if (!allowed.has(action.type)) return `action type: ${action.type}`;
         if (action.type === 'budget/move') {
@@ -91,23 +99,29 @@ const CASES = [
 ];
 
 function post(path, body) {
-  return fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin: `http://localhost:${PORT}`, host: `localhost:${PORT}` },
-    body: JSON.stringify(body),
-  }).then(async (response) => ({ status: response.status, body: await response.json() }));
+  return globalThis
+    .fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: `http://localhost:${PORT}`,
+        host: `localhost:${PORT}`,
+      },
+      body: JSON.stringify(body),
+    })
+    .then(async (response) => ({ status: response.status, body: await response.json() }));
 }
 
 async function waitUntilReady(deadlineMs) {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${BASE}/api/review-plan`, { method: 'GET' });
+      const response = await globalThis.fetch(`${BASE}/api/review-plan`, { method: 'GET' });
       if (response.status === 405) return; // the guarded route is up
     } catch {
       /* not up yet */
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 250));
   }
   throw new Error('the local API bridge never became ready');
 }
@@ -151,7 +165,9 @@ try {
 }
 
 if (failed) {
-  log('Live smoke FAILED: the schemas or the money contract did not hold against the live provider.');
+  log(
+    'Live smoke FAILED: the schemas or the money contract did not hold against the live provider.',
+  );
   process.exit(1);
 }
 log('Live smoke PASSED: the provider accepted every response schema and the money contract held.');

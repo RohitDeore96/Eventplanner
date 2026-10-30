@@ -47,3 +47,32 @@ configured — the engine, not the model, remains the gate.
 The same shape powers every AI touchpoint: intake, ideas, review, ask-the-planner and quote
 extraction all return zod-validated JSON, all degrade to deterministic fallbacks, and none
 of them can change the plan without the family's explicit approval.
+
+## The money boundary (Phase 1)
+
+Models are never trusted with exponent arithmetic. Every model-facing amount is a DECIMAL
+STRING in MAJOR units (`budgetMajor`, `totalPriceMajor`, `amountMajor`, `plannedMajor`),
+exactly as a human writes it. Each serverless route converts it EXACTLY ONCE with the
+request currency via `parseMajorAmount()` (BigInt, exponent-aware: JPY 0, INR 2, KWD 3) and
+answers with true minor-unit fields; `*Major` values never reach the client. The same
+canonical parser serves the typed setup form, which additionally accepts Indian comma
+grouping ("8,00,000"). A model amount whose decimals exceed the currency's exponent is
+rejected (`502 AI_RESPONSE_INVALID`), never guessed.
+
+## Correctness foundations (Phase 1)
+
+- **Autosave** follows the active plan's lifecycle — every change, undo and redo of the
+  current plan is saved; the original seed prop is never used as a proxy for state; a
+  refused write surfaces a recoverable message.
+- **Currency lock**: `currencyChangeError()` (shared by the reducer and the setup form)
+  locks the currency once vendor agreements or payments exist; otherwise a currency change
+  requires re-entering the budget fresh in the new currency. Amounts are never converted —
+  no exchange rate is ever invented.
+- **Deep persistence validation** (`src/state/persistence.ts`): storage is untrusted. Load
+  path = size cap → JSON parse → `schemaVersion` migration → deep zod schema for every
+  nested record → duplicate-id, supported-currency, real-calendar-date, and
+  instalment-belongs-to-its-own-vendor checks → dependency-cycle check. Unusable data never
+  reaches React state and is never deleted silently: `loadSavedState()` returns the reason
+  plus the untouched raw text, and the app offers an exportable copy plus a fresh start.
+- **Legacy cleanup**: the storage model is one active plan under `utsav.plans.v1`; the
+  unused `utsav.activeId.v1` key from an abandoned design is scrubbed on save and clear.

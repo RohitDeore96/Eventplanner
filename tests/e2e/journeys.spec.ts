@@ -244,29 +244,21 @@ test.describe('Journey 10: production quality', () => {
  * below is a real end-to-end path with no API involved.
  */
 
-function storedPlan(
-  page: Page,
-): Promise<{
+interface StoredSnapshot {
   plan: {
     budgetMinor: number;
     currency: string;
-    expenses: unknown[];
+    expenses: { note: string }[];
     guests: unknown[];
     vendors: { categoryId: string }[];
   };
-} | null> {
+}
+
+function storedPlan(page: Page): Promise<StoredSnapshot | null> {
   return page.evaluate(() => {
     const raw = localStorage.getItem('utsav.plans.v1');
-    return raw === null ? null : (JSON.parse(raw) as Record<string, never>);
-  }) as Promise<{
-    plan: {
-      budgetMinor: number;
-      currency: string;
-      expenses: unknown[];
-      guests: unknown[];
-      vendors: { categoryId: string }[];
-    };
-  } | null>;
+    return raw === null ? null : (JSON.parse(raw) as StoredSnapshot);
+  });
 }
 
 async function recordExpense(page: Page, amount: string, note: string): Promise<void> {

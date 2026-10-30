@@ -239,13 +239,12 @@ describe('financial properties', () => {
             { type: 'budget/move', fromId: from.id, toId: to.id, amountMinor: amount },
             { today: TODAY },
           );
-          if (amount <= 0 || amount > from.plannedMinor) {
+          if (!result.ok) {
             // Overdrawing (or a zero move) is rejected and nothing changes at all.
-            expect(result.ok).toBe(false);
+            expect(amount <= 0 || amount > from.plannedMinor).toBe(true);
             expect(plan.categories).toEqual(makePlan().categories);
             return true;
           }
-          expect(result.ok).toBe(true);
           const next = result.value;
           const sumAfter = next.categories.reduce((acc, c) => acc + c.plannedMinor, 0);
           expect(sumAfter).toBe(sumBefore);
