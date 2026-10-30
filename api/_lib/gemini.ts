@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
-import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { modelChain, MAX_MODEL_ATTEMPTS } from './models';
 import { systemPrompt } from './prompts';
 
 /**
- * The single Gemini entry point: JSON-mode calls with a response schema derived from zod,
- * a model chain with failover, a 10-minute cache, and a daily global cap. Fails closed:
- * the caller's deterministic fallback answers when anything here throws.
+ * The single AI entry point: one `fetch` call to the provider's JSON-mode REST endpoint with
+ * a response schema derived from zod, a model chain with failover, a 10-minute cache, and a
+ * daily global cap. Uses plain `fetch` (no provider SDK) so serverless bundling stays tiny
+ * and deterministic. Fails closed: the caller's deterministic fallback answers when anything
+ * here throws.
  */
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -55,14 +56,7 @@ function cacheSet(key: string, body: unknown): void {
   cache.set(key, { at: Date.now(), body });
 }
 
-let client: GoogleGenAI | null = null;
-
-function getClient(): GoogleGenAI {
-  const key = process.env.GEMINI_API_KEY;
-  if (key === undefined || key.length === 0) throw new Error('AI_UNAVAILABLE');
-  client ??= new GoogleGenAI({ apiKey: key });
-  return client;
-}
+const API_ORIGIN = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /** Runtime view of a zod v4 schema node; every node exposes `def.type`. */
 interface ZodNode {
@@ -115,6 +109,27 @@ function toResponseSchema(node: z.ZodType): Record<string, unknown> {
   }
 }
 
+/** Shape of the provider's JSON reply; only the fields we read are modelled. */
+interface GenerateContentReply {
+  readonly candidates?: readonly {
+    readonly content?: { readonly parts?: readonly { readonly text?: string }[] };
+  }[];
+  readonly promptFeedback?: { readonly blockReason?: string };
+  readonly error?: { readonly message?: string };
+}
+
+function extractText(reply: GenerateContentReply): string {
+  const parts = reply.candidates?.[0]?.content?.parts ?? [];
+  const text = parts
+    .map((part) => part.text ?? '')
+    .join('')
+    .trim();
+  if (text.length === 0 && reply.promptFeedback?.blockReason !== undefined) {
+    throw new Error('AI_RESPONSE_INVALID');
+  }
+  return text;
+}
+
 function extractJson(text: string): unknown {
   const trimmed = text
     .trim()
@@ -138,7 +153,7 @@ export interface GenerateOptions<T> {
 }
 
 /**
- * One validated Gemini response. Walks the model chain; validates with zod; throws typed
+ * One validated AI response. Walks the model chain; validates with zod; throws typed
  * errors the route maps to safe status codes. Cached for 10 minutes on success.
  */
 export async function generateJson<T>(
@@ -153,24 +168,34 @@ export async function generateJson<T>(
   }
   checkDailyCap();
 
-  const genai = getClient();
+  const apiKey = process.env.GEMINI_API_KEY ?? '';
+  if (apiKey.length === 0) throw new Error('AI_UNAVAILABLE');
+
   const responseSchema = toResponseSchema(options.schema);
+  const payload = {
+    systemInstruction: { parts: [{ text: systemPrompt(options.role) }] },
+    contents: [{ role: 'user', parts: [{ text: options.userPrompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema,
+    },
+  };
   let lastError: Error = new Error('AI_UNAVAILABLE');
 
   for (const model of modelChain().slice(0, MAX_MODEL_ATTEMPTS)) {
     try {
-      const response = await genai.models.generateContent({
-        model,
-        contents: options.userPrompt,
-        config: {
-          systemInstruction: systemPrompt(options.role),
-          responseMimeType: 'application/json',
-          responseSchema: responseSchema,
-          abortSignal: options.signal,
-        },
+      const response = await fetch(`${API_ORIGIN}/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+        signal: options.signal,
       });
-      const text = response.text ?? '';
-      const parsed = options.schema.safeParse(extractJson(text));
+      const reply = (await response.json()) as GenerateContentReply;
+      if (!response.ok) {
+        lastError = new Error(`AI_HTTP_${response.status}`, { cause: reply.error?.message });
+        continue;
+      }
+      const parsed = options.schema.safeParse(extractJson(extractText(reply)));
       if (!parsed.success) {
         lastError = new Error('AI_RESPONSE_INVALID', { cause: parsed.error });
         continue;
@@ -180,6 +205,7 @@ export async function generateJson<T>(
     } catch (error) {
       if (options.signal.aborted) throw new Error('AbortError', { cause: error });
       if (error instanceof Error && error.message === 'AI_DAILY_CAP') throw error;
+      if (error instanceof Error && error.message === 'AI_RESPONSE_INVALID') lastError = error;
     }
   }
   throw lastError;

@@ -1,11 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiRequest, ApiResponse } from '../../api/_lib/http';
 
 /**
  * Route tests run the REAL handlers. Two modes:
  * - No GEMINI_API_KEY: the deterministic fallback must answer (AI-down is a first-class path).
- * - Mocked SDK: proves JSON-mode parsing, zod validation, caching and input sensitivity.
+ * - Mocked AI endpoint (stubbed fetch): proves JSON-mode parsing, zod validation, caching
+ *   and input sensitivity.
  */
+
+interface FetchCall {
+  readonly url: string;
+  readonly body: string;
+}
+
+/** Builds the provider-style JSON envelope around a raw completion. */
+function aiEnvelope(text: string): string {
+  return JSON.stringify({
+    candidates: [{ content: { parts: [{ text }] } }],
+  });
+}
 
 type Handler = (req: ApiRequest, res: ApiResponse) => Promise<void>;
 
@@ -171,36 +184,40 @@ describe('API routes: guards', () => {
   });
 });
 
-describe('API routes: with a mocked Gemini', () => {
+describe('API routes: with a mocked AI endpoint', () => {
+  const calls: FetchCall[] = [];
+  let stubbedReply: (url: string, body: string) => string;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.GEMINI_API_KEY = 'test-key';
+    calls.length = 0;
     vi.resetModules();
-    vi.doMock('@google/genai', () => {
-      const calls: string[] = [];
-      return {
-        GoogleGenAI: class {
-          models = {
-            generateContent: async (options: { contents: string }): Promise<{ text: string }> => {
-              await Promise.resolve();
-              calls.push(options.contents);
-              const counter = globalThis as { __geminiCalls?: number };
-              counter.__geminiCalls = (counter.__geminiCalls ?? 0) + 1;
-              // The mock changes its answer with the input: proves input sensitivity.
-              const guests = /Guests:\s*(\d+)/.exec(options.contents)?.[1] ?? '0';
-              return {
-                text: JSON.stringify({
-                  themes: [`Theme for ${guests} guests`],
-                  activities: ['Games'],
-                  foodStyle: ['Thali'],
-                  personalTouches: ['Photo wall'],
-                }),
-              };
-            },
-          };
-        },
-      };
-    });
+    // The stub changes its answer with the input: proves input sensitivity.
+    stubbedReply = (url: string, body: string) => {
+      calls.push({ url, body });
+      const guests = /Guests:\s*(\d+)/.exec(body)?.[1] ?? '0';
+      return aiEnvelope(
+        JSON.stringify({
+          themes: [`Theme for ${guests} guests`],
+          activities: ['Games'],
+          foodStyle: ['Thali'],
+          personalTouches: ['Photo wall'],
+        }),
+      );
+    };
+    vi.stubGlobal('fetch', (url: unknown, init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(
+        new Response(stubbedReply(String(url), init?.body ?? ''), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
+    );
   });
 
   it('parses JSON-mode output, validates it and labels the model', async () => {
@@ -213,20 +230,38 @@ describe('API routes: with a mocked Gemini', () => {
     expect(body).toMatchObject({ themes: ['Theme for 120 guests'], source: 'gemini-3.6-flash' });
   });
 
+  it('sends JSON-mode config with a response schema to the REST endpoint', async () => {
+    const mod = await import('../../api/suggest-ideas');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ occasion: 'wedding', vibe: 'pastel', guests: 90 }), res);
+    expect(res.json().status).toBe(200);
+    expect(calls.length).toBeGreaterThan(0);
+    const firstUrl = calls[0]?.url ?? '';
+    const firstBody = calls[0]?.body ?? '';
+    expect(firstUrl).toContain('models/gemini-3.6-flash:generateContent');
+    const sent = JSON.parse(firstBody) as {
+      generationConfig?: { responseMimeType?: string; responseSchema?: unknown };
+      systemInstruction?: { parts?: readonly { text?: string }[] };
+    };
+    expect(sent.generationConfig?.responseMimeType).toBe('application/json');
+    expect(sent.generationConfig?.responseSchema).toBeTruthy();
+    expect(sent.systemInstruction?.parts?.[0]?.text).toContain('Utsav planning assistant');
+  });
+
   it('caches identical requests: the model is called once for two identical bodies', async () => {
     const mod = await import('../../api/suggest-ideas');
     const handler = mod.default;
     const first = mockRes();
     await handler(mockReq({ occasion: 'birthday', vibe: 'cricket', guests: 40 }), first);
-    const callsAfterFirst = (globalThis as { __geminiCalls?: number }).__geminiCalls ?? 0;
+    const callsAfterFirst = calls.length;
     const second = mockRes();
     await handler(mockReq({ occasion: 'birthday', vibe: 'cricket', guests: 40 }), second);
-    const callsAfterSecond = (globalThis as { __geminiCalls?: number }).__geminiCalls ?? 0;
     expect(second.json().status).toBe(200);
     const firstBody = first.json().body as Record<string, unknown>;
     const secondBody = second.json().body as Record<string, unknown>;
     expect(secondBody).toMatchObject({ ...firstBody, source: 'cache' });
-    expect(callsAfterSecond).toBe(callsAfterFirst);
+    expect(calls.length).toBe(callsAfterFirst);
   });
 
   it('changing inputs changes outputs (input-sensitivity proof)', async () => {
@@ -242,16 +277,7 @@ describe('API routes: with a mocked Gemini', () => {
   });
 
   it('falls back when the model returns invalid JSON, and still answers 200', async () => {
-    vi.doMock('@google/genai', () => ({
-      GoogleGenAI: class {
-        models = {
-          generateContent: async (): Promise<{ text: string }> => {
-            await Promise.resolve();
-            return { text: 'not json at all' };
-          },
-        };
-      },
-    }));
+    stubbedReply = () => aiEnvelope('not json at all');
     vi.resetModules();
     const mod = await import('../../api/suggest-ideas');
     const handler = mod.default;
@@ -260,5 +286,23 @@ describe('API routes: with a mocked Gemini', () => {
     const { status, body } = res.json();
     expect(status).toBe(200);
     expect(body).toMatchObject({ source: 'built-in' });
+  });
+
+  it('walks the model chain when the endpoint errors, then still answers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((): Promise<Response> =>
+        Promise.resolve(new Response('upstream down', { status: 503 })),
+      ),
+    );
+    vi.resetModules();
+    const mod = await import('../../api/suggest-ideas');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ occasion: 'wedding', vibe: 'pastel', guests: 55 }), res);
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ source: 'built-in' });
+    expect(vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
   });
 });

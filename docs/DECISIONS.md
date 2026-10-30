@@ -40,7 +40,12 @@ Default category splits are basis-point constants used once at creation. Only am
 - `react`, `react-dom` — the UI layer; the only render library considered for this scope.
 - `vite`, `@vitejs/plugin-react` — build/dev server; zero-config, fast, framework-per-Vercel.
 - `zod` — one schema language shared by client, server and tests for every untrusted input.
-- `@google/genai` — the official Gemini SDK, used only inside `api/` serverless functions.
+- (removed) `@google/genai` — replaced by a plain `fetch` call to the provider's JSON-mode
+  REST endpoint (same contract, fewer than 40 lines of transport). The SDK pulled ~30
+  transitive packages (auth, fetch polyfills, websocket clients) into every serverless
+  function, and its ESM-only layout was not fully traced into the deployed lambda, which
+  crashed every `/api/*` route with `FUNCTION_INVOCATION_FAILED` at cold start. Plain
+  `fetch` is built into Node 20+, so there is nothing left to trace.
 - `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`,
   `vitest-axe`, `jsdom` — component and accessibility testing without a browser in the loop.
 - `fast-check` (pre-existing) — property/fuzz tests for engine and reducer robustness.
