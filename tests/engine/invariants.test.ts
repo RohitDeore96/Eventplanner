@@ -1,10 +1,11 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { PlanAction } from '../../src/engine/actions';
-import { budgetTotals, categoryFigures } from '../../src/engine/budget';
+import { budgetTotals, categoryFigures, vendorPaymentStatus } from '../../src/engine/budget';
 import { isValidMinor } from '../../src/engine/money';
 import { reducePlan } from '../../src/engine/reducer';
 import { wouldCreateCycle } from '../../src/engine/tasks';
+import { errorCode, run } from '../helpers';
 import type { Plan } from '../../src/engine/types';
 import { deepFreeze, makePlan, TODAY } from '../helpers';
 
@@ -211,5 +212,144 @@ describe('stateful invariants under random action sequences', () => {
     expect(reached.expenses).toBeGreaterThan(0);
     expect(reached.schedules).toBeGreaterThan(0);
     expect(reached.tasksAdded).toBeGreaterThan(8);
+  });
+});
+
+/**
+ * Milestone 7 financial properties, stated directly: moving budget moves money without
+ * creating or destroying any and can never overdraw the source; payments aggregate
+ * exactly; and paid records are protected from deletion.
+ */
+describe('financial properties', () => {
+  it('property: a budget move conserves the total and cannot overdraw the source', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 40_000_000 }),
+        fc.nat(97),
+        fc.nat(97),
+        (rawAmount, ai, bi) => {
+          const plan = makePlan();
+          const from = pick(plan.categories, ai);
+          const to = pick(plan.categories, bi);
+          if (from === undefined || to === undefined || from.id === to.id) return true;
+          const amount = rawAmount % (from.plannedMinor + 1_000_000);
+          const sumBefore = plan.categories.reduce((acc, c) => acc + c.plannedMinor, 0);
+          const result = reducePlan(
+            plan,
+            { type: 'budget/move', fromId: from.id, toId: to.id, amountMinor: amount },
+            { today: TODAY },
+          );
+          if (amount <= 0 || amount > from.plannedMinor) {
+            // Overdrawing (or a zero move) is rejected and nothing changes at all.
+            expect(result.ok).toBe(false);
+            expect(plan.categories).toEqual(makePlan().categories);
+            return true;
+          }
+          expect(result.ok).toBe(true);
+          const next = result.value;
+          const sumAfter = next.categories.reduce((acc, c) => acc + c.plannedMinor, 0);
+          expect(sumAfter).toBe(sumBefore);
+          expect(next.budgetMinor).toBe(plan.budgetMinor);
+          const nextFrom = next.categories.find((c) => c.id === from.id);
+          const nextTo = next.categories.find((c) => c.id === to.id);
+          expect(nextFrom?.plannedMinor).toBe(from.plannedMinor - amount);
+          expect(nextTo?.plannedMinor).toBe(to.plannedMinor + amount);
+          return true;
+        },
+      ),
+    );
+  });
+
+  it('property: multiple payments add up; the balance is what is still owed', () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: 1, max: 100_000 }), { minLength: 1, maxLength: 12 }),
+        (payments) => {
+          const base = makePlan();
+          const category = base.categories[0];
+          if (category === undefined) return false;
+          const total = payments.reduce((a, b) => a + b, 0);
+          const withVendor = reducePlan(
+            base,
+            {
+              type: 'vendor/add',
+              id: 'v-prop',
+              categoryId: category.id,
+              name: 'Property Caterers',
+              contactNote: '',
+              status: 'booked',
+              committedMinor: total,
+            },
+            { today: TODAY },
+          );
+          if (!withVendor.ok) return false;
+          let current = withVendor.value;
+          let paid = 0;
+          for (const [index, payment] of payments.entries()) {
+            paid += payment;
+            const withPayment = reducePlan(
+              current,
+              {
+                type: 'expense/add',
+                id: `x-prop-${index}`,
+                categoryId: category.id,
+                vendorId: 'v-prop',
+                instalmentId: null,
+                dateISO: '2026-11-01',
+                amountMinor: payment,
+                note: '',
+              },
+              { today: TODAY },
+            );
+            if (!withPayment.ok) return false;
+            current = withPayment.value;
+            const vendor = current.vendors.find((v) => v.id === 'v-prop');
+            if (vendor === undefined) return false;
+            expect(vendorPaymentStatus(vendor, paid)).toBe(paid === total ? 'paid' : 'partly_paid');
+          }
+          const figures = categoryFigures(current, category);
+          expect(figures.paid).toBe(total);
+          expect(figures.cashToPay).toBe(0);
+          return true;
+        },
+      ),
+    );
+  });
+
+  it('a vendor with payments cannot be deleted, and a paid instalment cannot be dropped', () => {
+    const base = makePlan();
+    const categoryId = base.categories[0]?.id ?? '';
+    const withVendor = run(base, {
+      type: 'vendor/add',
+      id: 'v-paid',
+      categoryId,
+      name: 'Protected Vendor',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 300_000,
+    });
+    const scheduled = run(withVendor, {
+      type: 'vendor/setSchedule',
+      id: 'v-paid',
+      schedule: [{ id: 'i-paid', kind: 'advance', dueISO: '2027-01-01', amountMinor: 100_000 }],
+    });
+    const paid = run(scheduled, {
+      type: 'expense/add',
+      id: 'x-paid',
+      categoryId,
+      vendorId: 'v-paid',
+      instalmentId: 'i-paid',
+      dateISO: '2026-11-01',
+      amountMinor: 100_000,
+      note: 'advance',
+    });
+    expect(errorCode(paid, { type: 'vendor/delete', id: 'v-paid' })).toBe('VENDOR_HAS_PAYMENTS');
+    expect(
+      errorCode(paid, {
+        type: 'vendor/setSchedule',
+        id: 'v-paid',
+        schedule: [{ id: 'i-other', kind: 'final', dueISO: '2027-02-01', amountMinor: 300_000 }],
+      }),
+    ).toBe('INSTALMENT_ALREADY_PAID');
   });
 });
