@@ -8,7 +8,7 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-358%20automated-2f6b45)
+![Tests](https://img.shields.io/badge/tests-360%20automated-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
 ![a11y](https://img.shields.io/badge/axe-0%20violations%20%C2%B7%20light%20%26%20dark-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
@@ -243,7 +243,7 @@ Nothing was copied; the comparison below is factual and sourced from both public
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 358 automated tests
+### Testing: 360 automated tests
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet

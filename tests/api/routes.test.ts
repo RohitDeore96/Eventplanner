@@ -390,4 +390,76 @@ describe('API routes: with a mocked AI endpoint', () => {
       vi.useRealTimers();
     }
   });
+
+  it('keeps nullable fields out of required and re-fills omitted nulls (parse-intake)', async () => {
+    const aiReply = {
+      occasion: 'wedding',
+      dateISO: '2027-02-01',
+      guests: 200,
+      budgetMinor: 800000,
+      // name and notes are omitted: the provider no longer requires nullable fields.
+    };
+    const fetchMock = vi.fn((_url: unknown, init?: { body?: string }): Promise<Response> => {
+      void init;
+      return Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const mod = await import('../../api/parse-intake');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ text: 'Shaadi in Pune, 200 guests, 8 lakh budget' }), res);
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({
+      name: null,
+      notes: null,
+      occasion: 'wedding',
+      guests: 200,
+      source: 'gemini-3.6-flash',
+    });
+    const firstInit = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined;
+    const sent = JSON.parse(firstInit?.body ?? '{}') as {
+      generationConfig?: {
+        responseSchema?: { properties?: Record<string, unknown>; required?: string[] };
+      };
+    };
+    const schema = sent.generationConfig?.responseSchema;
+    // Every field of the intake parse is nullable, so nothing is required on the wire.
+    expect(schema?.required).toEqual([]);
+    expect(schema?.properties?.['name']).toMatchObject({ type: 'string', nullable: true });
+  });
+
+  it('fills nulls inside a patch action with an omitted assignee', async () => {
+    const patch = {
+      summary: 'Add the mehndi afternoon',
+      actions: [
+        {
+          type: 'task/add',
+          id: 'mehndi-afternoon',
+          title: 'Mehndi afternoon',
+          dueISO: '2027-02-10',
+          dependsOn: [],
+          // assignee omitted on the wire
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+        Promise.resolve(new Response(aiEnvelope(JSON.stringify(patch)), { status: 200 })),
+      ),
+    );
+    vi.resetModules();
+    const mod = await import('../../api/propose-patch');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(
+      mockReq({ instruction: 'add mehndi tasks', facts: 'Budget: ok', today: '2026-10-30' }),
+      res,
+    );
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ summary: 'Add the mehndi afternoon', source: 'gemini-3.6-flash' });
+  });
 });
