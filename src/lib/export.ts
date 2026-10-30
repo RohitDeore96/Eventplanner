@@ -34,6 +34,11 @@ export function exportJson(plan: Plan): void {
   download(`utsav-${slug(plan.name)}.json`, blob);
 }
 
+/** Raw text download; used to keep a copy of stored data that failed validation. */
+export function exportTextFile(filename: string, contents: string): void {
+  download(filename, new Blob([contents], { type: 'application/json' }));
+}
+
 /** Budget + expense log as CSV with the real committed/paid figures. */
 export function exportCsv(plan: Plan): void {
   const today = localToday();

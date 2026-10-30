@@ -2,9 +2,9 @@ import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { summarize } from '../engine/summary';
 import type { Plan } from '../engine/types';
 import { localToday } from '../lib/format';
-import { clearSavedPlan, loadSavedPlan, savePlan } from '../state/persistence';
+import { clearSavedPlan, loadSavedState, savePlan, type RecoveryInfo } from '../state/persistence';
 import { buildDemoPlan } from '../state/demo';
-import { exportCsv, exportJson } from '../lib/export';
+import { exportCsv, exportJson, exportTextFile } from '../lib/export';
 import { PlanContext, usePlanStore } from '../state/store';
 import { BudgetView } from './views/BudgetView';
 import { GuestsView } from './views/GuestsView';
@@ -221,7 +221,51 @@ function ViewSwitch({
   }
 }
 
-function Shell({ plan }: { plan: Plan | null }) {
+const RECOVERY_REASONS: Record<RecoveryInfo['reason'], string> = {
+  unreadable: 'The saved plan in this browser is not readable (the data is corrupted).',
+  too_large: 'The saved plan in this browser is too large to load.',
+  newer_version:
+    'The saved plan was written by a newer version of Utsav, so it was not loaded here.',
+  invalid: 'The saved plan failed its safety checks, so it was not loaded into the app.',
+};
+
+/**
+ * Recovery path for untrusted stored data: never loaded into the app, never deleted
+ * silently. The family can keep an exportable copy of exactly what was stored, then
+ * start fresh when ready.
+ */
+function RecoveryNotice({ recovery }: { recovery: RecoveryInfo }): React.ReactNode {
+  return (
+    <section className="card" role="alert" aria-labelledby="recovery-title">
+      <h2 id="recovery-title">Your saved plan needs attention</h2>
+      <p className="muted">
+        {RECOVERY_REASONS[recovery.reason]} Nothing in this browser was changed. Download a copy of
+        the stored data if you want to keep it, then start fresh.
+      </p>
+      <div className="row">
+        <button
+          type="button"
+          onClick={() => {
+            exportTextFile('utsav-recovered-plan.json', recovery.raw);
+          }}
+        >
+          Download a copy
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            clearSavedPlan();
+            window.location.reload();
+          }}
+        >
+          Start fresh
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function Shell({ plan, recovery }: { plan: Plan | null; recovery: RecoveryInfo | null }) {
   const store = usePlanStore(localToday(), plan);
   const [hasPlan, setHasPlan] = useState(plan !== null);
   const [tab, setTab] = useState<TabId>(plan === null ? 'setup' : 'budget');
@@ -267,6 +311,7 @@ function Shell({ plan }: { plan: Plan | null }) {
         )}
       </header>
       <div className="layout">
+        {recovery !== null && <RecoveryNotice recovery={recovery} />}
         <nav aria-label="Plan sections">
           <TabList active={view} hasPlan={hasPlan} onSelect={setTab} />
         </nav>
@@ -291,6 +336,6 @@ function Shell({ plan }: { plan: Plan | null }) {
 }
 
 export function App() {
-  const saved = useMemo(() => loadSavedPlan(), []);
-  return <Shell plan={saved} />;
+  const saved = useMemo(() => loadSavedState(), []);
+  return <Shell plan={saved.plan} recovery={saved.recovery} />;
 }

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   clearSavedPlan,
   loadSavedPlan,
+  loadSavedState,
   savePlan,
   SCHEMA_VERSION,
 } from '../../src/state/persistence';
+import type { Plan } from '../../src/engine/types';
 import { makePlan, run } from '../helpers';
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -178,3 +180,157 @@ const badExpenseRef = [
 ];
 const badGuest = [{ ...validGuest, dietary: ['spicy'] }];
 const badGuestExtraKey = [{ ...validGuest, sneaky: true }];
+
+/**
+ * Milestone 6 hardening regressions: duplicate ids, unsupported currencies, non-calendar
+ * dates and cross-vendor instalment references must all be rejected; the legacy
+ * `utsav.activeId.v1` key must be scrubbed; and unusable stored data must come back with
+ * a recovery reason plus the raw text for an exportable copy.
+ */
+describe('persistence: storage invariants', () => {
+  function storedPlan(base: Plan, override: Record<string, unknown>): Storage {
+    return memoryStorage({
+      'utsav.plans.v1': JSON.stringify({
+        schemaVersion: 1,
+        savedAtISO: '2026-10-30T00:00:00.000Z',
+        plan: { ...(base as unknown as Record<string, unknown>), ...override },
+      }),
+    });
+  }
+
+  const vendorPlan = run(plan, {
+    type: 'vendor/add',
+    id: 'v1',
+    categoryId: plan.categories[0]?.id ?? '',
+    name: 'Sharma Caterers',
+    contactNote: '',
+    status: 'booked',
+    committedMinor: 500_000,
+  });
+  const vendorId = vendorPlan.vendors[0]?.id ?? '';
+  const scheduledPlan = run(vendorPlan, {
+    type: 'vendor/setSchedule',
+    id: vendorId,
+    schedule: [{ id: 'i1', kind: 'advance', dueISO: '2027-01-01', amountMinor: 250_000 }],
+  });
+  const paidPlan = run(scheduledPlan, {
+    type: 'expense/add',
+    id: 'x1',
+    categoryId: plan.categories[0]?.id ?? '',
+    vendorId,
+    instalmentId: 'i1',
+    dateISO: '2026-11-01',
+    amountMinor: 100_000,
+    note: 'advance',
+  });
+
+  it('rejects duplicate category, vendor, expense, task or guest ids', () => {
+    const vendor = JSON.parse(JSON.stringify(vendorPlan.vendors[0])) as Record<string, unknown>;
+    expect(loadSavedPlan(storedPlan(vendorPlan, { vendors: [vendor, vendor] }))).toBeNull();
+    expect(
+      loadSavedPlan(storedPlan(plan, { categories: [...plan.categories, plan.categories[0]] })),
+    ).toBeNull();
+  });
+
+  it('rejects duplicate instalment ids across vendors', () => {
+    const bookedVendor = JSON.parse(JSON.stringify(scheduledPlan.vendors[0])) as Record<
+      string,
+      unknown
+    >;
+    const secondVendor = {
+      ...bookedVendor,
+      id: 'v2',
+      schedule: [{ id: 'i1', kind: 'final', dueISO: '2027-02-01', amountMinor: 100_000 }],
+    };
+    expect(
+      loadSavedPlan(storedPlan(scheduledPlan, { vendors: [bookedVendor, secondVendor] })),
+    ).toBeNull();
+  });
+
+  it('rejects an unsupported or malformed currency code', () => {
+    expect(loadSavedPlan(storedPlan(plan, { currency: 'XYZ' }))).toBeNull();
+    expect(loadSavedPlan(storedPlan(plan, { currency: 'XX' }))).toBeNull();
+  });
+
+  it('rejects dates that are not real calendar days (2027-02-30)', () => {
+    expect(loadSavedPlan(storedPlan(plan, { dateISO: '2027-02-30' }))).toBeNull();
+    expect(loadSavedPlan(storedPlan(paidPlan, { dateISO: '2027-04-31' }))).toBeNull();
+  });
+
+  it('rejects an instalment reference that belongs to a different vendor', () => {
+    const secondVendor = {
+      ...(JSON.parse(JSON.stringify(vendorPlan.vendors[0])) as Record<string, unknown>),
+      id: 'v2',
+      schedule: [{ id: 'i2', kind: 'final', dueISO: '2027-02-01', amountMinor: 100_000 }],
+    };
+    const crossVendor = JSON.parse(JSON.stringify(paidPlan)) as Record<string, unknown>;
+    const vendors = [vendorPlan.vendors[0], secondVendor];
+    const expenses = (crossVendor.expenses as Record<string, unknown>[]).map((e) => ({
+      ...e,
+      instalmentId: 'i2', // paid against v1's expense, but i2 belongs to v2
+    }));
+    expect(loadSavedPlan(storedPlan(paidPlan, { vendors, expenses }))).toBeNull();
+    // An instalment reference with no vendor at all is equally invalid.
+    const orphan = (crossVendor.expenses as Record<string, unknown>[]).map((e) => ({
+      ...e,
+      vendorId: null,
+    }));
+    expect(loadSavedPlan(storedPlan(paidPlan, { expenses: orphan }))).toBeNull();
+  });
+
+  it('accepts the fully valid vendor + schedule + payment plan', () => {
+    expect(loadSavedPlan(storedPlan(paidPlan, {}))).toEqual(paidPlan);
+  });
+
+  it('never writes the legacy active-plan key and scrubs it from old installs', () => {
+    const storage = memoryStorage({ 'utsav.activeId.v1': 'ev-sentinel' });
+    expect(savePlan(plan, storage).ok).toBe(true);
+    expect(storage.getItem('utsav.activeId.v1')).toBeNull();
+    const other = memoryStorage({ 'utsav.activeId.v1': 'stale' });
+    clearSavedPlan(other);
+    expect(other.getItem('utsav.activeId.v1')).toBeNull();
+  });
+});
+
+describe('persistence: recovery information for unusable stored data', () => {
+  it('reports unreadable JSON with the untouched raw text', () => {
+    const state = loadSavedState(memoryStorage({ 'utsav.plans.v1': '{not json' }));
+    expect(state.plan).toBeNull();
+    expect(state.recovery).toMatchObject({ reason: 'unreadable', raw: '{not json' });
+  });
+
+  it('reports schema-invalid records as invalid', () => {
+    const state = loadSavedState(
+      memoryStorage({
+        'utsav.plans.v1': JSON.stringify({ schemaVersion: 1, plan: { id: 5 } }),
+      }),
+    );
+    expect(state.recovery?.reason).toBe('invalid');
+    expect(state.recovery?.raw).toContain('schemaVersion');
+  });
+
+  it('reports records from a newer schema as newer_version', () => {
+    const state = loadSavedState(
+      memoryStorage({
+        'utsav.plans.v1': JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, plan }),
+      }),
+    );
+    expect(state.recovery?.reason).toBe('newer_version');
+  });
+
+  it('reports oversized records as too_large', () => {
+    const state = loadSavedState(memoryStorage({ 'utsav.plans.v1': 'x'.repeat(400_001) }));
+    expect(state.recovery?.reason).toBe('too_large');
+  });
+
+  it('valid plans load with no recovery notice', () => {
+    const state = loadSavedState(memoryStorage());
+    expect(state).toEqual({ plan: null, recovery: null });
+    expect(loadSavedState(memoryStorage()).recovery).toBeNull();
+    expect(
+      loadSavedPlan(
+        memoryStorage({ 'utsav.plans.v1': JSON.stringify({ schemaVersion: 1, plan }) }),
+      ),
+    ).toEqual(plan);
+  });
+});
