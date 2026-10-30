@@ -19,10 +19,20 @@ export default tseslint.config(
       '@typescript-eslint/ban-ts-comment': 'error',
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-console': 'error',
       eqeqeq: 'error',
       complexity: ['error', 15],
     },
+  },
+  {
+    // Serverless functions: console.error is the only channel into the platform logs,
+    // and it never reaches the client (errors return typed codes only).
+    files: ['api/**/*.ts'],
+    rules: { 'no-console': ['error', { allow: ['error'] }] },
   },
   {
     // Plain Node scripts: no TS project, console is their output channel.

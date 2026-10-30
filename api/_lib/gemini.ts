@@ -58,76 +58,81 @@ function cacheSet(key: string, body: unknown): void {
 
 const API_ORIGIN = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-/** Runtime view of a zod v4 schema node; every node exposes `def.type`. */
-interface ZodNode {
-  readonly def: {
-    readonly type: string;
-    readonly shape?: Record<string, ZodNode>;
-    readonly element?: ZodNode;
-    readonly innerType?: ZodNode;
-    readonly options?: readonly ZodNode[];
-    readonly entries?: Record<string, unknown>;
-    readonly values?: unknown[];
-  };
+/**
+ * Runtime view of a zod v4 schema node. Only the def fields this module reads are typed;
+ * zod v4 keeps literals in `def.values` and enums in `def.entries`.
+ */
+interface ZodSchema {
+  readonly def: ZodDef;
+}
+interface ZodDef {
+  readonly type: string;
+  readonly shape?: Record<string, ZodSchema>;
+  readonly element?: ZodSchema;
+  readonly innerType?: ZodSchema;
+  readonly options?: readonly ZodSchema[];
+  readonly entries?: Record<string, unknown>;
+  readonly values?: readonly unknown[];
 }
 
-/** Builds a JSON-mode response schema from a zod schema (object/string/number/array/boolean/enum/union/null). */
-function toResponseSchema(node: z.ZodType): Record<string, unknown> {
-  const def = (node as unknown as ZodNode).def;
+function asZod(value: unknown): ZodSchema {
+  return value as ZodSchema;
+}
+
+function isOptionalish(node: ZodSchema): boolean {
+  return node.def.type === 'optional' || node.def.type === 'nullable';
+}
+
+function enumValues(def: ZodDef): unknown[] {
+  // zod v4 enums carry `entries` (a record of string -> value); literals carry `values`.
+  const raw = def.entries ?? [];
+  return Array.isArray(raw) ? [...raw] : Object.values(raw);
+}
+
+function unwrapInner(def: ZodDef): Record<string, unknown> {
+  return def.innerType === undefined ? { type: 'string' } : toResponseSchema(def.innerType);
+}
+
+/** Builds a JSON-mode response schema from a zod schema (object/string/number/array/boolean/enum/literal/union/null). */
+function toResponseSchema(node: ZodSchema): Record<string, unknown> {
+  const def = node.def;
   switch (def.type) {
-    case 'object': {
-      const shape = def.shape ?? {};
-      const properties: Record<string, unknown> = {};
-      const required: string[] = [];
-      for (const [name, child] of Object.entries(shape)) {
-        properties[name] = toResponseSchema(child as unknown as z.ZodType);
-        // The provider rejects schemas where a nullable field is also required, so nullable
-        // fields stay optional; fillNullables() re-adds explicit nulls before zod validation.
-        if (child.def.type !== 'optional' && child.def.type !== 'nullable') {
-          required.push(name);
-        }
-      }
-      return { type: 'object', properties, required, propertyOrdering: Object.keys(properties) };
+    case 'object':
+      return objectToResponseSchema(def.shape ?? {});
+    case 'array': {
+      if (def.element === undefined) return { type: 'string' };
+      return { type: 'array', items: toResponseSchema(def.element) };
     }
-    case 'array':
-      return { type: 'array', items: toResponseSchema(def.element as unknown as z.ZodType) };
     case 'string':
       return { type: 'string' };
     case 'number':
       return { type: 'number' };
     case 'boolean':
       return { type: 'boolean' };
-    case 'enum': {
-      // zod v4: enum defs carry `entries` (a record); older shapes may expose options.
-      const raw = def.entries ?? def.options ?? [];
-      const values = Array.isArray(raw) ? raw : Object.values(raw);
-      return {
-        type: 'string',
-        enum: values.map((option) => {
-          const literal = (option as unknown as { def?: { values?: unknown[] } }).def;
-          if (literal?.values !== undefined && Array.isArray(literal.values)) {
-            return literal.values[0];
-          }
-          return option;
-        }),
-      };
-    }
+    case 'enum':
     case 'literal':
-      return { type: 'string', enum: def.values ?? [] };
+      return { type: 'string', enum: enumValues(def) };
     case 'union':
-      return {
-        anyOf: (def.options ?? []).map((option) =>
-          toResponseSchema(option as unknown as z.ZodType),
-        ),
-      };
+      return { anyOf: (def.options ?? []).map(toResponseSchema) };
+    case 'nullable':
+      return { ...unwrapInner(def), nullable: true };
     case 'optional':
-    case 'nullable': {
-      const inner = toResponseSchema(def.innerType as unknown as z.ZodType);
-      return def.type === 'nullable' ? { ...inner, nullable: true } : inner;
-    }
+      return unwrapInner(def);
     default:
       return { type: 'string' };
   }
+}
+
+function objectToResponseSchema(shape: Record<string, ZodSchema>): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const [name, child] of Object.entries(shape)) {
+    properties[name] = toResponseSchema(child);
+    // The provider rejects schemas where a nullable field is also required, so nullable
+    // fields stay optional; fillNullables() re-adds explicit nulls before zod validation.
+    if (!isOptionalish(child)) required.push(name);
+  }
+  return { type: 'object', properties, required, propertyOrdering: Object.keys(properties) };
 }
 
 /** Shape of the provider's JSON reply; only the fields we read are modelled. */
@@ -168,50 +173,52 @@ function extractJson(text: string): unknown {
  * Walks the value against the schema and injects null for missing nullable keys, so one
  * flexible wire format still validates strictly. Unions are matched by their `type` literal.
  */
-function fillNullables(value: unknown, node: z.ZodType): unknown {
-  const def = (node as unknown as ZodNode).def;
+function fillNullables(value: unknown, node: ZodSchema): unknown {
+  const def = node.def;
   switch (def.type) {
-    case 'object': {
-      if (typeof value !== 'object' || value === null) return value;
-      const out: Record<string, unknown> = { ...(value as Record<string, unknown>) };
-      for (const [name, child] of Object.entries(def.shape ?? {})) {
-        const childDef = child.def;
-        if (out[name] === undefined) {
-          if (childDef.type === 'nullable') out[name] = null;
-        } else {
-          out[name] = fillNullables(out[name], child as unknown as z.ZodType);
-        }
-      }
-      return out;
-    }
+    case 'object':
+      return fillObject(value, def.shape ?? {});
     case 'array': {
       const element = def.element;
-      return Array.isArray(value) && element !== undefined
-        ? value.map((item) => fillNullables(item, element as unknown as z.ZodType))
-        : value;
+      if (element === undefined || !Array.isArray(value)) return value;
+      return value.map((item) => fillNullables(item, element));
     }
     case 'nullable': {
       const inner = def.innerType;
-      return value === undefined || value === null || inner === undefined
-        ? value
-        : fillNullables(value, inner as unknown as z.ZodType);
+      if (value === undefined || value === null || inner === undefined) return value;
+      return fillNullables(value, inner);
     }
-    case 'union': {
-      if (typeof value !== 'object' || value === null) return value;
-      const tag = (value as Record<string, unknown>)['type'];
-      for (const option of def.options ?? []) {
-        const shape = option.def.shape;
-        const typeNode = shape?.['type'];
-        const values = typeNode?.def?.values as unknown[] | undefined;
-        if (values !== undefined && values[0] === tag) {
-          return fillNullables(value, option as unknown as z.ZodType);
-        }
-      }
-      return value;
-    }
+    case 'union':
+      return fillUnion(value, def.options ?? []);
     default:
       return value;
   }
+}
+
+function fillObject(value: unknown, shape: Record<string, ZodSchema>): unknown {
+  if (typeof value !== 'object' || value === null) return value;
+  const out: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+  for (const [name, child] of Object.entries(shape)) {
+    if (out[name] === undefined) {
+      if (child.def.type === 'nullable') out[name] = null;
+      continue;
+    }
+    out[name] = fillNullables(out[name], child);
+  }
+  return out;
+}
+
+/** A union member is chosen by its `type` literal tag, matching the patch action shapes. */
+function fillUnion(value: unknown, options: readonly ZodSchema[]): unknown {
+  if (typeof value !== 'object' || value === null) return value;
+  const tag = (value as Record<string, unknown>).type;
+  for (const option of options) {
+    const tagValues = option.def.shape?.type?.def.values;
+    if (tagValues !== undefined && tagValues[0] === tag) {
+      return fillNullables(value, option);
+    }
+  }
+  return value;
 }
 
 export interface GenerateOptions<T> {
@@ -243,7 +250,7 @@ export async function generateJson<T>(
   const apiKey = process.env.GEMINI_API_KEY ?? '';
   if (apiKey.length === 0) throw new Error('AI_UNAVAILABLE');
 
-  const responseSchema = toResponseSchema(options.schema);
+  const responseSchema = toResponseSchema(asZod(options.schema));
   const payload = {
     systemInstruction: { parts: [{ text: systemPrompt(options.role) }] },
     contents: [{ role: 'user', parts: [{ text: options.userPrompt }] }],
@@ -278,7 +285,7 @@ export async function generateJson<T>(
         console.error(`[ai] ${options.name}: ${model} -> HTTP ${response.status}`);
         continue;
       }
-      const candidate = fillNullables(extractJson(extractText(reply)), options.schema);
+      const candidate = fillNullables(extractJson(extractText(reply)), asZod(options.schema));
       const parsed = options.schema.safeParse(candidate);
       if (!parsed.success) {
         lastError = new Error('AI_RESPONSE_INVALID', { cause: parsed.error });

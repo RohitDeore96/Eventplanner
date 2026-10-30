@@ -369,9 +369,9 @@ describe('API routes: with a mocked AI endpoint', () => {
         vi.fn(
           (_url: unknown, init?: { signal?: AbortSignal }): Promise<Response> =>
             new Promise((_resolve, reject) => {
-              init?.signal?.addEventListener('abort', () =>
-                reject(new DOMException('The operation was aborted.', 'AbortError')),
-              );
+              init?.signal?.addEventListener('abort', () => {
+                reject(new DOMException('The operation was aborted.', 'AbortError'));
+              });
             }),
         ),
       );
@@ -399,10 +399,9 @@ describe('API routes: with a mocked AI endpoint', () => {
       budgetMinor: 800000,
       // name and notes are omitted: the provider no longer requires nullable fields.
     };
-    const fetchMock = vi.fn((_url: unknown, init?: { body?: string }): Promise<Response> => {
-      void init;
-      return Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 }));
-    });
+    const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 })),
+    );
     vi.stubGlobal('fetch', fetchMock);
     vi.resetModules();
     const mod = await import('../../api/parse-intake');
@@ -427,7 +426,7 @@ describe('API routes: with a mocked AI endpoint', () => {
     const schema = sent.generationConfig?.responseSchema;
     // Every field of the intake parse is nullable, so nothing is required on the wire.
     expect(schema?.required).toEqual([]);
-    expect(schema?.properties?.['name']).toMatchObject({ type: 'string', nullable: true });
+    expect(schema?.properties?.name).toMatchObject({ type: 'string', nullable: true });
   });
 
   it('fills nulls inside a patch action with an omitted assignee', async () => {
