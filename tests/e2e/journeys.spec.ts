@@ -122,10 +122,12 @@ test.describe('Journey 2: financial integrity', () => {
     await expect(page.getByText(/Moved/)).toBeVisible();
     const stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
     const parsed = JSON.parse(stored ?? '{}') as {
-      plan: { categories: { plannedMinor: number }[]; budgetMinor: number };
+      activeId: string | null;
+      plans: { id: string; categories: { plannedMinor: number }[]; budgetMinor: number }[];
     };
-    const sum = parsed.plan.categories.reduce((acc, c) => acc + c.plannedMinor, 0);
-    expect(sum).toBe(parsed.plan.budgetMinor);
+    const active = parsed.plans.find((p) => p.id === parsed.activeId) ?? parsed.plans[0];
+    const sum = (active?.categories ?? []).reduce((acc, c) => acc + c.plannedMinor, 0);
+    expect(sum).toBe(active?.budgetMinor);
   });
 });
 
@@ -385,7 +387,7 @@ test.describe('Journey 5: currency mutation protection', () => {
   test('a plan with payments refuses a silent denomination change', async ({ page }) => {
     await createPlan(page);
     await recordExpense(page, '5000', 'booking advance');
-    await page.getByRole('tab', { name: 'Event' }).click();
+    await page.getByRole('tab', { name: 'Event', exact: true }).click();
     await page.getByLabel('Currency').selectOption('USD');
     // Changing currency clears the budget field by design (amounts are never converted),
     // so the browser first demands a fresh budget entry; the engine then still refuses.
@@ -505,5 +507,89 @@ test.describe('Journey 8: no-key AI fallback honesty', () => {
     await submit(page, 'Create the plan');
     const stored = await storedPlan(page);
     expect(stored?.budgetMinor).toBe(80_000_000);
+  });
+});
+
+test.describe('Journey 9: differentiators on the real build', () => {
+  test('multi-event: create a second event, switch between them, delete one', async ({ page }) => {
+    await createPlan(page);
+    // A second event joins the workspace through the All-events manager.
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await page.getByRole('button', { name: 'New event' }).click();
+    await page.getByLabel('Event name').fill('Diwali party');
+    await page.getByLabel('Event date').fill(FUTURE_DATE);
+    await page.getByLabel('Expected guests').fill('40');
+    await page.getByLabel(/Total budget in/).fill('200000');
+    await page.getByRole('button', { name: 'Create the plan' }).click();
+    await expect(page.getByRole('tab', { name: 'Budget' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    // Both events persist with the new one active.
+    let stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    let record = JSON.parse(stored ?? '{}') as {
+      activeId: string;
+      plans: { id: string; name: string; guestTarget: number }[];
+    };
+    expect(record.plans).toHaveLength(2);
+    expect(record.plans.map((p) => p.name)).toContain('Diwali party');
+
+    // Switch back to the first event; its data is untouched.
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await page
+      .locator('li', { hasText: 'Asha and Dev wedding' })
+      .getByRole('button', { name: 'Open' })
+      .click();
+    await page.getByRole('tab', { name: 'Guests' }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Meera');
+    await submit(page, 'Add guest');
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await expect(page.locator('li', { hasText: 'Diwali party' })).not.toContainText('Meera');
+    stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    record = JSON.parse(stored ?? '{}') as typeof record;
+    const wedding = record.plans.find((p) => p.name === 'Asha and Dev wedding');
+    expect(wedding?.guestTarget).toBe(150);
+
+    // Deleting the other event needs a second, explicit confirmation.
+    await page
+      .locator('li', { hasText: 'Diwali party' })
+      .getByRole('button', { name: 'Delete' })
+      .click();
+    await page.getByRole('button', { name: /Really delete “Diwali party”/ }).click();
+    await expect(page.locator('li', { hasText: 'Diwali party' })).toHaveCount(0);
+  });
+
+  test('stress test, payments calendar and activity log are one click away', async ({ page }) => {
+    await createPlan(page);
+    await recordExpense(page, '20000', 'venue advance');
+
+    // X6: the combined shocks preview without changing the plan. Keyboard-driven on
+    // purpose: focus + Enter works on every viewport (also evidence for the keyboard walk).
+    const stress = page.getByRole('button', { name: 'Run stress test' });
+    await stress.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/The plan (survives|breaks)/)).toBeVisible();
+
+    // X8: the payments calendar renders its honest empty state.
+    await page.getByRole('tab', { name: 'Payments' }).click();
+    await expect(page.getByText(/No scheduled payments yet/)).toBeVisible();
+
+    // X9: the activity log names the expense and marks Undo.
+    await page.getByRole('tab', { name: 'Activity' }).click();
+    await expect(page.getByText(/venue advance/)).toBeVisible();
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.getByText('undone')).toBeVisible();
+  });
+
+  test('the chrome speaks Hindi and Marathi on demand (X10)', async ({ page }) => {
+    await createPlan(page);
+    await page.getByRole('combobox', { name: 'Language' }).selectOption('hi');
+    await expect(page.getByRole('tab', { name: 'बजट' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'पूर्ववत' })).toBeDisabled(); // nothing to undo yet
+    await page.getByRole('combobox', { name: 'भाषा' }).selectOption('mr');
+    await expect(page.getByRole('tab', { name: 'वेळापत्रक' })).toBeVisible();
+    // The choice persists for the next visit.
+    expect(await page.evaluate(() => localStorage.getItem('utsav.lang.v1'))).toBe('mr');
   });
 });
