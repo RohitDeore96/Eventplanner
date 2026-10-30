@@ -504,7 +504,7 @@ function QuoteBox({ plan, onSaved }: { plan: Plan; onSaved: () => void }): React
     setBusy(true);
     setNotice(null);
     try {
-      const reply = await aiClient.extractQuote(text);
+      const reply = await aiClient.extractQuote(text, plan.currency);
       setResult(reply.body);
     } catch {
       setNotice('Quote reading is unavailable. Add the vendor by hand below.');

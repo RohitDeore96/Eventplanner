@@ -75,12 +75,16 @@ export const aiClient = {
     post('/api/review-plan', { facts }),
   ask: (question: string, facts: string): Promise<AiReply<PlannerAnswer & { source: string }>> =>
     post('/api/ask-planner', { question, facts }),
-  extractQuote: (text: string): Promise<AiReply<QuoteFields & { source: string }>> =>
-    post('/api/extract-quote', { text }),
+  extractQuote: (
+    text: string,
+    currency: string,
+  ): Promise<AiReply<QuoteFields & { source: string }>> =>
+    post('/api/extract-quote', { text, currency }),
   proposePatch: (
     instruction: string,
     facts: string,
     today: string,
+    currency: string,
   ): Promise<AiReply<PatchProposal & { source: string }>> =>
-    post('/api/propose-patch', { instruction, facts, today }),
+    post('/api/propose-patch', { instruction, facts, today, currency }),
 };

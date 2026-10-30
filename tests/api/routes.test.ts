@@ -361,6 +361,74 @@ describe('API routes: with a mocked AI endpoint', () => {
     expect(sent.generationConfig?.responseSchema?.properties?.actions?.items).toHaveProperty(
       'anyOf',
     );
+    // The money boundary holds on this route too: the model is asked for major units only.
+    expect(firstInit?.body ?? '').toContain('"amountMajor"');
+    expect(firstInit?.body ?? '').not.toContain('"amountMinor"');
+  });
+
+  it('converts patch money actions from major-unit strings to minor units exactly once', async () => {
+    const patch = {
+      summary: 'Shift decoration money and add a farewell category',
+      actions: [
+        {
+          type: 'budget/move',
+          fromId: 'cat-decor',
+          toId: 'cat-catering',
+          amountMajor: '20000',
+        },
+        {
+          type: 'category/add',
+          id: 'cat-farewell',
+          name: 'Farewell brunch',
+          plannedMajor: '50000',
+        },
+      ],
+    };
+    const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(new Response(aiEnvelope(JSON.stringify(patch)), { status: 200 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const mod = await import('../../api/propose-patch');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(
+      mockReq({ instruction: 'move money', facts: 'Budget: ok', today: '2026-10-30' }),
+      res,
+    );
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    // ₹20,000 -> 2,000,000 paise; ₹50,000 -> 5,000,000 paise. The engine dry-run only
+    // ever sees true minor units.
+    expect(body).toMatchObject({
+      actions: [
+        { type: 'budget/move', amountMinor: 2_000_000 },
+        { type: 'category/add', plannedMinor: 5_000_000 },
+      ],
+      source: 'gemini-3.6-flash',
+    });
+  });
+
+  it('rejects a patch whose major amount has too many decimals for the currency (502)', async () => {
+    const patch = {
+      summary: 'Move money',
+      actions: [{ type: 'budget/move', fromId: 'a', toId: 'b', amountMajor: '0.0001' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+        Promise.resolve(new Response(aiEnvelope(JSON.stringify(patch)), { status: 200 })),
+      ),
+    );
+    vi.resetModules();
+    const mod = await import('../../api/propose-patch');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(
+      mockReq({ instruction: 'move money', facts: 'Budget: ok', today: '2026-10-30' }),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 502, body: { error: 'AI_RESPONSE_INVALID' } });
   });
 
   it('maps an aborted AI call to 504 AI_TIMEOUT', async () => {
@@ -398,8 +466,9 @@ describe('API routes: with a mocked AI endpoint', () => {
       occasion: 'wedding',
       dateISO: '2027-02-01',
       guests: 200,
-      // The model states the amount in MAJOR units exactly as written; the route converts.
-      budgetMajor: 800000,
+      // The model states the amount as a decimal STRING in MAJOR units, exactly as written;
+      // the route converts it once with the request currency.
+      budgetMajor: '800000',
       // name and notes are omitted: the provider no longer requires nullable fields.
     };
     const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
@@ -432,9 +501,107 @@ describe('API routes: with a mocked AI endpoint', () => {
     // Every field of the intake parse is nullable, so nothing is required on the wire.
     expect(schema?.required).toEqual([]);
     expect(schema?.properties?.name).toMatchObject({ type: 'string', nullable: true });
-    // The model is asked for major units, never minor ones.
-    expect(schema?.properties?.budgetMajor).toMatchObject({ type: 'number', nullable: true });
+    // The model is asked for a decimal STRING in major units, never minor ones.
+    expect(schema?.properties?.budgetMajor).toMatchObject({ type: 'string', nullable: true });
     expect(schema?.properties?.budgetMinor).toBeUndefined();
+  });
+
+  it('converts a model-stated KWD amount with three decimals exactly once (parse-intake)', async () => {
+    const aiReply = {
+      occasion: null,
+      dateISO: null,
+      guests: null,
+      budgetMajor: '100.125',
+      name: null,
+      notes: null,
+    };
+    const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const mod = await import('../../api/parse-intake');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ text: 'party, budget KWD 100.125', currency: 'KWD' }), res);
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ budgetMinor: 100_125, source: 'gemini-3.6-flash' });
+    expect(body).not.toHaveProperty('budgetMajor');
+  });
+
+  it('extract-quote: the model states major-unit strings and the route converts them once', async () => {
+    const aiReply = {
+      vendorName: 'Sharma Caterers',
+      category: 'catering',
+      totalPriceMajor: '250000',
+      pricePerPlateMajor: '850.50',
+      guestMinimum: 200,
+      overtimeFeePerHourMajor: null,
+      taxIncluded: true,
+      advancePercent: 25,
+      cancellationPolicy: null,
+      inclusions: [],
+      exclusions: [],
+    };
+    const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const mod = await import('../../api/extract-quote');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ text: 'Total Rs 2,50,000, 850.50 per plate', currency: 'INR' }), res);
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    // ₹2,50,000 -> 25,000,000 paise; ₹850.50 -> 85,050 paise. No model-side x100 anywhere.
+    expect(body).toMatchObject({
+      totalPriceMinor: 25_000_000,
+      pricePerPlateMinor: 85_050,
+      overtimeFeePerHourMinor: null,
+      source: 'gemini-3.6-flash',
+    });
+    expect(body).not.toHaveProperty('totalPriceMajor');
+    const firstInit = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined;
+    const sent = JSON.parse(firstInit?.body ?? '{}') as {
+      generationConfig?: { responseSchema?: { properties?: Record<string, unknown> } };
+    };
+    expect(sent.generationConfig?.responseSchema?.properties?.totalPriceMajor).toMatchObject({
+      type: 'string',
+      nullable: true,
+    });
+    expect(sent.generationConfig?.responseSchema?.properties?.totalPriceMinor).toBeUndefined();
+  });
+
+  it('extract-quote: a KWD quote keeps all three decimals', async () => {
+    const aiReply = {
+      vendorName: null,
+      category: null,
+      totalPriceMajor: '100.125',
+      pricePerPlateMajor: null,
+      guestMinimum: null,
+      overtimeFeePerHourMajor: null,
+      taxIncluded: null,
+      advancePercent: null,
+      cancellationPolicy: null,
+      inclusions: [],
+      exclusions: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+        Promise.resolve(new Response(aiEnvelope(JSON.stringify(aiReply)), { status: 200 })),
+      ),
+    );
+    vi.resetModules();
+    const mod = await import('../../api/extract-quote');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(mockReq({ text: 'Total KWD 100.125', currency: 'KWD' }), res);
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ totalPriceMinor: 100_125, source: 'gemini-3.6-flash' });
   });
 
   it('fills nulls inside a patch action with an omitted assignee', async () => {

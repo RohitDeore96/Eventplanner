@@ -16,7 +16,7 @@ const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: str
   { value: 'milestone', label: 'Milestone celebration' },
 ];
 
-const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY'] as const;
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY', 'KWD'] as const;
 
 /** Applies parsed intake values to the form's setters; occasion goes through a type guard. */
 function dispatchPrefill(

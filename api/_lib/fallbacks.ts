@@ -35,11 +35,15 @@ export function parseMajorAmountLoose(text: string): number | null {
     if (Number.isFinite(value) && value > 0) return Math.round(value);
   }
   // Plain digits with optional thousands separators ("8,00,000", "80,000", "450000").
-  // ISO dates are stripped first so a year is never read as a budget.
+  // ISO dates are stripped first so a year is never read as a budget. A decimal fraction
+  // ("100.125") is accepted from 100 up so 3-decimal currencies still read in fallbacks,
+  // while guest counts ("200 guests") never do.
   const candidates = text.replace(/\d{4}-\d{2}-\d{2}/g, ' ').match(/\d[\d,]*(?:\.\d+)?/g) ?? [];
   for (const candidate of candidates) {
     const value = Number(candidate.replace(/,/g, ''));
-    if (Number.isFinite(value) && value >= 1000) return value;
+    const plausible =
+      Number.isFinite(value) && (value >= 1000 || (candidate.includes('.') && value >= 100));
+    if (plausible) return value;
   }
   return null;
 }

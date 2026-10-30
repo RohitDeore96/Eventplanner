@@ -25,7 +25,12 @@ export function AiPatchPanel({ plan }: { plan: Plan }) {
     setNotice(null);
     setPending(null);
     try {
-      const reply = await aiClient.proposePatch(instruction, planFacts(plan, today), today);
+      const reply = await aiClient.proposePatch(
+        instruction,
+        planFacts(plan, today),
+        today,
+        plan.currency,
+      );
       const proposal = reply.body;
       const actions: PatchAction[] = patchActionsFromProposal(proposal);
       const patch: PlanPatch = { summary: proposal.summary, actions };

@@ -6,7 +6,7 @@ import { currencyExponent, majorToMinor, parseMajorAmount } from '../../src/engi
  * Regression suite for the one monetary-unit contract: readers state amounts in MAJOR
  * units exactly as a human wrote them; conversion to minor units happens exactly once,
  * with the currency's exponent. These cases reproduce CRITICAL DEFECT 1 (₹8,00,000 being
- * read as ₹8,000) and pin the required currency list: INR, USD, EUR, GBP, AED, JPY.
+ * read as ₹8,000) and pin the required currency list: INR, USD, EUR, GBP, AED, JPY, KWD.
  */
 describe('money: majorToMinor is the single conversion', () => {
   it('converts ₹8 lakh to 80,000,000 paise — the defect case', () => {
@@ -28,6 +28,13 @@ describe('money: majorToMinor is the single conversion', () => {
 
   it('handles US dollars', () => {
     expect(majorToMinor(10000, 'USD')).toBe(1_000_000);
+  });
+
+  it('handles 3-decimal KWD without losing a fils', () => {
+    expect(currencyExponent('KWD')).toBe(3);
+    expect(majorToMinor(100.125, 'KWD')).toBe(100_125);
+    expect(parseMajorAmount('100.125', 'KWD')).toBe(100_125);
+    expect(parseMajorAmount('100.1255', 'KWD')).toBeNull(); // more decimals than the exponent
   });
 
   it('rejects negatives, non-finite values and unknown currencies', () => {
@@ -84,6 +91,12 @@ describe('intake fallback: the amount reader returns MAJOR units', () => {
 
   it('does not read amounts under 1000 as budgets', () => {
     expect(parseMajorAmountLoose('200 guests coming')).toBeNull();
+  });
+
+  it('reads a decimal-fraction amount from 100 up so 3-decimal currencies work', () => {
+    expect(parseMajorAmountLoose('Total KWD 100.125')).toBe(100.125);
+    expect(fallbackIntake('Total KWD 100.125', 'KWD').budgetMinor).toBe(100_125);
+    expect(parseMajorAmountLoose('party of 40.5 people')).toBeNull();
   });
 });
 
