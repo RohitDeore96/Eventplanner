@@ -83,7 +83,7 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       setNotice('Nothing to apply — this scenario does not change the plan.');
       return;
     }
-    const outcome = store.applyAll(actions);
+    const outcome = store.applyAll(actions, `What-if scenario: ${spec?.label ?? selected}`);
     setPreview(null);
     setNotice(
       outcome.ok
@@ -109,7 +109,7 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       setNotice('Nothing to apply — the shocks do not change this plan.');
       return;
     }
-    const outcome = store.applyAll(actions);
+    const outcome = store.applyAll(actions, 'Stress scenario: all three shocks');
     setStress(null);
     setNotice(
       outcome.ok

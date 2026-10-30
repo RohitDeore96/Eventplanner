@@ -24,7 +24,7 @@ export interface Store {
   /** Applies the action and reports the outcome synchronously (React state updates async). */
   readonly apply: (action: PlanAction) => ApplyOutcome;
   /** Applies a batch as ONE undo step; stops at the first rejection. */
-  readonly applyAll: (actions: readonly PlanAction[]) => ApplyOutcome;
+  readonly applyAll: (actions: readonly PlanAction[], label?: string) => ApplyOutcome;
   readonly replace: (plan: Plan) => void;
   readonly undo: () => void;
   readonly redo: () => void;
@@ -45,9 +45,11 @@ export function usePlanStore(today: string, initial: Plan | null): Store {
       ? { ok: true, message: null }
       : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
   }
-  function applyAll(actions: readonly PlanAction[]): ApplyOutcome {
-    const next = planReducer(state, { kind: 'applyAll', actions }, today);
-    dispatch({ kind: 'applyAll', actions });
+  function applyAll(actions: readonly PlanAction[], label?: string): ApplyOutcome {
+    const event: PlanEvent =
+      label === undefined ? { kind: 'applyAll', actions } : { kind: 'applyAll', actions, label };
+    const next = planReducer(state, event, today);
+    dispatch(event);
     return next.lastError === null
       ? { ok: true, message: null }
       : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };

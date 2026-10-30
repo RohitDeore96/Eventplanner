@@ -54,7 +54,7 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
         rolling = next.value;
       }
       if (error === null) {
-        setState({ history: rolling, lastError: null });
+        setState({ ...state, history: rolling, lastError: null });
         return { ok: true, message: null };
       }
       return { ok: false, message: error.message, field: error.field ?? '' };
@@ -231,7 +231,7 @@ describe('vendor schedule edge cases', () => {
           }
           rolling = next.value;
         }
-        setState({ history: rolling, lastError: null });
+        setState({ ...state, history: rolling, lastError: null });
         return { ok: true, message: null };
       },
       replace: () => undefined,
@@ -305,7 +305,7 @@ describe('vendor card editing (branch coverage)', () => {
           }
           rolling = next.value;
         }
-        setState({ history: rolling, lastError: null });
+        setState({ ...state, history: rolling, lastError: null });
         return { ok: true, message: null };
       },
       replace: () => undefined,

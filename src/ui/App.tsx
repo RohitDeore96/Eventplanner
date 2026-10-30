@@ -12,8 +12,9 @@ import { SetupView } from './views/SetupView';
 import { TimelineView } from './views/TimelineView';
 import { AssistantView } from './views/AssistantView';
 import { VendorsView } from './views/VendorsView';
+import { ActivityView } from './views/ActivityView';
 
-type TabId = 'setup' | 'budget' | 'timeline' | 'guests' | 'vendors' | 'assistant';
+type TabId = 'setup' | 'budget' | 'timeline' | 'guests' | 'vendors' | 'activity' | 'assistant';
 
 const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
   { id: 'setup', label: 'Event' },
@@ -21,6 +22,7 @@ const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'guests', label: 'Guests' },
   { id: 'vendors', label: 'Vendors' },
+  { id: 'activity', label: 'Activity' },
   { id: 'assistant', label: 'Assistant' },
 ];
 
@@ -214,6 +216,8 @@ function ViewSwitch({
       return <VendorsView plan={plan} />;
     case 'assistant':
       return <AssistantView plan={plan} />;
+    case 'activity':
+      return <ActivityView />;
     case 'budget':
       return <BudgetView plan={plan} />;
     default:

@@ -63,7 +63,7 @@ function renderView(node: (current: Plan) => React.ReactNode, seed: Plan): PlanA
           rolling = next.value;
         }
         applied.push(...actions);
-        setState({ history: rolling, lastError: null });
+        setState({ ...state, history: rolling, lastError: null });
         return { ok: true, message: null };
       },
       replace: (next) => {

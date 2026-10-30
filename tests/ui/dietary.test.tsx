@@ -53,7 +53,7 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
         rolling = next.value;
       }
       if (error === null) {
-        setState({ history: rolling, lastError: null });
+        setState({ ...state, history: rolling, lastError: null });
         return { ok: true, message: null };
       }
       return { ok: false, message: error.message, field: error.field ?? '' };

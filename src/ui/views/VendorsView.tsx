@@ -677,7 +677,10 @@ function QuotationCompare({
       );
       return;
     }
-    const outcome = store.applyAll(actions);
+    const outcome = store.applyAll(
+      actions,
+      `Quotation accepted — ${quote.fields.vendorName ?? 'vendor'} booked`,
+    );
     setNotice(
       outcome.ok
         ? `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`

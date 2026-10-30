@@ -34,7 +34,7 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
     applyAll: (actions) => {
       const next = applyAllActions(state.history, actions, { today: TODAY });
       if (next.ok) {
-        setState({ history: next.value, lastError: null });
+        setState({ ...state, history: next.value, lastError: null });
         return { ok: true, message: null };
       }
       return { ok: false, message: next.error.message, field: next.error.field ?? '' };

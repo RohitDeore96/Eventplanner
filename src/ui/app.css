@@ -461,3 +461,34 @@ th {
   white-space: nowrap;
   font-size: 0.9rem;
 }
+
+/* X9 activity log: one line per undo step; undone entries are struck out. */
+.activity-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.activity-entry {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+.activity-entry:last-child {
+  border-bottom: none;
+}
+
+.activity-entry.reverted .activity-label {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+.activity-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  margin-right: 0.25rem;
+}
