@@ -1,7 +1,7 @@
-import { MAX_CATEGORIES, MAX_EXPENSES } from '../../config/limits';
-import { checkAmount, checkDate, checkId, checkName, checkNote } from '../validate';
-import { fail, ok, type Result } from '../result';
-import type { Category, Expense, Plan } from '../types';
+import { MAX_CATEGORIES, MAX_EXPENSES } from '../../config/limits.js';
+import { checkAmount, checkDate, checkId, checkName, checkNote } from '../validate.js';
+import { fail, ok, type Result } from '../result.js';
+import type { Category, Expense, Plan } from '../types.js';
 
 function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();

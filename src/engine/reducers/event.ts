@@ -1,9 +1,9 @@
-import type { EventChanges } from '../actions';
-import { daysBetween } from '../dates';
-import { currencyExponent, isValidMinor } from '../money';
-import { fail, ok, type Result } from '../result';
-import type { Plan } from '../types';
-import { checkDate, checkGuestCount, checkName } from '../validate';
+import type { EventChanges } from '../actions.js';
+import { daysBetween } from '../dates.js';
+import { currencyExponent, isValidMinor } from '../money.js';
+import { fail, ok, type Result } from '../result.js';
+import type { Plan } from '../types.js';
+import { checkDate, checkGuestCount, checkName } from '../validate.js';
 
 type Step = (plan: Plan, changes: EventChanges, today: string) => Result<Plan>;
 

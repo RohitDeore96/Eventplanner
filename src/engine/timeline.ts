@@ -1,6 +1,6 @@
-import { instalmentPayments } from './budget';
-import { daysBetween, type ISODate } from './dates';
-import type { Plan } from './types';
+import { instalmentPayments } from './budget.js';
+import { daysBetween, type ISODate } from './dates.js';
+import type { Plan } from './types.js';
 export interface TimelineItem {
   readonly kind: 'task' | 'payment';
   readonly id: string;

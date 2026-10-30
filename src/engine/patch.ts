@@ -1,12 +1,12 @@
-import { MAX_PATCH_OPS } from '../config/limits';
-import type { PlanAction } from './actions';
-import { budgetTotals } from './budget';
-import type { ISODate } from './dates';
-import { reducePlan } from './reducer';
-import { fail, ok, type Result } from './result';
-import { comparePlans, type PlanComparison } from './scenario';
-import type { Plan } from './types';
-import { computeWarnings, type Warning } from './warnings';
+import { MAX_PATCH_OPS } from '../config/limits.js';
+import type { PlanAction } from './actions.js';
+import { budgetTotals } from './budget.js';
+import type { ISODate } from './dates.js';
+import { reducePlan } from './reducer.js';
+import { fail, ok, type Result } from './result.js';
+import { comparePlans, type PlanComparison } from './scenario.js';
+import type { Plan } from './types.js';
+import { computeWarnings, type Warning } from './warnings.js';
 
 /** Actions an AI patch may contain. Everything else (deletes, vendors, expenses, guests) is manual only. */
 const AI_PATCH_ACTION_TYPES = [

@@ -1,11 +1,11 @@
-import { budgetTotals, categoryFigures } from './budget';
-import type { PlanAction } from './actions';
-import { addDays, type ISODate } from './dates';
-import { allocateByWeights } from './money';
-import { reducePlan } from './reducer';
-import { ok, fail, type Result } from './result';
-import { computeWarnings, type Warning } from './warnings';
-import type { Plan } from './types';
+import { budgetTotals, categoryFigures } from './budget.js';
+import type { PlanAction } from './actions.js';
+import { addDays, type ISODate } from './dates.js';
+import { allocateByWeights } from './money.js';
+import { reducePlan } from './reducer.js';
+import { ok, fail, type Result } from './result.js';
+import { computeWarnings, type Warning } from './warnings.js';
+import type { Plan } from './types.js';
 
 interface CategoryDelta {
   readonly categoryId: string;

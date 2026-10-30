@@ -1,15 +1,20 @@
-import { CATERING_KEY } from '../config/limits';
+import { CATERING_KEY } from '../config/limits.js';
 import {
   budgetTotals,
   categoryFigures,
   type BudgetTotals,
   type CategoryFigures,
   vendorPayments,
-} from './budget';
-import { daysBetween, type ISODate } from './dates';
-import { cateringRequirement, headcount, type CateringRequirement, type Headcount } from './guests';
-import type { Plan } from './types';
-import { computeWarnings, type Warning } from './warnings';
+} from './budget.js';
+import { daysBetween, type ISODate } from './dates.js';
+import {
+  cateringRequirement,
+  headcount,
+  type CateringRequirement,
+  type Headcount,
+} from './guests.js';
+import type { Plan } from './types.js';
+import { computeWarnings, type Warning } from './warnings.js';
 
 type ReadinessStatus = 'on_track' | 'needs_attention' | 'at_risk';
 

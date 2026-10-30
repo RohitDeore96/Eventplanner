@@ -1,4 +1,4 @@
-import type { DietaryTag, Guest, Plan } from './types';
+import type { DietaryTag, Guest, Plan } from './types.js';
 
 export interface Headcount {
   readonly confirmed: number;

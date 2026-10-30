@@ -1,8 +1,8 @@
-import { MAX_DEPENDENCIES_PER_TASK, MAX_TASKS } from '../../config/limits';
-import { delayTask, removeTask, reorderTask, setDependencies } from '../tasks';
-import { fail, ok, type Result } from '../result';
-import type { Plan, Task } from '../types';
-import { checkDate, checkId, checkName, checkStringList } from '../validate';
+import { MAX_DEPENDENCIES_PER_TASK, MAX_TASKS } from '../../config/limits.js';
+import { delayTask, removeTask, reorderTask, setDependencies } from '../tasks.js';
+import { fail, ok, type Result } from '../result.js';
+import type { Plan, Task } from '../types.js';
+import { checkDate, checkId, checkName, checkStringList } from '../validate.js';
 
 export function addTask(plan: Plan, input: Omit<Task, 'done'>): Result<Plan> {
   const id = checkId(input.id, 'id');

@@ -1,15 +1,15 @@
-import { BPS_TOTAL, CONTINGENCY_KEY, CONTINGENCY_MIN_BPS } from '../config/limits';
+import { BPS_TOTAL, CONTINGENCY_KEY, CONTINGENCY_MIN_BPS } from '../config/limits.js';
 import {
   budgetTotals,
   categoryFigures,
   instalmentPayments,
   type VendorPayments,
   vendorPayments,
-} from './budget';
-import { daysBetween, type ISODate } from './dates';
-import { headcount } from './guests';
-import { formatMoney } from './money';
-import type { Plan, Vendor } from './types';
+} from './budget.js';
+import { daysBetween, type ISODate } from './dates.js';
+import { headcount } from './guests.js';
+import { formatMoney } from './money.js';
+import type { Plan, Vendor } from './types.js';
 
 type Severity = 'error' | 'warning' | 'info';
 

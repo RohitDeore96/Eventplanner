@@ -1,11 +1,11 @@
-import { CATERING_KEY, CONTINGENCY_KEY } from '../config/limits';
-import { daysBetween, type ISODate } from './dates';
-import { OCCASIONS } from './enums';
-import { generateMilestones } from './milestones';
-import { allocateByWeights, currencyExponent, isValidMinor } from './money';
-import { fail, ok, type Result } from './result';
-import type { Occasion, Plan } from './types';
-import { checkDate, checkGuestCount, checkId, checkName } from './validate';
+import { CATERING_KEY, CONTINGENCY_KEY } from '../config/limits.js';
+import { daysBetween, type ISODate } from './dates.js';
+import { OCCASIONS } from './enums.js';
+import { generateMilestones } from './milestones.js';
+import { allocateByWeights, currencyExponent, isValidMinor } from './money.js';
+import { fail, ok, type Result } from './result.js';
+import type { Occasion, Plan } from './types.js';
+import { checkDate, checkGuestCount, checkId, checkName } from './validate.js';
 
 interface SplitRow {
   readonly key: string;

@@ -1,6 +1,6 @@
-import { instalmentPayments } from './budget';
-import type { ISODate } from './dates';
-import type { Instalment, Plan } from './types';
+import { instalmentPayments } from './budget.js';
+import type { ISODate } from './dates.js';
+import type { Instalment, Plan } from './types.js';
 
 /**
  * X8 cash-flow calendar: when does money actually leave the house? Every scheduled

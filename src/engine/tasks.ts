@@ -1,7 +1,7 @@
-import { MAX_DEPENDENCIES_PER_TASK } from '../config/limits';
-import { addDays, type ISODate } from './dates';
-import { fail, ok, type Result } from './result';
-import type { Task } from './types';
+import { MAX_DEPENDENCIES_PER_TASK } from '../config/limits.js';
+import { addDays, type ISODate } from './dates.js';
+import { fail, ok, type Result } from './result.js';
+import type { Task } from './types.js';
 
 export interface TaskChange {
   readonly taskId: string;

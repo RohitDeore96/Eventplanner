@@ -1,4 +1,4 @@
-import { MAX_AMOUNT_MINOR } from '../config/limits';
+import { MAX_AMOUNT_MINOR } from '../config/limits.js';
 
 /** All money is an integer count of minor units (cents, paise, yen). Never a float. */
 export type Minor = number;

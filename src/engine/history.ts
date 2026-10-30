@@ -1,9 +1,9 @@
-import { MAX_HISTORY } from '../config/limits';
-import type { PlanAction, ReduceContext } from './actions';
-import { applyPatch, type PlanPatch } from './patch';
-import { reducePlan } from './reducer';
-import { ok, type Result } from './result';
-import type { Plan } from './types';
+import { MAX_HISTORY } from '../config/limits.js';
+import type { PlanAction, ReduceContext } from './actions.js';
+import { applyPatch, type PlanPatch } from './patch.js';
+import { reducePlan } from './reducer.js';
+import { ok, type Result } from './result.js';
+import type { Plan } from './types.js';
 
 export interface History {
   readonly past: readonly Plan[];

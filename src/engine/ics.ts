@@ -1,5 +1,5 @@
-import type { ISODate } from './dates';
-import type { TimelineItem } from './timeline';
+import type { ISODate } from './dates.js';
+import type { TimelineItem } from './timeline.js';
 
 const LINE_LIMIT_OCTETS = 75;
 

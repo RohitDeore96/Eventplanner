@@ -1,5 +1,5 @@
-import { type Minor, sumMinor } from './money';
-import type { Category, Expense, Plan, Vendor } from './types';
+import { type Minor, sumMinor } from './money.js';
+import type { Category, Expense, Plan, Vendor } from './types.js';
 
 export interface CategoryFigures {
   readonly categoryId: string;

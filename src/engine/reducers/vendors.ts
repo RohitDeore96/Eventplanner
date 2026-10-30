@@ -1,8 +1,8 @@
-import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits';
-import { BOOKING_STATUSES, PAYMENT_KINDS } from '../enums';
-import { fail, ok, type Result } from '../result';
-import type { BookingStatus, Instalment, Plan, Vendor } from '../types';
-import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate';
+import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits.js';
+import { BOOKING_STATUSES, PAYMENT_KINDS } from '../enums.js';
+import { fail, ok, type Result } from '../result.js';
+import type { BookingStatus, Instalment, Plan, Vendor } from '../types.js';
+import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate.js';
 
 function firstFailure(results: readonly Result<unknown>[]): Result<never> | undefined {
   for (const result of results) if (!result.ok) return result;

@@ -1,4 +1,4 @@
-import type { BookingStatus, DietaryTag, Occasion, PaymentKind, Rsvp } from './types';
+import type { BookingStatus, DietaryTag, Occasion, PaymentKind, Rsvp } from './types.js';
 
 /**
  * Runtime enum values, kept beside the types they mirror. Reducers use them to reject

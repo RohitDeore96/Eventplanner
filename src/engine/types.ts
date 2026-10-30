@@ -1,5 +1,5 @@
-import type { ISODate } from './dates';
-import type { Minor } from './money';
+import type { ISODate } from './dates.js';
+import type { Minor } from './money.js';
 
 export type Occasion = 'wedding' | 'birthday' | 'community' | 'milestone';
 export type Rsvp = 'yes' | 'no' | 'pending';

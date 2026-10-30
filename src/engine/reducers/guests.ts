@@ -1,8 +1,8 @@
-import { MAX_GUEST_RECORDS, MAX_NAME_LENGTH, MAX_PLUS_ONES } from '../../config/limits';
-import { DIETARY_TAGS, RSVPS } from '../enums';
-import { fail, ok, type Result } from '../result';
-import type { DietaryTag, Guest, Plan, Rsvp } from '../types';
-import { checkEnum, checkId, checkName, checkStringList } from '../validate';
+import { MAX_GUEST_RECORDS, MAX_NAME_LENGTH, MAX_PLUS_ONES } from '../../config/limits.js';
+import { DIETARY_TAGS, RSVPS } from '../enums.js';
+import { fail, ok, type Result } from '../result.js';
+import type { DietaryTag, Guest, Plan, Rsvp } from '../types.js';
+import { checkEnum, checkId, checkName, checkStringList } from '../validate.js';
 
 function checkPlusOnes(value: number): Result<number> {
   return Number.isInteger(value) && value >= 0 && value <= MAX_PLUS_ONES

@@ -1,6 +1,6 @@
-import { formatISODate, type ISODate, parseISODate } from './dates';
-import { fail, ok, type Result } from './result';
-import type { Occasion, Task } from './types';
+import { formatISODate, type ISODate, parseISODate } from './dates.js';
+import { fail, ok, type Result } from './result.js';
+import type { Occasion, Task } from './types.js';
 
 interface Template {
   readonly key: string;

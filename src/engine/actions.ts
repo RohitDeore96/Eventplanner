@@ -1,5 +1,5 @@
-import type { ISODate } from './dates';
-import type { BookingStatus, DietaryTag, Instalment, Rsvp } from './types';
+import type { ISODate } from './dates.js';
+import type { BookingStatus, DietaryTag, Instalment, Rsvp } from './types.js';
 
 /** Every change to a plan, manual or AI-proposed, is one of these and goes through `reducePlan`. */
 export type PlanAction =

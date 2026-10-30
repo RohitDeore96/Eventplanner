@@ -1,7 +1,7 @@
-import { MAX_GUESTS, MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from '../config/limits';
-import { isValidISODate, type ISODate } from './dates';
-import { isValidMinor } from './money';
-import { fail, ok, type Result } from './result';
+import { MAX_GUESTS, MAX_NAME_LENGTH, MAX_NOTE_LENGTH } from '../config/limits.js';
+import { isValidISODate, type ISODate } from './dates.js';
+import { isValidMinor } from './money.js';
+import { fail, ok, type Result } from './result.js';
 
 /**
  * Every validator accepts `unknown`: actions arrive from untrusted sources (free text, AI

@@ -1,4 +1,4 @@
-import type { PlanAction, ReduceContext } from './actions';
+import type { PlanAction, ReduceContext } from './actions.js';
 import {
   addCategory,
   addExpense,
@@ -7,9 +7,9 @@ import {
   moveBudget,
   updateCategory,
   updateExpense,
-} from './reducers/budget';
-import { updateEvent } from './reducers/event';
-import { addGuest, deleteGuest, updateGuest } from './reducers/guests';
+} from './reducers/budget.js';
+import { updateEvent } from './reducers/event.js';
+import { addGuest, deleteGuest, updateGuest } from './reducers/guests.js';
 import {
   addTask,
   delayPlanTask,
@@ -17,10 +17,10 @@ import {
   moveTask,
   setTaskDependencies,
   updateTask,
-} from './reducers/tasks';
-import { addVendor, deleteVendor, setSchedule, updateVendor } from './reducers/vendors';
-import { fail, ok, type Result } from './result';
-import type { Plan } from './types';
+} from './reducers/tasks.js';
+import { addVendor, deleteVendor, setSchedule, updateVendor } from './reducers/vendors.js';
+import { fail, ok, type Result } from './result.js';
+import type { Plan } from './types.js';
 
 type ActionOf<T extends PlanAction['type']> = Extract<PlanAction, { type: T }>;
 type Handlers = {

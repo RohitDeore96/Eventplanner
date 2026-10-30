@@ -1,4 +1,4 @@
-import { MAX_YEAR, MIN_YEAR } from '../config/limits';
+import { MAX_YEAR, MIN_YEAR } from '../config/limits.js';
 
 /** Calendar date as `YYYY-MM-DD`. The engine never reads the clock; callers pass `today`. */
 export type ISODate = string;
