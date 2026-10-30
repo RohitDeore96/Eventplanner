@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+reports/
+.stryker-tmp/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
