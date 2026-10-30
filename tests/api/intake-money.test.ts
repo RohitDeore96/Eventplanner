@@ -109,3 +109,12 @@ describe('fallbackIntake: end-to-end minor-unit contract per currency', () => {
     expect(fallbackIntake('wedding in Pune next february').budgetMinor).toBeNull();
   });
 });
+
+describe('milestone occasion detection in intake', () => {
+  it('detects anniversaries, retirement and jubilees as milestone occasions', () => {
+    expect(fallbackIntake('Silver jubilee party for 80 people').occasion).toBe('milestone');
+    expect(fallbackIntake('retirement celebration next march').occasion).toBe('milestone');
+    expect(fallbackIntake('graduation party at home').occasion).toBe('milestone');
+    expect(fallbackIntake('shaadi in pune').occasion).toBe('wedding');
+  });
+});

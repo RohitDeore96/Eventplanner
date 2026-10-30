@@ -113,7 +113,7 @@ const deepPlanSchema = z
   .object({
     id: idField,
     name: z.string().min(1).max(120),
-    occasion: z.enum(['wedding', 'birthday', 'community']),
+    occasion: z.enum(['wedding', 'birthday', 'community', 'milestone']),
     dateISO: isoDate,
     currency: z.string().min(3).max(3),
     locale: z.string().min(2).max(35),

@@ -1,7 +1,7 @@
 import type { ISODate } from './dates';
 import type { Minor } from './money';
 
-export type Occasion = 'wedding' | 'birthday' | 'community';
+export type Occasion = 'wedding' | 'birthday' | 'community' | 'milestone';
 export type Rsvp = 'yes' | 'no' | 'pending';
 export type BookingStatus = 'not_started' | 'contacted' | 'quoted' | 'booked' | 'cancelled';
 export type PaymentKind = 'advance' | 'instalment' | 'milestone' | 'final' | 'balance' | 'custom';

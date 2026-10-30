@@ -15,7 +15,7 @@ const INSTRUCTION_MAX_CHARS = 400;
 
 const intakeParseSchema = z.object({
   name: z.string().max(80).nullable(),
-  occasion: z.enum(['wedding', 'birthday', 'community']).nullable(),
+  occasion: z.enum(['wedding', 'birthday', 'community', 'milestone']).nullable(),
   dateISO: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -128,7 +128,7 @@ export const parseIntakeRequest = z.object({
   currency: currencyCodeSchema.default('INR'),
 });
 export const ideasRequest = z.object({
-  occasion: z.enum(['wedding', 'birthday', 'community']),
+  occasion: z.enum(['wedding', 'birthday', 'community', 'milestone']),
   /** The family's own words: style, cultural or theme preferences. Empty means unspecified. */
   vibe: z.string().max(200),
   guests: z.number().int().min(1).max(100_000),

@@ -89,6 +89,8 @@ function guessOccasion(text: string): IntakeParse['occasion'] {
   if (/(birthday|bday|birthday party|happy birthday)/.test(lowered)) return 'birthday';
   if (/(community|ganesh|durga puja|navratri|society|festival|utsav committee)/.test(lowered))
     return 'community';
+  if (/(anniversary|retirement|graduation|milestone|jubilee|housewarming)/.test(lowered))
+    return 'milestone';
   return null;
 }
 
@@ -111,7 +113,7 @@ export function fallbackIntake(text: string, currency = 'INR'): IntakeParse {
   };
 }
 
-const FALLBACK_IDEAS: Record<'wedding' | 'birthday' | 'community', Ideas> = {
+const FALLBACK_IDEAS: Record<Exclude<IntakeParse['occasion'], null>, Ideas> = {
   wedding: {
     themes: ['Marigold and ivory', 'Classic temple courtyard', 'Pastel evening'],
     activities: ['Sangeet night with family performances', 'Mehndi afternoon', 'Haldi at home'],
@@ -138,11 +140,29 @@ const FALLBACK_IDEAS: Record<'wedding' | 'birthday' | 'community', Ideas> = {
       'Thank-you board for sponsors',
     ],
   },
+  milestone: {
+    themes: ['Memory lane gallery', 'Then and now photo wall', 'Golden hour dinner'],
+    activities: [
+      'Slideshow of the years',
+      'Toastes from family and old friends',
+      'Memory jar for guests to write in',
+    ],
+    foodStyle: [
+      'The celebrant\u2019s favourite dishes',
+      'Semi-formal dinner',
+      'Fusion dessert table',
+    ],
+    personalTouches: [
+      'Photo timeline from birth to today',
+      'Video messages from faraway family',
+      'Recreated first-wedding-cake slice',
+    ],
+  },
 };
 
 /** Occasion-tuned starting points; the UI labels them as generic when the fallback answers. */
-export function fallbackIdeas(occasion: 'wedding' | 'birthday' | 'community'): Ideas {
-  return FALLBACK_IDEAS[occasion];
+export function fallbackIdeas(occasion: IntakeParse['occasion']): Ideas {
+  return FALLBACK_IDEAS[occasion ?? 'wedding'];
 }
 
 export function fallbackReview(facts: string): PlanReview {

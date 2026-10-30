@@ -13,6 +13,7 @@ const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: str
   { value: 'wedding', label: 'Wedding' },
   { value: 'birthday', label: "Kid's birthday" },
   { value: 'community', label: 'Community event' },
+  { value: 'milestone', label: 'Milestone celebration' },
 ];
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY'] as const;

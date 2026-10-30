@@ -62,6 +62,32 @@ const TEMPLATES: Readonly<Record<Occasion, readonly Template[]>> = {
     { key: 'send-invites', title: 'Announce the event', offsetDays: 28, after: 'book-main' },
     ...COMMON_TAIL,
   ],
+  milestone: [
+    {
+      key: 'set-budget',
+      title: 'Agree the budget and the guest of honour\u2019s wishes',
+      offsetDays: 90,
+    },
+    {
+      key: 'book-main',
+      title: 'Book the venue and the photographer',
+      offsetDays: 75,
+      after: 'set-budget',
+    },
+    {
+      key: 'memory-lane',
+      title: 'Collect photos and messages for the memory lane',
+      offsetDays: 40,
+      after: 'book-main',
+    },
+    {
+      key: 'send-invites',
+      title: 'Send invitations and collect RSVPs',
+      offsetDays: 35,
+      after: 'book-main',
+    },
+    ...COMMON_TAIL,
+  ],
 };
 
 /** Crowd-size milestone, added once the headcount is large enough to need it. */

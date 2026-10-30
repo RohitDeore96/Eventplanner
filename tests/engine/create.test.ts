@@ -91,3 +91,36 @@ describe('createPlan', () => {
     expect(!result.ok && result.error.field).toBe('budgetMinor');
   });
 });
+
+describe('milestone occasion (four occasion types)', () => {
+  it('creates a milestone plan with its own categories, distinct from every other occasion', () => {
+    const created = createPlan(
+      { ...BASE_INPUT, occasion: 'milestone', name: 'Mom and Dad 25th' },
+      TODAY,
+    );
+    if (!created.ok) throw new Error(created.error.message);
+    const keys = created.value.plan.categories.map((c) => c.key);
+    // Its own shape: photography and favours exist; wedding-only attire does not.
+    expect(keys).toContain('favours');
+    expect(keys).toContain('photography');
+    expect(keys).not.toContain('attire');
+    const others = (['wedding', 'birthday', 'community'] as const).map((occasion) => {
+      const other = createPlan({ ...BASE_INPUT, occasion }, TODAY);
+      if (!other.ok) throw new Error(other.error.message);
+      return other.value.plan.categories.map((c) => `${c.key}:${c.plannedMinor}`).join('|');
+    });
+    const mine = created.value.plan.categories.map((c) => `${c.key}:${c.plannedMinor}`).join('|');
+    expect(others).not.toContain(mine);
+    // Category amounts still sum exactly to the budget.
+    const total = created.value.plan.categories.reduce((sum, c) => sum + c.plannedMinor, 0);
+    expect(total).toBe(BASE_INPUT.budgetMinor);
+  });
+
+  it('generates milestone-specific tasks including the memory-lane collection', () => {
+    const created = createPlan({ ...BASE_INPUT, occasion: 'milestone' }, TODAY);
+    if (!created.ok) throw new Error(created.error.message);
+    const titles = created.value.plan.tasks.map((t) => t.title);
+    expect(titles.some((t) => t.includes('memory lane'))).toBe(true);
+    expect(titles.some((t) => t.includes('photographer'))).toBe(true);
+  });
+});

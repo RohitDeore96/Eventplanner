@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { fireEvent,  render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest';

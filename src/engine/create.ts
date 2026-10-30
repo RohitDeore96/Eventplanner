@@ -40,6 +40,15 @@ export const DEFAULT_SPLITS: Readonly<Record<Occasion, readonly SplitRow[]>> = {
     { key: 'volunteers', name: 'Volunteer support', bps: 800 },
     { key: CONTINGENCY_KEY, name: 'Contingency', bps: 1200 },
   ],
+  milestone: [
+    { key: 'venue', name: 'Venue', bps: 2500 },
+    { key: CATERING_KEY, name: 'Catering and cake', bps: 2500 },
+    { key: 'photography', name: 'Photography and portraits', bps: 1200 },
+    { key: 'decor', name: 'Decor and memory lane', bps: 1000 },
+    { key: 'entertainment', name: 'Entertainment and music', bps: 1200 },
+    { key: 'favours', name: 'Gifts and favours', bps: 800 },
+    { key: CONTINGENCY_KEY, name: 'Contingency', bps: 800 },
+  ],
 };
 
 export interface NewEventInput {
@@ -66,7 +75,11 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
   if (!name.ok) return name;
   const occasionRaw: unknown = input.occasion;
   if (typeof occasionRaw !== 'string' || !(OCCASIONS as readonly string[]).includes(occasionRaw)) {
-    return fail('INVALID_OCCASION', 'Choose one of: wedding, birthday, community.', 'occasion');
+    return fail(
+      'INVALID_OCCASION',
+      'Choose one of: wedding, birthday, community, milestone.',
+      'occasion',
+    );
   }
   const date = checkDate(input.dateISO, 'dateISO');
   if (!date.ok) return date;
