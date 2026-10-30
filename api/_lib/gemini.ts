@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { modelChain, MAX_MODEL_ATTEMPTS } from './models';
-import { systemPrompt } from './prompts';
+import { modelChain, MAX_MODEL_ATTEMPTS } from './models.js';
+import { systemPrompt } from './prompts.js';
 
 /**
  * The single AI entry point: one `fetch` call to the provider's JSON-mode REST endpoint with

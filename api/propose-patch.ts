@@ -1,7 +1,7 @@
-import { createHandler } from './_lib/http';
-import { generateJson } from './_lib/gemini';
-import { wrapUserText } from './_lib/prompts';
-import { patchProposalSchema, patchRequest } from '../src/schemas/ai';
+import { createHandler } from './_lib/http.js';
+import { generateJson } from './_lib/gemini.js';
+import { wrapUserText } from './_lib/prompts.js';
+import { patchProposalSchema, patchRequest } from '../src/schemas/ai.js';
 
 /**
  * AI patch proposal (X1). The model suggests small, allowed changes; the ENGINE dry-runs

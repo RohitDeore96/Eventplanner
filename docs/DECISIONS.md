@@ -43,9 +43,13 @@ Default category splits are basis-point constants used once at creation. Only am
 - (removed) `@google/genai` — replaced by a plain `fetch` call to the provider's JSON-mode
   REST endpoint (same contract, fewer than 40 lines of transport). The SDK pulled ~30
   transitive packages (auth, fetch polyfills, websocket clients) into every serverless
-  function, and its ESM-only layout was not fully traced into the deployed lambda, which
-  crashed every `/api/*` route with `FUNCTION_INVOCATION_FAILED` at cold start. Plain
-  `fetch` is built into Node 20+, so there is nothing left to trace.
+  function and its ESM-only layout made the deployed bundle fragile. Plain `fetch` is
+  built into Node 20+, so there is nothing left to trace.
+- (guard) Every relative import inside `api/` must end in `.js`, enforced by
+  `tests/api/imports.test.ts`. Vercel's Node runtime loads the compiled functions without
+  TypeScript's resolver, so extensionless imports crash every `/api/*` route at cold start
+  with `FUNCTION_INVOCATION_FAILED` (reproduced: the built function failed to import in
+  plain Node; after the fix the same built function imports and answers 405 in plain Node).
 - `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`,
   `vitest-axe`, `jsdom` — component and accessibility testing without a browser in the loop.
 - `fast-check` (pre-existing) — property/fuzz tests for engine and reducer robustness.

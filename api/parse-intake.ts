@@ -1,8 +1,8 @@
-import { createHandler } from './_lib/http';
-import { generateJson } from './_lib/gemini';
-import { wrapUserText } from './_lib/prompts';
-import { fallbackIntake } from './_lib/fallbacks';
-import { intakeParseSchema, parseIntakeRequest } from '../src/schemas/ai';
+import { createHandler } from './_lib/http.js';
+import { generateJson } from './_lib/gemini.js';
+import { wrapUserText } from './_lib/prompts.js';
+import { fallbackIntake } from './_lib/fallbacks.js';
+import { intakeParseSchema, parseIntakeRequest } from '../src/schemas/ai.js';
 
 /** Free-text event description -> structured intake fields (nulls when unstated). */
 export default createHandler({

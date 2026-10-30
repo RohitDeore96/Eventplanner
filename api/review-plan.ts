@@ -1,8 +1,8 @@
-import { createHandler } from './_lib/http';
-import { generateJson } from './_lib/gemini';
-import { wrapUserText } from './_lib/prompts';
-import { fallbackReview } from './_lib/fallbacks';
-import { planReviewSchema, reviewRequest } from '../src/schemas/ai';
+import { createHandler } from './_lib/http.js';
+import { generateJson } from './_lib/gemini.js';
+import { wrapUserText } from './_lib/prompts.js';
+import { fallbackReview } from './_lib/fallbacks.js';
+import { planReviewSchema, reviewRequest } from '../src/schemas/ai.js';
 
 /** Turns the engine's own facts into a two-sentence review and three next steps. */
 export default createHandler({

@@ -1,8 +1,8 @@
-import { createHandler } from './_lib/http';
-import { generateJson } from './_lib/gemini';
-import { wrapUserText } from './_lib/prompts';
-import { fallbackQuote } from './_lib/fallbacks';
-import { quoteFieldsSchema, quoteRequest } from '../src/schemas/ai';
+import { createHandler } from './_lib/http.js';
+import { generateJson } from './_lib/gemini.js';
+import { wrapUserText } from './_lib/prompts.js';
+import { fallbackQuote } from './_lib/fallbacks.js';
+import { quoteFieldsSchema, quoteRequest } from '../src/schemas/ai.js';
 
 /** Pasted vendor quote -> structured fields. Anything not stated stays null. */
 export default createHandler({

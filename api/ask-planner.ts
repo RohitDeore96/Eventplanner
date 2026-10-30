@@ -1,8 +1,8 @@
-import { createHandler } from './_lib/http';
-import { generateJson } from './_lib/gemini';
-import { wrapUserText } from './_lib/prompts';
-import { fallbackAnswer } from './_lib/fallbacks';
-import { askRequest, plannerAnswerSchema } from '../src/schemas/ai';
+import { createHandler } from './_lib/http.js';
+import { generateJson } from './_lib/gemini.js';
+import { wrapUserText } from './_lib/prompts.js';
+import { fallbackAnswer } from './_lib/fallbacks.js';
+import { askRequest, plannerAnswerSchema } from '../src/schemas/ai.js';
 
 /** Ask-the-planner chat, grounded strictly in the plan facts the client sends. */
 export default createHandler({

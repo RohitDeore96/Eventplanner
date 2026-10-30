@@ -1,4 +1,4 @@
-import type { Ideas, IntakeParse, PlanReview, QuoteFields } from '../../src/schemas/ai';
+import type { Ideas, IntakeParse, PlanReview, QuoteFields } from '../../src/schemas/ai.js';
 
 /**
  * Deterministic fallbacks: every AI feature degrades to an honest, useful answer built from
