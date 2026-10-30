@@ -4,7 +4,11 @@ import {
   buildScenario,
   SCENARIOS,
   scenarioActions,
+  stressTest,
+  stressTestActions,
+  STRESS_SPEC,
   type ScenarioId,
+  type StressReport,
 } from '../../engine/scenario';
 import type { Plan } from '../../engine/types';
 import { localToday, money } from '../../lib/format';
@@ -22,6 +26,7 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
   const [preview, setPreview] = useState<{ headline: string; lines: readonly string[] } | null>(
     null,
   );
+  const [stress, setStress] = useState<StressReport | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const spec = SCENARIOS.find((s) => s.id === selected) ?? null;
@@ -87,6 +92,32 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
     );
   }
 
+  function runStress(): void {
+    const report = stressTest(plan, today);
+    if (!report.ok) {
+      setStress(null);
+      setNotice(report.error.message);
+      return;
+    }
+    setStress(report.value);
+    setNotice(null);
+  }
+
+  function applyStress(): void {
+    const actions = stressTestActions(plan);
+    if (actions.length === 0) {
+      setNotice('Nothing to apply — the shocks do not change this plan.');
+      return;
+    }
+    const outcome = store.applyAll(actions);
+    setStress(null);
+    setNotice(
+      outcome.ok
+        ? 'Stress scenario applied as one undo step — use Undo in the header to reverse it.'
+        : (outcome.message ?? 'The stress scenario could not be applied.'),
+    );
+  }
+
   return (
     <section className="card" aria-labelledby="scenario-title">
       <h2 id="scenario-title">What-if scenarios</h2>
@@ -140,6 +171,55 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
             {preview.lines.map((line) => (
               <li key={line}>{line}</li>
             ))}
+          </ul>
+        </div>
+      )}
+      <h3>{STRESS_SPEC.label}</h3>
+      <p className="muted">{STRESS_SPEC.description} Nothing changes until you apply.</p>
+      <div className="row">
+        <button type="button" onClick={runStress}>
+          Run stress test
+        </button>
+        {stress !== null && (
+          <>
+            <button type="button" className="primary" onClick={applyStress}>
+              Apply stress scenario
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStress(null);
+              }}
+            >
+              Discard stress result
+            </button>
+          </>
+        )}
+      </div>
+      {stress !== null && (
+        <div aria-live="polite">
+          <h3>
+            {stress.survives ? 'The plan survives' : 'The plan breaks'}{' '}
+            <span className="muted">(simulated — not applied)</span>
+          </h3>
+          <ul>
+            <li>
+              Guests: {plan.guestTarget} → {stress.guestTargetAfter}
+            </li>
+            <li>
+              Budget: {money(plan.budgetMinor, plan)} → {money(stress.budgetAfter, plan)}
+            </li>
+            <li>Committed after the shocks: {money(stress.committedAfter, plan)}</li>
+            {stress.overBudgetBy > 0 && <li>Over budget by: {money(stress.overBudgetBy, plan)}</li>}
+            {stress.errorCount > 0 && (
+              <li>{stress.errorCount} error-level warning(s) would appear</li>
+            )}
+            {stress.comparison.newWarnings.length > 0 && (
+              <li>{stress.comparison.newWarnings.length} new warning(s) in total</li>
+            )}
+            {stress.comparison.resolvedWarnings.length > 0 && (
+              <li>{stress.comparison.resolvedWarnings.length} warning(s) would clear</li>
+            )}
           </ul>
         </div>
       )}

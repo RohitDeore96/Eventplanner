@@ -1,5 +1,13 @@
 import type { PlanAction, ReduceContext } from '../engine/actions';
-import { acceptPatch, applyAction, initHistory, redo, undo, type History } from '../engine/history';
+import {
+  acceptPatch,
+  applyAction,
+  applyAllActions,
+  initHistory,
+  redo,
+  undo,
+  type History,
+} from '../engine/history';
 import type { PlanPatch } from '../engine/patch';
 import type { Plan } from '../engine/types';
 import type { Result } from '../engine/result';
@@ -51,18 +59,11 @@ export function planReducer(state: PlanState, event: PlanEvent, today: string): 
     }
     case 'applyAll': {
       // A batch (scenario, accepted quotation) folds into ONE history entry: it either
-      // applies in order or stops at the first rejection, and Undo reverses all of it.
-      let history = state.history;
-      let lastError: PlanState['lastError'] = null;
-      for (const action of event.actions) {
-        const next = applyAction(history, action, context);
-        if (!next.ok) {
-          lastError = failure(next);
-          break;
-        }
-        history = next.value;
-      }
-      return lastError === null ? { history, lastError: null } : { ...state, lastError };
+      // applies in order or nothing changes, and Undo reverses all of it at once.
+      const next = applyAllActions(state.history, event.actions, context);
+      return next.ok
+        ? { history: next.value, lastError: null }
+        : { ...state, lastError: failure(next) };
     }
     case 'patch': {
       const next = acceptPatch(state.history, event.patch, context);

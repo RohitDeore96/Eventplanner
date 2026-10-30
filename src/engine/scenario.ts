@@ -229,3 +229,59 @@ export function buildScenario(plan: Plan, id: ScenarioId, today: ISODate): Resul
   }
   return ok(current);
 }
+
+/**
+ * X6 stress test: the three shocks a family fears most land AT ONCE — 20% more guests,
+ * 10% pricier vendors and a 15% smaller budget. Composed from the very same engine actions
+ * as the individual scenarios, so what the preview shows is exactly what Apply runs.
+ */
+export const STRESS_SPEC: { readonly label: string; readonly description: string } = {
+  label: 'Full stress test',
+  description: 'Guests +20%, vendor prices +10% and budget −15% hit at the same time.',
+};
+
+export function stressTestActions(plan: Plan): readonly PlanAction[] {
+  return [
+    ...scenarioActions(plan, 'guests-up-20'),
+    ...scenarioActions(plan, 'vendor-up-10'),
+    ...scenarioActions(plan, 'budget-down-15'),
+  ];
+}
+
+export interface StressReport {
+  readonly comparison: PlanComparison;
+  readonly budgetAfter: number;
+  readonly committedAfter: number;
+  readonly guestTargetAfter: number;
+  /** committedAfter − budgetAfter when positive, else 0. */
+  readonly overBudgetBy: number;
+  /** Error-severity warnings after the shock (over-committed, overspent categories…). */
+  readonly errorCount: number;
+  readonly warningCount: number;
+  /** No error-severity warning and nothing over budget after all three shocks. */
+  readonly survives: boolean;
+}
+
+/** Runs all three shocks on a COPY and reports whether the plan survives them. */
+export function stressTest(plan: Plan, today: ISODate): Result<StressReport> {
+  let current: Plan = plan;
+  for (const action of stressTestActions(plan)) {
+    const next = reducePlan(current, action, { today });
+    if (!next.ok) return fail(next.error.code, next.error.message, next.error.field);
+    current = next.value;
+  }
+  const warnings = computeWarnings(current, today);
+  const totals = budgetTotals(current);
+  const errorCount = warnings.filter((w) => w.severity === 'error').length;
+  const overBudgetBy = Math.max(0, totals.committed - totals.budget);
+  return ok({
+    comparison: comparePlans(plan, current, today),
+    budgetAfter: totals.budget,
+    committedAfter: totals.committed,
+    guestTargetAfter: current.guestTarget,
+    overBudgetBy,
+    errorCount,
+    warningCount: warnings.length,
+    survives: errorCount === 0 && overBudgetBy === 0,
+  });
+}

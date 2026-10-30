@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildScenario, comparePlans, SCENARIOS, scenarioActions } from '../../src/engine/scenario';
+import {
+  buildScenario,
+  comparePlans,
+  SCENARIOS,
+  scenarioActions,
+  stressTest,
+  stressTestActions,
+} from '../../src/engine/scenario';
 import { budgetTotals } from '../../src/engine/budget';
-import { deepFreeze, makePlan, TODAY } from '../helpers';
+import { deepFreeze, makePlan, run, TODAY, catId } from '../helpers';
 import { buildDemoPlan } from '../../src/state/demo';
 
 /**
@@ -84,5 +91,84 @@ describe('scenario planning (X2)', () => {
         comparison.categories.some((c) => c.plannedBefore !== c.plannedAfter);
       expect(touched).toBe(true);
     }
+  });
+});
+
+describe('stress test (X6)', () => {
+  it('hits the plan with all three shocks at once: guests ×1.2, budget ×0.85, vendors ×1.1', () => {
+    const plan = deepFreeze(makePlan());
+    const report = stressTest(plan, TODAY);
+    expect(report.ok).toBe(true);
+    if (!report.ok) return;
+    const after = report.value;
+    expect(after.guestTargetAfter).toBe(Math.round(plan.guestTarget * 1.2));
+    expect(after.budgetAfter).toBe(Math.round(plan.budgetMinor * 0.85));
+    // The planned split still sums exactly to the shrunk budget.
+    const scaled = buildScenario(plan, 'budget-down-15', TODAY);
+    expect(scaled.ok).toBe(true);
+    if (scaled.ok) {
+      expect(budgetTotals(scaled.value).planned).toBe(after.budgetAfter);
+    }
+    expect(after.committedAfter).toBeGreaterThanOrEqual(0);
+  });
+
+  it('raises every booked vendor price by exactly 10% alongside the other shocks', () => {
+    const plan = makePlan();
+    const withVendor = run(plan, {
+      type: 'vendor/add',
+      id: 'v1',
+      categoryId: catId(plan, 'venue'),
+      name: 'Grand Hall',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 10_000_000,
+    });
+    const report = stressTest(withVendor, TODAY);
+    expect(report.ok).toBe(true);
+    if (!report.ok) return;
+    expect(report.value.comparison.committedDelta).toBe(1_000_000); // 10% of 10,000,000
+  });
+
+  it('a plan with no slack breaks loudly: over budget with an error warning', () => {
+    // Commit nearly the whole budget to vendors, then take the shocks: committed stays
+    // high while the budget shrinks 15%, so the plan must report it is broken.
+    const plan = makePlan({ budgetMinor: 10_000_000 });
+    const committed = run(plan, {
+      type: 'vendor/add',
+      id: 'v1',
+      categoryId: catId(plan, 'venue'),
+      name: 'Grand Hall',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 9_500_000,
+    });
+    const report = stressTest(committed, TODAY);
+    expect(report.ok).toBe(true);
+    if (!report.ok) return;
+    expect(report.value.survives).toBe(false);
+    // 9.5M × 1.1 = 10.45M against a 8.5M budget after the −15% shock.
+    expect(report.value.overBudgetBy).toBe(10_450_000 - 8_500_000);
+    expect(report.value.errorCount).toBeGreaterThan(0);
+  });
+
+  it('a plan with generous headroom survives all three shocks', () => {
+    // No vendors, no expenses: nothing committed, so a −15% budget cannot over-commit.
+    const plan = makePlan();
+    const report = stressTest(plan, TODAY);
+    expect(report.ok).toBe(true);
+    if (!report.ok) return;
+    expect(report.value.survives).toBe(true);
+    expect(report.value.overBudgetBy).toBe(0);
+    expect(report.value.errorCount).toBe(0);
+  });
+
+  it('never mutates the caller’s plan and reuses the exact applyable actions', () => {
+    const plan = deepFreeze(makePlan());
+    const snapshot = JSON.stringify(plan);
+    const report = stressTest(plan, TODAY);
+    expect(report.ok).toBe(true);
+    expect(JSON.stringify(plan)).toBe(snapshot);
+    // The actions the UI would apply are precisely the composed three shock lists.
+    expect(stressTestActions(plan).length).toBeGreaterThan(0);
   });
 });

@@ -3,9 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { PlanContext, type Store } from '../../src/state/store';
-import { initPlanState, planReducer, type PlanState } from '../../src/state/planState';
-import { applyAction } from '../../src/engine/history';
-import { makePlan, TODAY } from '../helpers';
+import { initPlanState, planReducer } from '../../src/state/planState';
+import { applyAllActions } from '../../src/engine/history';
+import { makePlan, run, TODAY, catId } from '../helpers';
 import { buildDemoPlan } from '../../src/state/demo';
 import { useState } from 'react';
 import { ScenarioPanel } from '../../src/ui/views/ScenarioPanel';
@@ -32,21 +32,12 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
         : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
     },
     applyAll: (actions) => {
-      let rolling = state.history;
-      let error: PlanState['lastError'] = null;
-      for (const action of actions) {
-        const next = applyAction(rolling, action, { today: TODAY });
-        if (!next.ok) {
-          error = next.error;
-          break;
-        }
-        rolling = next.value;
-      }
-      if (error === null) {
-        setState({ history: rolling, lastError: null });
+      const next = applyAllActions(state.history, actions, { today: TODAY });
+      if (next.ok) {
+        setState({ history: next.value, lastError: null });
         return { ok: true, message: null };
       }
-      return { ok: false, message: error.message, field: error.field ?? '' };
+      return { ok: false, message: next.error.message, field: next.error.field ?? '' };
     },
     replace: () => undefined,
     undo: () => {
@@ -60,6 +51,9 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
     <PlanContext.Provider value={store}>
       <ScenarioPanel plan={state.history.present} />
       <p data-testid="budget-now">Budget now: {state.history.present.budgetMinor}</p>
+      <button type="button" onClick={store.undo}>
+        Undo
+      </button>
     </PlanContext.Provider>
   );
 }
@@ -144,5 +138,58 @@ describe('scenario panel coverage extras', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/No measurable change/).length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('stress test panel (X6 UI)', () => {
+  it('runs the combined shocks, shows the verdict, and applies as one undo step', async () => {
+    const user = userEvent.setup();
+    render(<Harness seed={makePlan()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Run stress test' }));
+    await waitFor(() => {
+      expect(screen.getByText(/The plan survives/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/simulated — not applied/)).toBeInTheDocument();
+    expect(screen.getByText(/Guests: 120 → 144/)).toBeInTheDocument();
+
+    // The plan is untouched while the result is on screen.
+    expect(screen.getByTestId('budget-now').textContent).toContain(
+      `Budget now: ${makePlan().budgetMinor}`,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Apply stress scenario' }));
+    await waitFor(() => {
+      expect(screen.getByText(/Stress scenario applied/)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('budget-now').textContent).not.toContain(
+      `Budget now: ${makePlan().budgetMinor}`,
+    );
+
+    // One undo step reverses the whole combined shock.
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByTestId('budget-now').textContent).toContain(
+      `Budget now: ${makePlan().budgetMinor}`,
+    );
+  });
+
+  it('tells the truth when the shocks break the plan', async () => {
+    const user = userEvent.setup();
+    const tight = makePlan({ budgetMinor: 10_000_000 });
+    const committed = run(tight, {
+      type: 'vendor/add',
+      id: 'v1',
+      categoryId: catId(tight, 'venue'),
+      name: 'Grand Hall',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 9_500_000,
+    });
+    render(<Harness seed={committed} />);
+    await user.click(screen.getByRole('button', { name: 'Run stress test' }));
+    await waitFor(() => {
+      expect(screen.getByText(/The plan breaks/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Over budget by:/)).toBeInTheDocument();
   });
 });

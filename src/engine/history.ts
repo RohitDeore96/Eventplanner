@@ -29,6 +29,24 @@ export function applyAction(
   return next.ok ? ok(push(history, next.value)) : next;
 }
 
+/**
+ * A batch of actions (scenario, accepted quotation) folds into ONE undo step, however
+ * many actions it contains: either every action applies in order, or nothing changes.
+ */
+export function applyAllActions(
+  history: History,
+  actions: readonly PlanAction[],
+  context: ReduceContext,
+): Result<History> {
+  let present = history.present;
+  for (const action of actions) {
+    const next = reducePlan(present, action, context);
+    if (!next.ok) return next;
+    present = next.value;
+  }
+  return ok(push(history, present));
+}
+
 /** An accepted AI patch is one undo step, however many actions it contains. */
 export function acceptPatch(
   history: History,
