@@ -100,5 +100,10 @@ export function IntakeBox({
 
 /** Guard so a bad cast can never leak into the typed prefill. */
 export function asOccasion(value: string): Occasion | null {
-  return value === 'wedding' || value === 'birthday' || value === 'community' ? value : null;
+  return value === 'wedding' ||
+    value === 'birthday' ||
+    value === 'community' ||
+    value === 'milestone'
+    ? value
+    : null;
 }

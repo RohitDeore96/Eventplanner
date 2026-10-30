@@ -153,6 +153,41 @@ describe('intake prefill with sparse AI replies', () => {
 });
 
 describe('intake prefill guards', () => {
+  it('applies a detected milestone occasion (regression: the guard used to drop it)', async () => {
+    localStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: unknown): Promise<Response> => {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: null,
+              occasion: 'milestone',
+              dateISO: null,
+              guests: 80,
+              budgetMinor: null,
+              notes: null,
+              source: 'built-in',
+            }),
+            { status: 200 },
+          ),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(
+      screen.getByLabelText(/For example: "Shaadi in Pune/),
+      'silver jubilee party for 80 people',
+    );
+    await user.click(screen.getByRole('button', { name: 'Fill form from description' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Occasion')).toHaveValue('milestone');
+    });
+    expect(screen.getByText(/Filled milestone/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
   it('ignores an occasion value outside the supported set instead of applying it', async () => {
     localStorage.clear();
     vi.stubGlobal(
