@@ -30,13 +30,17 @@ export function isValidMinor(value: unknown): value is Minor {
 }
 
 /**
- * Parse a user-typed major-unit amount ("1250.50") into minor units without touching floats.
- * Returns null for negatives, thousands separators, too many decimals, or values over the cap.
+ * Parse a user-typed major-unit amount ("1250.50", "8,00,000", "1,250.50") into minor
+ * units without touching floats. Indian or western comma grouping is accepted between
+ * digits; commas must sit between digits (never leading, trailing or doubled), so
+ * ",800", "800," and "8,,00" stay invalid. Returns null for negatives, too many
+ * decimals, or values over the cap.
  */
 export function parseMajorAmount(input: string, currency: string): Minor | null {
   const exponent = currencyExponent(currency);
   if (exponent === null) return null;
-  const match = DECIMAL_PATTERN.exec(input.trim());
+  const normalized = input.trim().replace(/(\d),(?=\d)/g, '$1');
+  const match = DECIMAL_PATTERN.exec(normalized);
   if (!match) return null;
   const whole = match[1] ?? '';
   const fraction = match[2] ?? '';

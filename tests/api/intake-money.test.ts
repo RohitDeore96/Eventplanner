@@ -54,6 +54,17 @@ describe('money: majorToMinor is the single conversion', () => {
     expect(parseMajorAmount('50000', 'JPY')).toBe(50000);
     expect(parseMajorAmount('800000.555', 'INR')).toBeNull(); // more decimals than the exponent
   });
+
+  it('accepts Indian comma grouping in the typed form (M1: one canonical path)', () => {
+    expect(parseMajorAmount('8,00,000', 'INR')).toBe(80_000_000);
+    expect(parseMajorAmount('80,000', 'INR')).toBe(8_000_000);
+    expect(parseMajorAmount('1,23,456.78', 'INR')).toBe(12_345_678);
+    expect(parseMajorAmount('1,000', 'INR')).toBe(100_000);
+    // Commas must sit between digits: leading, trailing and doubled commas stay invalid.
+    expect(parseMajorAmount(',800', 'INR')).toBeNull();
+    expect(parseMajorAmount('800,', 'INR')).toBeNull();
+    expect(parseMajorAmount('8,,00', 'INR')).toBeNull();
+  });
 });
 
 describe('intake fallback: the amount reader returns MAJOR units', () => {

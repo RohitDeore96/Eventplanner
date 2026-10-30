@@ -36,7 +36,6 @@ describe('parseMajorAmount', () => {
   });
   it.each([
     ['-5', 'USD'],
-    ['1,000', 'USD'],
     ['1.234', 'USD'],
     ['1.5', 'JPY'],
     ['abc', 'USD'],
@@ -47,6 +46,11 @@ describe('parseMajorAmount', () => {
     ['10000000000.01', 'USD'],
   ])('rejects %s %s', (input, currency) => {
     expect(parseMajorAmount(input, currency)).toBeNull();
+  });
+  it('accepts comma grouping between digits (Indian and western) in any currency', () => {
+    expect(parseMajorAmount('1,000', 'USD')).toBe(100_000);
+    expect(parseMajorAmount('8,00,000', 'INR')).toBe(80_000_000);
+    expect(parseMajorAmount('1,00,000', 'INR')).toBe(10_000_000);
   });
   it('accepts exactly the maximum', () => {
     expect(parseMajorAmount('10000000000.00', 'USD')).toBe(MAX_AMOUNT_MINOR);
