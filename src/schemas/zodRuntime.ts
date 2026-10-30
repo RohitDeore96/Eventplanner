@@ -11,4 +11,4 @@ import { z } from 'zod';
 z.core.globalConfig.jitless = true;
 
 /** Marker export: keeps this file an ES module for side-effect-only imports. */
-export const JITLESS_ENABLED = true;
+export {};
