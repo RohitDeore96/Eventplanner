@@ -1,3 +1,11 @@
+import type {
+  IntakeParse,
+  Ideas,
+  PatchProposal,
+  PlanReview,
+  PlannerAnswer,
+  QuoteFields,
+} from '../schemas/ai';
 import { errorBodySchema } from '../schemas/ai';
 
 /**
@@ -45,33 +53,24 @@ async function post<T extends { source?: string }>(
 }
 
 export const aiClient = {
-  parseIntake: (
-    text: string,
-  ): Promise<AiReply<import('../schemas/ai').IntakeParse & { source: string }>> =>
+  parseIntake: (text: string): Promise<AiReply<IntakeParse & { source: string }>> =>
     post('/api/parse-intake', { text }),
   ideas: (
     occasion: string,
     vibe: string,
     guests: number,
-  ): Promise<AiReply<import('../schemas/ai').Ideas & { source: string }>> =>
+  ): Promise<AiReply<Ideas & { source: string }>> =>
     post('/api/suggest-ideas', { occasion, vibe, guests }),
-  review: (
-    facts: string,
-  ): Promise<AiReply<import('../schemas/ai').PlanReview & { source: string }>> =>
+  review: (facts: string): Promise<AiReply<PlanReview & { source: string }>> =>
     post('/api/review-plan', { facts }),
-  ask: (
-    question: string,
-    facts: string,
-  ): Promise<AiReply<import('../schemas/ai').PlannerAnswer & { source: string }>> =>
+  ask: (question: string, facts: string): Promise<AiReply<PlannerAnswer & { source: string }>> =>
     post('/api/ask-planner', { question, facts }),
-  extractQuote: (
-    text: string,
-  ): Promise<AiReply<import('../schemas/ai').QuoteFields & { source: string }>> =>
+  extractQuote: (text: string): Promise<AiReply<QuoteFields & { source: string }>> =>
     post('/api/extract-quote', { text }),
   proposePatch: (
     instruction: string,
     facts: string,
     today: string,
-  ): Promise<AiReply<import('../schemas/ai').PatchProposal & { source: string }>> =>
+  ): Promise<AiReply<PatchProposal & { source: string }>> =>
     post('/api/propose-patch', { instruction, facts, today }),
 };

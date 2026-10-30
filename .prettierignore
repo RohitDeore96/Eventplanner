@@ -3,3 +3,5 @@ coverage
 reports
 .stryker-tmp
 package-lock.json
+docs/METRICS.md
+dist/

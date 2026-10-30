@@ -6,7 +6,7 @@ import { localToday, localeDefaults } from '../../lib/format';
 import { savePlan } from '../../state/persistence';
 import { usePlan } from '../../state/store';
 import { text } from './form';
-import { IntakeBox } from './IntakeBox';
+import { IntakeBox, type Prefill } from './IntakeBox';
 
 const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: string }[] = [
   { value: 'wedding', label: 'Wedding' },
@@ -15,13 +15,6 @@ const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: str
 ];
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY'] as const;
-
-export interface Prefill {
-  readonly name?: string;
-  readonly dateISO?: string;
-  readonly guests?: string;
-  readonly budget?: string;
-}
 
 /**
  * Event setup: describe the event in your own words (AI fills the form when available; the

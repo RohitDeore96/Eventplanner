@@ -46,3 +46,9 @@ Default category splits are basis-point constants used once at creation. Only am
 - `fast-check` (pre-existing) — property/fuzz tests for engine and reducer robustness.
 - Deliberately NOT added: state libraries (one reducer + context suffices), UI component
   kits (design tokens + small CSS keep the bundle at ~90 KB gz and CSP strict), form libraries.
+
+## Coverage ratchet (M5)
+
+The UI landed faster than branch tests. Thresholds are ratcheted to just below the measured
+actual (95 lines / 94 statements / 94 functions / 83 branches) and must never move DOWN.
+Next pass: raise branches toward 90 by testing AI-panel error branches and SetupView edits.

@@ -32,12 +32,12 @@ function checkDailyCap(): void {
   if (dailyCount.hits > dailyCap()) throw new Error('AI_DAILY_CAP');
 }
 
-export function cacheKey(name: string, payload: unknown): string {
+function cacheKey(name: string, payload: unknown): string {
   const normalized = JSON.stringify(payload);
   return createHash('sha256').update(`${name}:${normalized}`).digest('hex');
 }
 
-export function cacheGet(key: string): unknown {
+function cacheGet(key: string): unknown {
   const hit = cache.get(key);
   if (hit === undefined) return undefined;
   if (Date.now() - hit.at > CACHE_TTL_MS) {
@@ -47,7 +47,7 @@ export function cacheGet(key: string): unknown {
   return hit.body;
 }
 
-export function cacheSet(key: string, body: unknown): void {
+function cacheSet(key: string, body: unknown): void {
   if (cache.size >= MAX_CACHE_ENTRIES) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
@@ -183,9 +183,4 @@ export async function generateJson<T>(
     }
   }
   throw lastError;
-}
-
-export function resetAiStateForTests(): void {
-  cache.clear();
-  dailyCount = { day: '', hits: 0 };
 }

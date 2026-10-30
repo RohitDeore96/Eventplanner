@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { aiClient } from '../../lib/aiClient';
-import type { Prefill } from './SetupView';
+
+export interface Prefill {
+  readonly name?: string;
+  readonly dateISO?: string;
+  readonly guests?: string;
+  readonly budget?: string;
+}
 
 /**
  * "Describe your event" box. Calls /api/parse-intake; with no key or AI down, the endpoint's

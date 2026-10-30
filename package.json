@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "format": "prettier --check .",
+    "format": "prettier --check . --ignore-path .prettierignore",
     "format:write": "prettier --write .",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",

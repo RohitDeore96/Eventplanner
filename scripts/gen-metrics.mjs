@@ -5,7 +5,7 @@
  * Run: node scripts/gen-metrics.mjs
  */
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
 
 function run(command, label) {
   try {

@@ -7,10 +7,10 @@ import { z } from 'zod';
  * minor units that the ENGINE will re-check against the plan before anything is applied.
  */
 
-export const INTAKE_MAX_CHARS = 1000;
-export const QUOTE_MAX_CHARS = 6000;
-export const QUESTION_MAX_CHARS = 500;
-export const INSTRUCTION_MAX_CHARS = 400;
+const INTAKE_MAX_CHARS = 1000;
+const QUOTE_MAX_CHARS = 6000;
+const QUESTION_MAX_CHARS = 500;
+const INSTRUCTION_MAX_CHARS = 400;
 
 export const intakeParseSchema = z.object({
   name: z.string().max(80).nullable(),

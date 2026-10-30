@@ -7,10 +7,10 @@ import { z } from 'zod';
  * Handlers stay thin: guard, validate, run, validate, respond.
  */
 
-export const BODY_LIMIT_BYTES = 8 * 1024;
-export const RATE_LIMIT_REQUESTS = 20;
-export const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-export const AI_TIMEOUT_MS = 15_000;
+const BODY_LIMIT_BYTES = 8 * 1024;
+const RATE_LIMIT_REQUESTS = 20;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const AI_TIMEOUT_MS = 15_000;
 
 export type ApiRequest = IncomingMessage & { body?: unknown };
 export type ApiResponse = ServerResponse;
@@ -23,19 +23,15 @@ export interface RouteConfig<T> {
   readonly run: (input: T, context: RunContext) => Promise<unknown>;
 }
 
-export interface RunContext {
+interface RunContext {
   readonly signal: AbortSignal;
 }
 
-interface RateState {
-  readonly hits: number[];
-}
-
-/** Per-instance, best-effort rate limit; shared stores can replace `storeFor` later. */
+/** Per-instance, best-effort rate limit; a shared store can replace this later. */
 const buckets = new Map<string, RateState>();
 
-export function rateLimitStateForTests(): Map<string, RateState> {
-  return buckets;
+interface RateState {
+  readonly hits: number[];
 }
 
 function clientIp(req: ApiRequest): string {
@@ -58,7 +54,7 @@ function isRateLimited(ip: string, now: number): boolean {
   return false;
 }
 
-export function sendJson(res: ApiResponse, status: number, body: unknown): void {
+function sendJson(res: ApiResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');

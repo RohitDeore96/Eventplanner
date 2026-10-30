@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { summarize } from '../../engine/summary';
 import type { Plan } from '../../engine/types';
 import { localToday } from '../../lib/format';
+import { planFacts } from '../../lib/facts';
 import { aiClient, type AiReply } from '../../lib/aiClient';
 import { AiPatchPanel } from './AiPatchPanel';
 
@@ -16,7 +16,6 @@ type IdeasReply = AiReply<{
 /** The assistant: plan review, ask-the-planner, ideas, and the AI patch flow (X1). */
 export function AssistantView({ plan }: { plan: Plan }) {
   const today = useMemo(() => localToday(), []);
-  const summary = useMemo(() => summarize(plan, today), [plan, today]);
   const [review, setReview] = useState<AiReply<{
     summary: string;
     nextSteps: string[];
@@ -33,7 +32,7 @@ export function AssistantView({ plan }: { plan: Plan }) {
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [ideasNotice, setIdeasNotice] = useState<string | null>(null);
 
-  const facts = useMemo(() => buildFacts(summary, plan, today), [summary, plan, today]);
+  const facts = useMemo(() => planFacts(plan, today), [plan, today]);
 
   async function runReview() {
     setReviewBusy(true);
@@ -184,21 +183,4 @@ function IdeasList({ title, items }: { title: string; items: readonly string[] }
       </ul>
     </div>
   );
-}
-
-function buildFacts(summary: ReturnType<typeof summarize>, plan: Plan, today: string): string {
-  const lines = [
-    `Event: ${plan.name} (${plan.occasion}) on ${plan.dateISO}; ${summary.readiness.daysToEvent ?? '?'} days away (today ${today}).`,
-    `Budget: remaining ${summary.totals.remaining} minor units of ${summary.totals.budget}; committed ${summary.totals.committed}; paid ${summary.totals.paid}.`,
-    `Guests: ${summary.catering.headcount} to cater (${summary.catering.basis}).`,
-    `Tasks: ${summary.readiness.tasksDone}/${summary.readiness.tasksTotal} done, ${summary.readiness.overdue} overdue.`,
-  ];
-  if (summary.warnings.length > 0) {
-    lines.push(
-      `Warnings: ${summary.warnings.map((warning) => `${warning.severity} — ${warning.message} Fix: ${warning.fix}`).join(' || ')}`,
-    );
-  } else {
-    lines.push('Warnings: none.');
-  }
-  return lines.join('\n');
 }

@@ -227,7 +227,7 @@ function quoteFlags(result: ExtractedQuote | null, plan: Plan): string[] {
   return flags;
 }
 
-export function QuoteBox({ plan }: { plan: Plan }): React.ReactNode {
+function QuoteBox({ plan }: { plan: Plan }): React.ReactNode {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{
@@ -255,7 +255,7 @@ export function QuoteBox({ plan }: { plan: Plan }): React.ReactNode {
     }
   }
 
-  const flags = result === null ? quoteFlags(result, plan) : [];
+  const flags = quoteFlags(result, plan);
 
   return (
     <section className="card" aria-labelledby="quote-title">

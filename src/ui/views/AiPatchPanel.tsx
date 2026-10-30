@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { dryRunPatch, type PatchAction, type PlanPatch } from '../../engine/patch';
-import { summarize } from '../../engine/summary';
 import type { Plan } from '../../engine/types';
 import { localToday, money } from '../../lib/format';
+import { planFacts } from '../../lib/facts';
 import { aiClient } from '../../lib/aiClient';
 import { patchActionsFromProposal } from '../../schemas/patchBridge';
 import { usePlan } from '../../state/store';
@@ -25,7 +25,7 @@ export function AiPatchPanel({ plan }: { plan: Plan }) {
     setNotice(null);
     setPending(null);
     try {
-      const reply = await aiClient.proposePatch(instruction, planFactsText(plan, today), today);
+      const reply = await aiClient.proposePatch(instruction, planFacts(plan, today), today);
       const proposal = reply.body;
       const actions: PatchAction[] = patchActionsFromProposal(proposal);
       const patch: PlanPatch = { summary: proposal.summary, actions };
@@ -151,14 +151,4 @@ export function AiPatchPanel({ plan }: { plan: Plan }) {
       )}
     </section>
   );
-}
-
-function planFactsText(plan: Plan, today: string): string {
-  const summary = summarize(plan, today);
-  return [
-    `Budget remaining: ${money(summary.totals.remaining, plan)}. Planned: ${money(summary.totals.planned, plan)}.`,
-    `Categories: ${summary.categories.map((c) => `${c.name} (${money(c.planned, plan)})`).join(', ')}.`,
-    `Tasks (${summary.readiness.tasksTotal}): ${plan.tasks.map((task) => `${task.title} due ${task.dueISO}${task.done ? ' (done)' : ''}`).join('; ')}.`,
-    `Event date: ${plan.dateISO}. Today: ${today}.`,
-  ].join('\n');
 }
