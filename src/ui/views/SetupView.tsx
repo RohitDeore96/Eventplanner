@@ -9,7 +9,7 @@ import { usePlan } from '../../state/store';
 import { text } from './form';
 import { IntakeBox, asOccasion, type Prefill } from './IntakeBox';
 
-const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: string }[] = [
+export const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: string }[] = [
   { value: 'wedding', label: 'Wedding' },
   { value: 'birthday', label: "Kid's birthday" },
   { value: 'community', label: 'Community event' },

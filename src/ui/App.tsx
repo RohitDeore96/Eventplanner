@@ -2,7 +2,15 @@ import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { summarize } from '../engine/summary';
 import type { Plan } from '../engine/types';
 import { localToday } from '../lib/format';
-import { clearSavedPlan, loadSavedState, savePlan, type RecoveryInfo } from '../state/persistence';
+import {
+  clearSavedPlan,
+  savePlan,
+  loadWorkspace,
+  saveWorkspace,
+  type RecoveryInfo,
+  type Workspace,
+} from '../state/persistence';
+import { MAX_EVENTS } from '../config/limits';
 import { buildDemoPlan } from '../state/demo';
 import { exportCsv, exportJson, exportTextFile } from '../lib/export';
 import { PlanContext, usePlanStore } from '../state/store';
@@ -14,11 +22,21 @@ import { AssistantView } from './views/AssistantView';
 import { VendorsView } from './views/VendorsView';
 import { CashflowView } from './views/CashflowView';
 import { ActivityView } from './views/ActivityView';
+import { EventsView } from './views/EventsView';
 
 type TabId =
-  'setup' | 'budget' | 'timeline' | 'guests' | 'vendors' | 'cashflow' | 'activity' | 'assistant';
+  | 'events'
+  | 'setup'
+  | 'budget'
+  | 'timeline'
+  | 'guests'
+  | 'vendors'
+  | 'cashflow'
+  | 'activity'
+  | 'assistant';
 
 const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
+  { id: 'events', label: 'All events' },
   { id: 'setup', label: 'Event' },
   { id: 'budget', label: 'Budget' },
   { id: 'timeline', label: 'Timeline' },
@@ -92,6 +110,7 @@ function HeaderControls({
   store: ReturnType<typeof usePlanStore>;
   hasPlan: boolean;
 }): React.ReactNode {
+  const [confirmReset, setConfirmReset] = useState(false);
   return (
     <div className="row">
       {!hasPlan && (
@@ -155,12 +174,33 @@ function HeaderControls({
         <button
           type="button"
           onClick={() => {
-            clearSavedPlan();
-            window.location.reload();
+            setConfirmReset(true);
           }}
         >
           Reset
         </button>
+      )}
+      {hasPlan && confirmReset && (
+        <>
+          <button
+            type="button"
+            className="danger"
+            onClick={() => {
+              clearSavedPlan();
+              window.location.reload();
+            }}
+          >
+            Delete every saved event
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmReset(false);
+            }}
+          >
+            Keep my events
+          </button>
+        </>
       )}
     </div>
   );
@@ -184,7 +224,7 @@ function TabList({
           id={`tab-${tab.id}`}
           aria-selected={active === tab.id}
           aria-controls={`panel-${tab.id}`}
-          disabled={!hasPlan && tab.id !== 'setup'}
+          disabled={!hasPlan && tab.id !== 'setup' && tab.id !== 'events'}
           onClick={() => {
             onSelect(tab.id);
           }}
@@ -199,18 +239,41 @@ function TabList({
 function ViewSwitch({
   view,
   hasPlan,
+  creatingNew,
   plan,
+  events,
+  activeId,
+  onOpen,
+  onDelete,
+  onNew,
   onCreated,
 }: {
   view: TabId;
   hasPlan: boolean;
+  creatingNew: boolean;
   plan: Plan;
+  events: readonly Plan[];
+  activeId: string | null;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
   onCreated: () => void;
 }): React.ReactNode {
   if (!hasPlan || view === 'setup') {
-    return <SetupView onCreated={onCreated} plan={hasPlan ? plan : null} />;
+    return <SetupView onCreated={onCreated} plan={hasPlan && !creatingNew ? plan : null} />;
   }
   switch (view) {
+    case 'events':
+      return (
+        <EventsView
+          events={events}
+          activeId={activeId}
+          onOpen={onOpen}
+          onDelete={onDelete}
+          onNew={onNew}
+          canCreate={events.length < MAX_EVENTS}
+        />
+      );
     case 'timeline':
       return <TimelineView plan={plan} />;
     case 'guests':
@@ -231,11 +294,10 @@ function ViewSwitch({
 }
 
 const RECOVERY_REASONS: Record<RecoveryInfo['reason'], string> = {
-  unreadable: 'The saved plan in this browser is not readable (the data is corrupted).',
-  too_large: 'The saved plan in this browser is too large to load.',
+  unreadable: 'The saved events in this browser are not readable (the data is corrupted).',
+  too_large: 'The saved events in this browser are too large to load.',
   newer_version:
-    'The saved plan was written by a newer version of Utsav, so it was not loaded here.',
-  invalid: 'The saved plan failed its safety checks, so it was not loaded into the app.',
+    'The saved events were written by a newer version of Utsav, so they were not loaded here.',
 };
 
 /**
@@ -274,23 +336,63 @@ function RecoveryNotice({ recovery }: { recovery: RecoveryInfo }): React.ReactNo
   );
 }
 
-function Shell({ plan, recovery }: { plan: Plan | null; recovery: RecoveryInfo | null }) {
-  const store = usePlanStore(localToday(), plan);
-  const [hasPlan, setHasPlan] = useState(plan !== null);
-  const [tab, setTab] = useState<TabId>(plan === null ? 'setup' : 'budget');
+function Shell({ workspace }: { workspace: Workspace }) {
+  const seed = workspace.plans.find((p) => p.id === workspace.activeId) ?? null;
+  const store = usePlanStore(localToday(), seed);
+  const [events, setEvents] = useState<readonly Plan[]>(workspace.plans);
+  const [activeId, setActiveId] = useState<string | null>(workspace.activeId);
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [tab, setTab] = useState<TabId>(seed === null ? 'setup' : 'budget');
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
-  // The store owns the plan from here on; the prop is only the seed (saved plan or null).
+  // The store owns the ACTIVE plan from here on; `events` mirrors what storage holds.
   const current = store.state.history.present;
-  const view = !hasPlan ? 'setup' : tab;
+  const hasPlan = activeId !== null && events.some((p) => p.id === activeId);
+  const droppedNotice =
+    workspace.droppedInvalid > 0
+      ? `${workspace.droppedInvalid} saved event(s) failed their safety checks and were not loaded.`
+      : null;
 
-  // Autosave follows the ACTIVE plan's lifecycle, not the seed prop: once a plan exists
-  // (created in this session or loaded), every change, undo and redo is saved. A failed
-  // write surfaces a clear, recoverable message instead of being swallowed.
+  // Autosave follows the ACTIVE plan's lifecycle: every change, undo, redo and event
+  // switch writes the whole workspace, with `current` replacing its own stored copy.
   useEffect(() => {
     if (!hasPlan) return;
-    const status = savePlan(current);
+    const plans = events.map((p) => (p.id === activeId ? current : p));
+    const status = saveWorkspace(plans, activeId);
     setSaveNotice(status.ok ? null : (status.reason ?? 'Your latest change was not saved.'));
-  }, [current, hasPlan]);
+  }, [current, hasPlan, events, activeId]);
+
+  function openEvent(id: string): void {
+    const target = events.find((p) => p.id === id);
+    if (target === undefined) return;
+    // Persist the plan we are leaving under ITS id first, then move the active marker.
+    const withCurrent = events.map((p) => (p.id === activeId ? current : p));
+    saveWorkspace(withCurrent, id);
+    setEvents(withCurrent);
+    setActiveId(id);
+    setCreatingNew(false);
+    setTab('budget');
+    store.replace(target);
+  }
+
+  function deleteEvent(id: string): void {
+    const remaining = events.filter((p) => p.id !== id);
+    if (id === activeId) {
+      const nextActive = remaining[0]?.id ?? null;
+      saveWorkspace(remaining, nextActive);
+      setEvents(remaining);
+      setActiveId(nextActive);
+      if (nextActive !== null) {
+        const target = remaining.find((p) => p.id === nextActive);
+        if (target !== undefined) store.replace(target);
+        setTab('budget');
+      } else {
+        setTab('setup');
+      }
+    } else {
+      saveWorkspace(remaining, activeId);
+      setEvents(remaining);
+    }
+  }
 
   return (
     <PlanContext.Provider value={store}>
@@ -320,19 +422,47 @@ function Shell({ plan, recovery }: { plan: Plan | null; recovery: RecoveryInfo |
         )}
       </header>
       <div className="layout">
-        {recovery !== null && <RecoveryNotice recovery={recovery} />}
+        {workspace.recovery !== null && <RecoveryNotice recovery={workspace.recovery} />}
+        {droppedNotice !== null && (
+          <p className="alert" role="status">
+            <strong>
+              <span aria-hidden="true">⚠️</span> {droppedNotice}
+            </strong>{' '}
+            Nothing else was changed.
+          </p>
+        )}
         <nav aria-label="Plan sections">
-          <TabList active={view} hasPlan={hasPlan} onSelect={setTab} />
+          <TabList
+            active={tab}
+            hasPlan={hasPlan}
+            onSelect={(next) => {
+              setCreatingNew(false);
+              setTab(next);
+            }}
+          />
         </nav>
         <main id="main">
-          <div role="tabpanel" id={`panel-${view}`} aria-labelledby={`tab-${view}`}>
-            <ErrorBoundary key={view}>
+          <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+            <ErrorBoundary key={tab}>
               <ViewSwitch
-                view={view}
+                view={hasPlan ? tab : 'setup'}
                 hasPlan={hasPlan}
+                creatingNew={creatingNew}
                 plan={current}
+                events={events}
+                activeId={activeId}
+                onOpen={openEvent}
+                onDelete={deleteEvent}
+                onNew={() => {
+                  setCreatingNew(true);
+                  setTab('setup');
+                }}
                 onCreated={() => {
-                  setHasPlan(true);
+                  // SetupView saved the new plan through savePlan(); re-read the workspace.
+                  const fresh = loadWorkspace();
+                  setEvents(fresh.plans);
+                  setActiveId(fresh.activeId);
+                  setCreatingNew(false);
                   setTab('budget');
                 }}
               />
@@ -345,6 +475,6 @@ function Shell({ plan, recovery }: { plan: Plan | null; recovery: RecoveryInfo |
 }
 
 export function App() {
-  const saved = useMemo(() => loadSavedState(), []);
-  return <Shell plan={saved.plan} recovery={saved.recovery} />;
+  const saved = useMemo(() => loadWorkspace(), []);
+  return <Shell workspace={saved} />;
 }

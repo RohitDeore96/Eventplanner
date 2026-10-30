@@ -71,7 +71,9 @@ describe('corrupt-storage recovery', () => {
       }),
     );
     render(<App />);
-    expect(screen.getByRole('alert')).toHaveTextContent(/failed its safety checks/);
+    // An event that fails its own checks is dropped individually (not corruption): the
+    // workspace says how many were left out, in a spoken status line rather than an alert.
+    expect(screen.getByRole('status')).toHaveTextContent(/failed their safety checks/);
   });
 
   it('start fresh clears the stored data and reloads', () => {

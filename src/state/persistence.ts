@@ -1,32 +1,34 @@
 import { z } from 'zod';
 import '../schemas/zodRuntime.js';
 import type { Plan } from '../engine/types';
-import { MAX_AMOUNT_MINOR, MAX_YEAR, MIN_YEAR } from '../config/limits';
+import { MAX_AMOUNT_MINOR, MAX_EVENTS, MAX_YEAR, MIN_YEAR } from '../config/limits';
 import { currencyExponent } from '../engine/money';
 
 /**
- * Local-first persistence: the plan lives in the browser. Everything loaded from storage is
- * untrusted, so it is migrated (schemaVersion), validated DEEPLY — every nested record, not
- * just the plan's top level — and checked for domain invariants (referential integrity,
- * duplicate ids, supported currency, real calendar dates and dependency-graph sanity) before
- * it may reach the UI.
+ * Local-first persistence: plans live in the browser. Everything loaded from storage is
+ * untrusted, so it is migrated (schemaVersion), validated DEEPLY — every nested record of
+ * every event, not just the top level — and checked for domain invariants (referential
+ * integrity, duplicate ids, supported currency, real calendar dates and dependency-graph
+ * sanity) before it may reach the UI.
  *
- * Corrupt data never crashes the app and never reaches React state: it is rejected and the
- * caller receives a recovery notice plus the raw stored text, so the family can keep a copy
- * and start fresh. Storage model: ONE active plan under `utsav.plans.v1`. The legacy
- * `utsav.activeId.v1` key from an abandoned multi-plan design is removed on every save and
- * clear so no confusing dead state lingers in browsers.
+ * Storage model (schemaVersion 2, R8 multi-event): ONE workspace record under
+ * `utsav.plans.v1` holding up to MAX_EVENTS plans plus the active event's id. Version 1
+ * (a single `plan`) and version 0 (no marker) migrate forward: the lone plan becomes the
+ * active event of a fresh workspace. A saved event that fails validation is dropped on its
+ * own — the rest of the workspace survives, and the count is reported so the UI can say so.
+ * Corrupt data never crashes the app and never reaches React state.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 const STORAGE_KEY = 'utsav.plans.v1';
 const LEGACY_ACTIVE_KEY = 'utsav.activeId.v1';
 const MAX_STORE_BYTES = 400_000;
 
-interface StoredPlan {
+interface WorkspaceRecord {
   readonly schemaVersion: number;
   readonly savedAtISO: string;
-  readonly plan: Plan;
+  readonly activeId: string | null;
+  readonly plans: readonly Plan[];
 }
 
 export interface StorageStatus {
@@ -35,8 +37,8 @@ export interface StorageStatus {
   readonly reason: string | null;
 }
 
-/** Why a stored plan could not be loaded. The raw text is kept for an exportable copy. */
-type RecoveryReason = 'unreadable' | 'too_large' | 'newer_version' | 'invalid';
+/** Why the stored workspace could not be loaded at all. The raw text is kept for an exportable copy. */
+type RecoveryReason = 'unreadable' | 'too_large' | 'newer_version';
 
 export interface RecoveryInfo {
   readonly reason: RecoveryReason;
@@ -44,6 +46,15 @@ export interface RecoveryInfo {
   readonly raw: string;
 }
 
+export interface Workspace {
+  readonly plans: readonly Plan[];
+  readonly activeId: string | null;
+  /** How many saved events failed validation and were left out (never silently). */
+  readonly droppedInvalid: number;
+  readonly recovery: RecoveryInfo | null;
+}
+
+/** Backwards-compatible shape: just the active plan, or null. */
 export interface SavedState {
   readonly plan: Plan | null;
   readonly recovery: RecoveryInfo | null;
@@ -273,81 +284,133 @@ function hasDependencyCycle(tasks: readonly Plan['tasks'][number][]): boolean {
   return seen !== tasks.length;
 }
 
-/** Migrations run oldest -> newest. Each step takes the previous version's shape. */
-function migrate(raw: Record<string, unknown>): Plan | null {
-  const version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
-  if (version > SCHEMA_VERSION) return null; // newer than this build: never guess
-  let data = { ...raw };
-  // version 0 -> 1: add schemaVersion and savedAtISO (first release wrote neither).
-  if (version < 1) {
-    data = { ...data, schemaVersion: 1, savedAtISO: new Date().toISOString() };
-  }
-  const parsed = deepPlanSchema.safeParse(data.plan);
+/** Deep-validates one plan; null when the record cannot be trusted. */
+function validatePlan(raw: unknown): Plan | null {
+  const parsed = deepPlanSchema.safeParse(raw);
   if (!parsed.success) return null;
   const plan = parsed.data as Plan;
   return referencesHold(plan) ? plan : null;
 }
 
-const NO_SAVED_STATE: SavedState = { plan: null, recovery: null };
+/** Migrations run oldest -> newest, ending at the v2 workspace shape. */
+function migrate(raw: Record<string, unknown>): Workspace {
+  // v2 keeps an array; v1 kept one `plan`; v0 (no marker) had the same single-plan shape.
+  const candidates: readonly unknown[] = Array.isArray(raw.plans)
+    ? (raw.plans as readonly unknown[])
+    : raw.plan !== undefined
+      ? [raw.plan]
+      : [];
+  let dropped = 0;
+  const plans: Plan[] = [];
+  const seenIds = new Set<string>();
+  for (const candidate of candidates) {
+    if (plans.length >= MAX_EVENTS) {
+      dropped += 1;
+      continue;
+    }
+    const plan = validatePlan(candidate);
+    if (plan === null || seenIds.has(plan.id)) {
+      dropped += 1;
+      continue;
+    }
+    seenIds.add(plan.id);
+    plans.push(plan);
+  }
+  const storedActive = typeof raw.activeId === 'string' ? raw.activeId : null;
+  const activeId =
+    storedActive !== null && seenIds.has(storedActive) ? storedActive : (plans[0]?.id ?? null);
+  return { plans, activeId, droppedInvalid: dropped, recovery: null };
+}
+
+const EMPTY_WORKSPACE: Workspace = { plans: [], activeId: null, droppedInvalid: 0, recovery: null };
 
 /**
- * Loads the saved plan and, when the stored record cannot be trusted, returns WHY plus the
- * untouched raw text so the UI can offer an exportable copy and a clean restart. Never
- * throws, never hands corrupt data to React state.
+ * Loads the whole workspace (every saved event plus which one is active). A record that
+ * cannot be read at all returns WHY plus the untouched raw text; an event that fails its
+ * own checks is dropped individually — the rest survive and the count is reported.
  */
-export function loadSavedState(storage: Storage = window.localStorage): SavedState {
+export function loadWorkspace(storage: Storage = window.localStorage): Workspace {
   try {
     const raw = storage.getItem(STORAGE_KEY);
-    if (raw === null) return NO_SAVED_STATE;
+    if (raw === null) return EMPTY_WORKSPACE;
     if (raw.length > MAX_STORE_BYTES) {
-      return { plan: null, recovery: { reason: 'too_large', raw } };
+      return { ...EMPTY_WORKSPACE, recovery: { reason: 'too_large', raw } };
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      return { plan: null, recovery: { reason: 'unreadable', raw } };
+      return { ...EMPTY_WORKSPACE, recovery: { reason: 'unreadable', raw } };
     }
     if (typeof parsed !== 'object' || parsed === null) {
-      return { plan: null, recovery: { reason: 'unreadable', raw } };
+      return { ...EMPTY_WORKSPACE, recovery: { reason: 'unreadable', raw } };
     }
     const record = parsed as Record<string, unknown>;
     const version = typeof record.schemaVersion === 'number' ? record.schemaVersion : 0;
-    const plan = migrate(record);
-    if (plan === null) {
-      const reason: RecoveryReason = version > SCHEMA_VERSION ? 'newer_version' : 'invalid';
-      return { plan: null, recovery: { reason, raw } };
+    if (version > SCHEMA_VERSION) {
+      return { ...EMPTY_WORKSPACE, recovery: { reason: 'newer_version', raw } };
     }
-    return { plan, recovery: null };
+    return migrate(record);
   } catch {
-    return NO_SAVED_STATE; // storage unavailable: start fresh, nothing to recover
+    return EMPTY_WORKSPACE; // storage unavailable: start fresh, nothing to recover
   }
 }
 
-/** Backwards-compatible shape: just the plan, or null. Recovery details go through loadSavedState. */
-export function loadSavedPlan(storage: Storage = window.localStorage): Plan | null {
-  return loadSavedState(storage).plan;
-}
-
-export function savePlan(plan: Plan, storage: Storage = window.localStorage): StorageStatus {
+/** Writes the workspace with the active event's id; the record stays under the byte cap. */
+export function saveWorkspace(
+  plans: readonly Plan[],
+  activeId: string | null,
+  storage: Storage = window.localStorage,
+): StorageStatus {
   try {
-    const payload: StoredPlan = {
+    if (plans.length > MAX_EVENTS) {
+      return { ok: false, reason: `Utsav keeps up to ${MAX_EVENTS} events in one browser.` };
+    }
+    const payload: WorkspaceRecord = {
       schemaVersion: SCHEMA_VERSION,
       savedAtISO: new Date().toISOString(),
-      plan,
+      activeId,
+      plans: [...plans],
     };
     const text = JSON.stringify(payload);
     if (text.length > MAX_STORE_BYTES) {
-      return { ok: false, reason: 'This plan is too large to autosave in the browser.' };
+      return { ok: false, reason: 'These events are too large to autosave in the browser.' };
     }
     storage.setItem(STORAGE_KEY, text);
-    // The storage model is one active plan; scrub the legacy multi-plan key if an old
-    // version of the app left it behind.
+    // The legacy single-plan active marker is dead state; scrub it wherever we write.
     storage.removeItem(LEGACY_ACTIVE_KEY);
     return { ok: true, reason: null };
   } catch {
     return { ok: false, reason: 'The browser refused to save (storage full or private mode).' };
   }
+}
+
+/**
+ * Backwards-compatible save: upserts ONE plan and makes it the active event. It is only
+ * ever called for the active plan (edit) or a brand-new one (create, demo), so the saved
+ * plan is always what the app opens with.
+ */
+export function savePlan(plan: Plan, storage: Storage = window.localStorage): StorageStatus {
+  const current = loadWorkspace(storage);
+  const plans = current.plans.some((p) => p.id === plan.id)
+    ? current.plans.map((p) => (p.id === plan.id ? plan : p))
+    : [...current.plans, plan];
+  return saveWorkspace(plans, plan.id, storage);
+}
+
+/** Backwards-compatible read: just the active plan (or null), recovery details included. */
+export function loadSavedState(storage: Storage = window.localStorage): SavedState {
+  const workspace = loadWorkspace(storage);
+  if (workspace.recovery !== null) return { plan: null, recovery: workspace.recovery };
+  return {
+    plan: workspace.plans.find((p) => p.id === workspace.activeId) ?? null,
+    recovery: null,
+  };
+}
+
+/** Backwards-compatible shape: just the plan, or null. */
+export function loadSavedPlan(storage: Storage = window.localStorage): Plan | null {
+  return loadSavedState(storage).plan;
 }
 
 export function clearSavedPlan(storage: Storage = window.localStorage): void {

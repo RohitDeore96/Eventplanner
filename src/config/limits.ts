@@ -34,3 +34,6 @@ export const BPS_TOTAL = 10_000;
 
 export const CONTINGENCY_KEY = 'contingency';
 export const CATERING_KEY = 'catering';
+
+/** Multi-event workspace: how many events one browser stores (R8). */
+export const MAX_EVENTS = 12;

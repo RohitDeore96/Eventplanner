@@ -245,19 +245,21 @@ test.describe('Journey 10: production quality', () => {
  */
 
 interface StoredSnapshot {
-  plan: {
-    budgetMinor: number;
-    currency: string;
-    expenses: { note: string }[];
-    guests: unknown[];
-    vendors: { categoryId: string }[];
-  };
+  id: string;
+  budgetMinor: number;
+  currency: string;
+  expenses: { note: string }[];
+  guests: unknown[];
+  vendors: { categoryId: string }[];
 }
 
+/** The stored ACTIVE event from the v2 workspace record (R8). */
 function storedPlan(page: Page): Promise<StoredSnapshot | null> {
   return page.evaluate(() => {
     const raw = localStorage.getItem('utsav.plans.v1');
-    return raw === null ? null : (JSON.parse(raw) as StoredSnapshot);
+    if (raw === null) return null;
+    const record = JSON.parse(raw) as { activeId: string | null; plans: StoredSnapshot[] };
+    return record.plans.find((p) => p.id === record.activeId) ?? record.plans[0] ?? null;
   });
 }
 
@@ -289,7 +291,7 @@ test.describe('Journey 2: Indian number formatting', () => {
     // assertion is grouping-agnostic; the EXACT stored minor units are the real contract.
     await expect(page.getByText(/₹8,?00,?000\.00/).first()).toBeVisible();
     const stored = await storedPlan(page);
-    expect(stored?.plan.budgetMinor).toBe(80_000_000);
+    expect(stored?.budgetMinor).toBe(80_000_000);
   });
 
   test('8.5 lakh from the description stores exactly 85,000,000 minor units', async ({ page }) => {
@@ -319,7 +321,7 @@ test.describe('Journey 2: Indian number formatting', () => {
     await page.getByLabel('Expected guests').fill('150');
     await submit(page, 'Create the plan');
     const stored = await storedPlan(page);
-    expect(stored?.plan.budgetMinor).toBe(85_000_000);
+    expect(stored?.budgetMinor).toBe(85_000_000);
   });
 });
 
@@ -328,24 +330,24 @@ test.describe('Journey 3: currency exponents', () => {
     await createPlanInCurrency(page, 'JPY', '50000');
     await expect(page.getByText(/50,000/).first()).toBeVisible();
     const stored = await storedPlan(page);
-    expect(stored?.plan.currency).toBe('JPY');
-    expect(stored?.plan.budgetMinor).toBe(50_000);
+    expect(stored?.currency).toBe('JPY');
+    expect(stored?.budgetMinor).toBe(50_000);
   });
 
   test('a KWD plan keeps all three decimals', async ({ page }) => {
     await createPlanInCurrency(page, 'KWD', '100.125');
     await expect(page.getByText('KWD 100.125').first()).toBeVisible();
     const stored = await storedPlan(page);
-    expect(stored?.plan.currency).toBe('KWD');
-    expect(stored?.plan.budgetMinor).toBe(100_125);
+    expect(stored?.currency).toBe('KWD');
+    expect(stored?.budgetMinor).toBe(100_125);
   });
 
   test('a USD plan converts with the dollar exponent', async ({ page }) => {
     await createPlanInCurrency(page, 'USD', '10000');
     await expect(page.getByText('$10,000.00').first()).toBeVisible();
     const stored = await storedPlan(page);
-    expect(stored?.plan.currency).toBe('USD');
-    expect(stored?.plan.budgetMinor).toBe(1_000_000);
+    expect(stored?.currency).toBe('USD');
+    expect(stored?.budgetMinor).toBe(1_000_000);
   });
 });
 
@@ -363,8 +365,8 @@ test.describe('Journey 4: autosave and restoration', () => {
     await page.getByRole('tab', { name: 'Guests' }).click();
     await expect(page.getByRole('row').filter({ hasText: 'Meera' })).toBeVisible();
     let stored = await storedPlan(page);
-    expect(stored?.plan.expenses).toHaveLength(1);
-    expect(stored?.plan.guests).toHaveLength(1);
+    expect(stored?.expenses).toHaveLength(1);
+    expect(stored?.guests).toHaveLength(1);
 
     // After the reload the undo stack starts fresh: make one more change, undo it,
     // then reload — the restored state must be the UNDONE one.
@@ -373,9 +375,9 @@ test.describe('Journey 4: autosave and restoration', () => {
     await page.getByRole('button', { name: 'Undo' }).click();
     await page.reload();
     stored = await storedPlan(page);
-    expect(stored?.plan.expenses).toHaveLength(1);
-    expect(stored?.plan.expenses[0]?.note).toBe('venue advance');
-    expect(stored?.plan.guests).toHaveLength(1);
+    expect(stored?.expenses).toHaveLength(1);
+    expect(stored?.expenses[0]?.note).toBe('venue advance');
+    expect(stored?.guests).toHaveLength(1);
   });
 });
 
@@ -391,8 +393,8 @@ test.describe('Journey 5: currency mutation protection', () => {
     await submit(page, 'Save changes');
     await expect(page.getByText(/currency is locked/)).toBeVisible();
     const stored = await storedPlan(page);
-    expect(stored?.plan.currency).toBe('INR');
-    expect(stored?.plan.expenses).toHaveLength(1);
+    expect(stored?.currency).toBe('INR');
+    expect(stored?.expenses).toHaveLength(1);
   });
 });
 
@@ -411,9 +413,7 @@ test.describe('Journey 6: invalid persisted state', () => {
     await expect(page.getByRole('alert')).toBeHidden();
   });
 
-  test('a structurally invalid vendor fails its safety checks instead of loading', async ({
-    page,
-  }) => {
+  test('a structurally invalid event is dropped alone, with a spoken notice', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(() => {
       const plan = {
@@ -447,7 +447,7 @@ test.describe('Journey 6: invalid persisted state', () => {
       );
     });
     await page.reload();
-    await expect(page.getByRole('alert')).toContainText('failed its safety checks');
+    await expect(page.getByRole('status').first()).toContainText('failed their safety checks');
     await expect(page.getByRole('tab', { name: 'Budget' })).toBeDisabled();
   });
 });
@@ -462,26 +462,25 @@ test.describe('Journey 7: existing-plan migration', () => {
     await page.evaluate(() => {
       const raw = localStorage.getItem('utsav.plans.v1');
       if (raw === null) throw new Error('no stored plan');
-      const record = JSON.parse(raw) as { savedAtISO: string; plan: unknown };
+      const record = JSON.parse(raw) as { savedAtISO: string; plans: { id: string }[] };
       localStorage.setItem(
         'utsav.plans.v1',
-        JSON.stringify({ savedAtISO: record.savedAtISO, plan: record.plan }),
+        JSON.stringify({ savedAtISO: record.savedAtISO, plan: record.plans[0] }),
       );
     });
     await page.reload();
-    // The migrated plan is live and editable.
+    // The migrated plan is live and editable; the workspace saves forward as version 2.
     await recordExpense(page, '3000', 'extra marigold');
-    const stored = (await storedPlan(page)) as unknown as {
+    const rawRecord = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    const stored = JSON.parse(rawRecord ?? 'null') as {
       schemaVersion: number;
-      plan: { expenses: { note: string }[] };
+      plans: { expenses: { note: string }[] }[];
     };
-    expect(stored.schemaVersion).toBe(1);
-    expect(stored.plan.expenses.map((e) => e.note)).toContain('extra marigold');
+    expect(stored.schemaVersion).toBe(2);
+    expect(stored.plans[0]?.expenses.map((e) => e.note)).toContain('extra marigold');
     await page.reload();
-    const after = (await storedPlan(page)) as unknown as {
-      plan: { expenses: { note: string }[] };
-    };
-    expect(after.plan.expenses).toHaveLength(2);
+    const after = await storedPlan(page);
+    expect(after?.expenses).toHaveLength(2);
   });
 });
 
@@ -505,6 +504,6 @@ test.describe('Journey 8: no-key AI fallback honesty', () => {
     await page.getByLabel(/Total budget in/).fill('800000');
     await submit(page, 'Create the plan');
     const stored = await storedPlan(page);
-    expect(stored?.plan.budgetMinor).toBe(80_000_000);
+    expect(stored?.budgetMinor).toBe(80_000_000);
   });
 });

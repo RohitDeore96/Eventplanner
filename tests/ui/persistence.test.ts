@@ -3,7 +3,9 @@ import {
   clearSavedPlan,
   loadSavedPlan,
   loadSavedState,
+  loadWorkspace,
   savePlan,
+  saveWorkspace,
   SCHEMA_VERSION,
 } from '../../src/state/persistence';
 import type { Plan } from '../../src/engine/types';
@@ -299,14 +301,21 @@ describe('persistence: recovery information for unusable stored data', () => {
     expect(state.recovery).toMatchObject({ reason: 'unreadable', raw: '{not json' });
   });
 
-  it('reports schema-invalid records as invalid', () => {
+  it('drops an invalid event alone and reports the count, not a dead record', () => {
     const state = loadSavedState(
       memoryStorage({
         'utsav.plans.v1': JSON.stringify({ schemaVersion: 1, plan: { id: 5 } }),
       }),
     );
-    expect(state.recovery?.reason).toBe('invalid');
-    expect(state.recovery?.raw).toContain('schemaVersion');
+    expect(state.plan).toBeNull();
+    expect(state.recovery).toBeNull();
+    const workspace = loadWorkspace(
+      memoryStorage({
+        'utsav.plans.v1': JSON.stringify({ schemaVersion: 1, plan: { id: 5 } }),
+      }),
+    );
+    expect(workspace.plans).toHaveLength(0);
+    expect(workspace.droppedInvalid).toBe(1);
   });
 
   it('reports records from a newer schema as newer_version', () => {
@@ -332,5 +341,93 @@ describe('persistence: recovery information for unusable stored data', () => {
         memoryStorage({ 'utsav.plans.v1': JSON.stringify({ schemaVersion: 1, plan }) }),
       ),
     ).toEqual(plan);
+  });
+});
+
+describe('multi-event workspace (R8)', () => {
+  const other = makePlan({ id: 'ev2', name: 'Diwali party', budgetMinor: 50_000_000 });
+
+  it('round-trips several events with the active marker', () => {
+    const storage = memoryStorage();
+    expect(saveWorkspace([plan, other], other.id, storage).ok).toBe(true);
+    const workspace = loadWorkspace(storage);
+    expect(workspace.plans.map((p) => p.name)).toEqual([plan.name, other.name]);
+    expect(workspace.activeId).toBe(other.id);
+    expect(workspace.droppedInvalid).toBe(0);
+    expect(loadSavedPlan(storage)).toEqual(other);
+  });
+
+  it('migrates a version-1 single-plan record into a one-event workspace', () => {
+    const storage = memoryStorage({
+      'utsav.plans.v1': JSON.stringify({
+        schemaVersion: 1,
+        savedAtISO: '2026-10-30T00:00:00.000Z',
+        plan,
+      }),
+    });
+    const workspace = loadWorkspace(storage);
+    expect(workspace.plans).toHaveLength(1);
+    expect(workspace.activeId).toBe(plan.id);
+    expect(workspace.droppedInvalid).toBe(0);
+    // Saving forward writes the v2 shape.
+    expect(saveWorkspace(workspace.plans, workspace.activeId, storage).ok).toBe(true);
+    const raw = JSON.parse(storage.getItem('utsav.plans.v1') ?? '{}') as { schemaVersion: number };
+    expect(raw.schemaVersion).toBe(2);
+  });
+
+  it('keeps the surviving events when one saved event is invalid', () => {
+    const broken = { ...plan, currency: 'XXX' };
+    const storage = memoryStorage({
+      'utsav.plans.v1': JSON.stringify({
+        schemaVersion: 2,
+        savedAtISO: '2026-10-30T00:00:00.000Z',
+        activeId: plan.id,
+        plans: [broken, other],
+      }),
+    });
+    const workspace = loadWorkspace(storage);
+    expect(workspace.plans).toHaveLength(1);
+    expect(workspace.plans[0]?.name).toBe(other.name);
+    // The invalid event was active, so the first survivor becomes active.
+    expect(workspace.activeId).toBe(other.id);
+    expect(workspace.droppedInvalid).toBe(1);
+  });
+
+  it('savePlan upserts: editing keeps other events, a new id joins as active', () => {
+    const storage = memoryStorage();
+    saveWorkspace([plan, other], plan.id, storage);
+    // Edit the active event in place.
+    const edited = { ...plan, name: 'Asha & Dev wedding (updated)' };
+    savePlan(edited, storage);
+    let workspace = loadWorkspace(storage);
+    expect(workspace.plans).toHaveLength(2);
+    expect(workspace.activeId).toBe(plan.id);
+    expect(workspace.plans.find((p) => p.id === plan.id)?.name).toContain('updated');
+    // A brand-new event joins and becomes active.
+    const third = makePlan({ id: 'ev3', name: 'Housewarming' });
+    savePlan(third, storage);
+    workspace = loadWorkspace(storage);
+    expect(workspace.plans).toHaveLength(3);
+    expect(workspace.activeId).toBe('ev3');
+    expect(loadSavedPlan(storage)?.name).toBe('Housewarming');
+  });
+
+  it('refuses to store more events than the cap allows', () => {
+    const storage = memoryStorage();
+    const many = Array.from({ length: 13 }, (_, i) =>
+      makePlan({ id: `ev-cap-${i}`, name: `Event ${i}` }),
+    );
+    const status = saveWorkspace(many, many[0]?.id ?? null, storage);
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('12 events');
+    // 12 fit exactly.
+    expect(saveWorkspace(many.slice(0, 12), 'ev-cap-0', storage).ok).toBe(true);
+  });
+
+  it('clearSavedPlan removes the whole workspace', () => {
+    const storage = memoryStorage();
+    saveWorkspace([plan, other], plan.id, storage);
+    clearSavedPlan(storage);
+    expect(loadWorkspace(storage).plans).toHaveLength(0);
   });
 });
