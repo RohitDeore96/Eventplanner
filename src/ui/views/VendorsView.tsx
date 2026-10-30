@@ -31,7 +31,7 @@ const STATUS_OPTIONS: readonly { readonly value: BookingStatus; readonly label: 
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-const KIND_LABELS: Record<PaymentKind, string> = {
+export const KIND_LABELS: Record<PaymentKind, string> = {
   advance: 'Advance',
   instalment: 'Instalment',
   milestone: 'Milestone',
