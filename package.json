@@ -22,7 +22,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "api": "tsx scripts/dev-api.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "smoke:ai": "node scripts/live-ai-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
