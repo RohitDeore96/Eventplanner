@@ -9,3 +9,4 @@ reports/
 !.env.example
 *.log
 .DS_Store
+test-results/
