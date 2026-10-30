@@ -1,0 +1,122 @@
+/*
+ * Utsav design tokens — festive Indian palette: saffron, marigold, vermilion, deep maroon, ivory.
+ * Warm, festive and calm. A colour and pattern language, not religious content: Utsav serves
+ * weddings, birthdays and community events for people of any faith.
+ * Every colour is a token on :root; components never hard-code hex.
+ * Contrast ratios are asserted by tests/ui/tokens.test.ts in BOTH themes; changing a token
+ * without re-checking contrast fails the build.
+ */
+
+:root {
+  /* Light theme */
+  --bg: #fff8ec; /* ivory page background */
+  --surface: #fff1d6; /* turmeric tint: cards, panels */
+  --surface-raised: #fffaf0; /* inputs inside cards */
+  --text: #3b1d12; /* kajal brown: body text (14.5:1 on bg) */
+  --text-muted: #6b4a3a; /* secondary text (7.5:1 on bg) */
+  --primary: #b34700; /* deep kesari: buttons, links, focus (white text 5.5:1) */
+  --primary-text: #ffffff; /* text on primary */
+  --accent-saffron: #ff9933; /* decoration and fills ONLY, with dark text (8.3:1) */
+  --on-accent: #2b1208; /* dark text on saffron/marigold fills */
+  --marigold: #f5a400; /* highlights, progress fill (dark text 8.6:1) */
+  --danger: #b3202a; /* sindoor: errors, over budget (white 6.7:1) */
+  --on-danger: #ffffff;
+  --maroon: #7a1f1f; /* header band, headings accent (white 10.3:1) */
+  --on-maroon: #fff3dc;
+  --success: #1f5a2b; /* leaf green: on-track, paid (7.8:1 on bg) */
+  --on-success: #ffffff;
+  --border: #9c7a52; /* visible UI border on bg and surface (3.7:1) */
+  --focus: #b34700; /* focus ring, 3:1 against bg */
+  --warning-band: #7a1f1f; /* warning text is maroon: never colour alone, always icon + word */
+  --shadow: rgba(59, 29, 18, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #2a130c;
+    --surface: #3a1d12;
+    --surface-raised: #4a2818;
+    --text: #fff3dc; /* 16.0:1 on bg */
+    --text-muted: #d9bfa3; /* 10.0:1 */
+    --primary: #ff9933; /* 8.2:1 on bg; dark text on it 8.2:1 */
+    --primary-text: #2b1208;
+    --accent-saffron: #ff9933;
+    --on-accent: #2b1208;
+    --marigold: #ffc042; /* 10.8:1 */
+    --danger: #ff8a80; /* 7.7:1 */
+    --on-danger: #2a130c;
+    --maroon: #1f0b06;
+    --on-maroon: #ffc042;
+    --success: #8fd19a; /* 9.8:1 */
+    --on-success: #14290f;
+    --border: #9c7050;
+    --focus: #ffc042;
+    --warning-band: #ffc042;
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Manual toggle: [data-theme] always wins over the system preference. */
+:root[data-theme='dark'] {
+  --bg: #2a130c;
+  --surface: #3a1d12;
+  --surface-raised: #4a2818;
+  --text: #fff3dc;
+  --text-muted: #d9bfa3;
+  --primary: #ff9933;
+  --primary-text: #2b1208;
+  --accent-saffron: #ff9933;
+  --on-accent: #2b1208;
+  --marigold: #ffc042;
+  --danger: #ff8a80;
+  --on-danger: #2a130c;
+  --maroon: #1f0b06;
+  --on-maroon: #ffc042;
+  --success: #8fd19a;
+  --on-success: #14290f;
+  --border: #9c7050;
+  --focus: #ffc042;
+  --warning-band: #ffc042;
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='light'] {
+  --bg: #fff8ec;
+  --surface: #fff1d6;
+  --surface-raised: #fffaf0;
+  --text: #3b1d12;
+  --text-muted: #6b4a3a;
+  --primary: #b34700;
+  --primary-text: #ffffff;
+  --accent-saffron: #ff9933;
+  --on-accent: #2b1208;
+  --marigold: #f5a400;
+  --danger: #b3202a;
+  --on-danger: #ffffff;
+  --maroon: #7a1f1f;
+  --on-maroon: #fff3dc;
+  --success: #1f5a2b;
+  --on-success: #ffffff;
+  --border: #d8c5a5;
+  --focus: #b34700;
+  --warning-band: #7a1f1f;
+  --shadow: rgba(59, 29, 18, 0.14);
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-muted: #4a2c1c;
+    --border: #8a6a4a;
+  }
+  :root[data-theme='dark'] {
+    --text-muted: #f0e0c8;
+    --border: #c9a88a;
+  }
+}
+
+@media (forced-colors: active) {
+  :root {
+    --border: CanvasText;
+    --focus: Highlight;
+  }
+}

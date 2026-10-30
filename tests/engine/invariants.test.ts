@@ -138,11 +138,18 @@ function assertInvariants(plan: Plan): void {
   }
 
   const vendors = new Map(plan.vendors.map((v) => [v.id, v]));
-  const settled = plan.expenses.flatMap((e) => (e.instalmentId === null ? [] : [e.instalmentId]));
-  expect(new Set(settled).size).toBe(settled.length);
+  // D4: several expenses may target one instalment (split payments), so uniqueness is not
+  // an invariant any more. The real invariant: every referenced instalment still exists.
   for (const e of plan.expenses) {
     expect(plan.categories.some((c) => c.id === e.categoryId)).toBe(true);
     if (e.vendorId !== null) expect(vendors.get(e.vendorId)?.categoryId).toBe(e.categoryId);
+    if (e.instalmentId !== null) {
+      expect(
+        vendors
+          .get(e.vendorId ?? '')
+          ?.schedule.some((instalment) => instalment.id === e.instalmentId),
+      ).toBe(true);
+    }
   }
   expect(new Set(plan.vendors.map((v) => v.id)).size).toBe(plan.vendors.length);
 }

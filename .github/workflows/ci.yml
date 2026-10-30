@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install (from lockfile)
+        run: npm ci
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Types
+        run: npm run typecheck
+      - name: Architecture
+        run: npm run arch
+      - name: Unused code
+        run: npm run unused
+        env:
+          KNIP_DISABLE_RAW_TRANSFER: '1'
+      - name: Tests with coverage
+        run: npm run test:cov
+      - name: Build
+        run: npm run build
+      - name: Bundle budget (gzipped JS under 250 KB)
+        run: node scripts/check-size.mjs
+      - name: Audit (runtime dependencies)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan
+        run: node scripts/secret-scan.mjs
+      - name: Repo size under 10 MB
+        run: node scripts/check-repo-size.mjs

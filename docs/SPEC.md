@@ -54,18 +54,18 @@ P0 = must work for a judge. P1 = needed for a top score. P2 = differentiator. St
 
 ### A. Challenge requirements
 
-| ID | Requirement | Pri | Status |
-| --- | --- | --- | --- |
-| R1 | Create / edit wedding, birthday, community events with validation | P0 | Engine done; UI in M1-M2 |
-| R2 | Budget: allocate, expenses, remaining, over-allocation | P0 | Engine done (D1, D4, D8 open) |
-| R3 | Timeline: milestones, short-notice, overdue, task CRUD | P0 | Engine done (D10 open) |
-| R4 | Vendor checklist per occasion with booking / payment status | P0 | Partial: vendor records exist, per-occasion checklist pending |
-| R5 | Personalised ideas driven by event inputs | P0 | Not started (M3) |
-| R6 | GenAI planning: intake, review, ask-the-planner, quote extraction, patch proposals | P0 | Not started (M3) |
-| R7 | Guests with RSVP feeding catering | P1 | Engine done (D9 open) |
-| R8 | Persistence, multiple events, export with real data | P0 | Not started (M4) |
-| R9 | Live on Vercel | P0 | Not started (M1) |
-| R10 | Repo under 10 MB | P0 | ~0.4 MB; CI size check pending |
+| ID  | Requirement                                                                        | Pri | Status                                                        |
+| --- | ---------------------------------------------------------------------------------- | --- | ------------------------------------------------------------- |
+| R1  | Create / edit wedding, birthday, community events with validation                  | P0  | Engine done; UI in M1-M2                                      |
+| R2  | Budget: allocate, expenses, remaining, over-allocation                             | P0  | Engine done (D1, D4, D8 open)                                 |
+| R3  | Timeline: milestones, short-notice, overdue, task CRUD                             | P0  | Engine done (D10 open)                                        |
+| R4  | Vendor checklist per occasion with booking / payment status                        | P0  | Partial: vendor records exist, per-occasion checklist pending |
+| R5  | Personalised ideas driven by event inputs                                          | P0  | Not started (M3)                                              |
+| R6  | GenAI planning: intake, review, ask-the-planner, quote extraction, patch proposals | P0  | Not started (M3)                                              |
+| R7  | Guests with RSVP feeding catering                                                  | P1  | Engine done (D9 open)                                         |
+| R8  | Persistence, multiple events, export with real data                                | P0  | Not started (M4)                                              |
+| R9  | Live on Vercel                                                                     | P0  | Not started (M1)                                              |
+| R10 | Repo under 10 MB                                                                   | P0  | ~0.4 MB; CI size check pending                                |
 
 ### B. Scoring criteria
 

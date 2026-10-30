@@ -24,6 +24,21 @@ export default tseslint.config(
       complexity: ['error', 15],
     },
   },
+  {
+    // Plain Node scripts: no TS project, console is their output channel.
+    files: ['scripts/**/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+      },
+    },
+  },
   { files: ['scripts/**'], rules: { 'no-console': 'off' } },
   { files: ['*.config.js'], ...tseslint.configs.disableTypeChecked },
 );
