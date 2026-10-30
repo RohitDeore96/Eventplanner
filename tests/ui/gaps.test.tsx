@@ -23,7 +23,7 @@ function createPlan(): void {
   fireEvent.change(nameBox, { target: { value: 'Family wedding' } });
   fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2027-06-01' } });
   fireEvent.change(screen.getByLabelText('Expected guests'), { target: { value: '90' } });
-  fireEvent.change(screen.getByLabelText('Total budget in major units (e.g. 800000)'), {
+  fireEvent.change(screen.getByLabelText(/Total budget in/), {
     target: { value: '500000' },
   });
   submitForm('Create the plan');

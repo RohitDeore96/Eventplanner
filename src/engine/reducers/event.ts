@@ -41,24 +41,65 @@ const stepBudget: Step = (plan, { budgetMinor }) => {
   return ok({ ...plan, budgetMinor });
 };
 
-const stepCurrency: Step = (plan, { currency }) => {
-  if (currency === undefined) return ok(plan);
-  const after = currencyExponent(currency);
+export interface CurrencyIssue {
+  readonly code: string;
+  readonly message: string;
+  readonly field: string;
+}
+
+/**
+ * The one currency-change policy, shared by the reducer and the setup form:
+ * locked once financial records exist; never silently reinterpreted; same-decimal changes
+ * require the budget to be re-entered in the new currency (amounts are never converted,
+ * because no exchange rate is ever invented).
+ */
+export function currencyChangeError(
+  plan: Plan,
+  next: string,
+  budgetRestated: boolean,
+): CurrencyIssue | null {
+  if (next === plan.currency) return null;
+  const after = currencyExponent(next);
   if (after === null) {
-    return fail(
-      'INVALID_CURRENCY',
-      'Choose a valid 3-letter currency code such as INR, USD or JPY.',
-      'currency',
-    );
+    return {
+      code: 'INVALID_CURRENCY',
+      message: 'Choose a valid 3-letter currency code such as INR, USD or JPY.',
+      field: 'currency',
+    };
+  }
+  const hasRecords =
+    plan.expenses.length > 0 ||
+    plan.vendors.some((v) => v.committedMinor !== null || v.schedule.length > 0);
+  if (hasRecords) {
+    return {
+      code: 'CURRENCY_LOCKED',
+      message:
+        'This plan already has vendor agreements or payments, so the currency is locked — switching would silently reinterpret every amount. Create a new event in the new currency instead.',
+      field: 'currency',
+    };
   }
   if (currencyExponent(plan.currency) !== after) {
-    return fail(
-      'CURRENCY_DECIMALS_DIFFER',
-      'These currencies use different decimal places, so existing amounts would change meaning. Create a new event in the new currency instead.',
-      'currency',
-    );
+    return {
+      code: 'CURRENCY_DECIMALS_DIFFER',
+      message:
+        'These currencies use different decimal places, so existing amounts would change meaning. Create a new event in the new currency instead.',
+      field: 'currency',
+    };
   }
-  return ok({ ...plan, currency });
+  if (!budgetRestated) {
+    return {
+      code: 'CURRENCY_NEEDS_BUDGET',
+      message: `Enter your budget again in ${next} — amounts are never converted automatically.`,
+      field: 'budgetMinor',
+    };
+  }
+  return null;
+}
+
+const stepCurrency: Step = (plan, { currency, budgetMinor }) => {
+  if (currency === undefined) return ok(plan);
+  const issue = currencyChangeError(plan, currency, budgetMinor !== undefined);
+  return issue === null ? ok({ ...plan, currency }) : fail(issue.code, issue.message, issue.field);
 };
 
 const stepLocale: Step = (plan, { locale }) =>

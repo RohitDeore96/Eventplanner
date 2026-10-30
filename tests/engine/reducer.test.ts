@@ -64,11 +64,38 @@ describe('event/update', () => {
     [{ budgetMinor: -4 }, 'INVALID_BUDGET'],
     [{ currency: 'XYZZY' }, 'INVALID_CURRENCY'],
     [{ currency: 'JPY' }, 'CURRENCY_DECIMALS_DIFFER'],
+    // CRITICAL DEFECT 3: a same-decimal switch without re-entering the budget would
+    // silently reinterpret every amount (INR 8,00,000 becoming $800,000.00).
+    [{ currency: 'EUR' }, 'CURRENCY_NEEDS_BUDGET'],
   ])('rejects %j with %s', (changes, code) => {
     expect(errorCode(plan, update(changes))).toBe(code);
   });
-  it('allows switching between currencies with the same decimals', () => {
-    expect(run(plan, update({ currency: 'EUR' })).currency).toBe('EUR');
+  it('allows switching between currencies with the same decimals when the budget is re-entered', () => {
+    const next = run(plan, update({ currency: 'EUR', budgetMinor: 5_000 }));
+    expect(next.currency).toBe('EUR');
+    expect(next.budgetMinor).toBe(5_000);
+  });
+  it('locks the currency once payments or vendor agreements exist', () => {
+    const withPayment = run(plan, expense({ vendorId: null }));
+    expect(errorCode(withPayment, update({ currency: 'EUR', budgetMinor: 5_000 }))).toBe(
+      'CURRENCY_LOCKED',
+    );
+    const withBookedVendor = run(plan, vendor({}));
+    expect(errorCode(withBookedVendor, update({ currency: 'EUR', budgetMinor: 5_000 }))).toBe(
+      'CURRENCY_LOCKED',
+    );
+    const withScheduleOnly = run(
+      plan,
+      vendor({ status: 'contacted', committedMinor: null, id: 'v2' }),
+    );
+    const scheduled = run(withScheduleOnly, {
+      type: 'vendor/setSchedule',
+      id: 'v2',
+      schedule: [{ id: 'i1', kind: 'advance', dueISO: '2026-11-01', amountMinor: 1_000 }],
+    });
+    expect(errorCode(scheduled, update({ currency: 'EUR', budgetMinor: 5_000 }))).toBe(
+      'CURRENCY_LOCKED',
+    );
   });
   it('does not mutate the input plan (deep-frozen)', () => {
     expect(() => run(plan, update({ name: 'Other' }))).not.toThrow();

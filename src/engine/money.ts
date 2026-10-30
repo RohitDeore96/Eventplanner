@@ -45,6 +45,22 @@ export function parseMajorAmount(input: string, currency: string): Minor | null 
   return minor > BigInt(MAX_AMOUNT_MINOR) ? null : Number(minor);
 }
 
+/**
+ * One canonical monetary-unit contract: readers (AI or fallback) may only state amounts in
+ * MAJOR units — exactly as a human writes them — and this function converts to minor units
+ * exactly once, using the currency's exponent (JPY 0, INR 2, KWD 3). Returns null for
+ * negatives, non-finite values or amounts over the cap. BigInt, never floats.
+ */
+export function majorToMinor(major: number, currency: string): Minor | null {
+  if (!Number.isFinite(major) || major < 0) return null;
+  const exponent = currencyExponent(currency);
+  if (exponent === null) return null;
+  const whole = Math.floor(major);
+  const fraction = Math.round((major - whole) * 10 ** exponent);
+  const minor = BigInt(whole) * 10n ** BigInt(exponent) + BigInt(fraction);
+  return minor > BigInt(MAX_AMOUNT_MINOR) ? null : Number(minor);
+}
+
 /** Display only. Falls back to English formatting if the locale tag is invalid. */
 export function formatMoney(minor: Minor, currency: string, locale: string): string {
   const exponent = currencyExponent(currency);

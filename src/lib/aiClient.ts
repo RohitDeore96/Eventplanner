@@ -53,8 +53,11 @@ async function post<T extends { source?: string }>(
 }
 
 export const aiClient = {
-  parseIntake: (text: string): Promise<AiReply<IntakeParse & { source: string }>> =>
-    post('/api/parse-intake', { text }),
+  parseIntake: (
+    text: string,
+    currency: string,
+  ): Promise<AiReply<IntakeParse & { source: string }>> =>
+    post('/api/parse-intake', { text, currency }),
   ideas: (
     occasion: string,
     vibe: string,

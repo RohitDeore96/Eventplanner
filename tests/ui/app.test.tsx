@@ -28,7 +28,7 @@ describe('Utsav app shell (jsdom)', () => {
     const date = new Date(Date.now() + 120 * 86_400_000).toISOString().slice(0, 10);
     await user.type(screen.getByLabelText('Event date'), date);
     await user.type(screen.getByLabelText('Expected guests'), '120');
-    await user.type(screen.getByLabelText('Total budget in major units (e.g. 800000)'), '800000');
+    await user.type(screen.getByLabelText(/Total budget in/), '800000');
     submitForm('Create the plan');
 
     // The plan is created, persisted, and the budget view becomes the default.
@@ -64,7 +64,7 @@ describe('Utsav app shell (jsdom)', () => {
     await user.type(screen.getByLabelText('Event name'), 'Test');
     await user.type(screen.getByLabelText('Event date'), '2027-06-01');
     await user.type(screen.getByLabelText('Expected guests'), '0');
-    await user.type(screen.getByLabelText('Total budget in major units (e.g. 800000)'), '800000');
+    await user.type(screen.getByLabelText(/Total budget in/), '800000');
     submitForm('Create the plan');
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();

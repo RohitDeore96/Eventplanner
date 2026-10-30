@@ -159,7 +159,9 @@ describe('API routes: guards', () => {
     expect(body).toMatchObject({
       occasion: 'wedding',
       guests: 200,
-      budgetMinor: 800_000,
+      // 8 lakh rupees in TRUE minor units (paise). Regression: this used to be 800_000,
+      // which the UI divided by 100 and turned ₹8,00,000 into ₹8,000.
+      budgetMinor: 80_000_000,
       source: 'built-in',
     });
   });
@@ -396,7 +398,8 @@ describe('API routes: with a mocked AI endpoint', () => {
       occasion: 'wedding',
       dateISO: '2027-02-01',
       guests: 200,
-      budgetMinor: 800000,
+      // The model states the amount in MAJOR units exactly as written; the route converts.
+      budgetMajor: 800000,
       // name and notes are omitted: the provider no longer requires nullable fields.
     };
     const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
@@ -415,8 +418,10 @@ describe('API routes: with a mocked AI endpoint', () => {
       notes: null,
       occasion: 'wedding',
       guests: 200,
+      budgetMinor: 80_000_000,
       source: 'gemini-3.6-flash',
     });
+    expect(body).not.toHaveProperty('budgetMajor');
     const firstInit = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined;
     const sent = JSON.parse(firstInit?.body ?? '{}') as {
       generationConfig?: {
@@ -427,6 +432,9 @@ describe('API routes: with a mocked AI endpoint', () => {
     // Every field of the intake parse is nullable, so nothing is required on the wire.
     expect(schema?.required).toEqual([]);
     expect(schema?.properties?.name).toMatchObject({ type: 'string', nullable: true });
+    // The model is asked for major units, never minor ones.
+    expect(schema?.properties?.budgetMajor).toMatchObject({ type: 'number', nullable: true });
+    expect(schema?.properties?.budgetMinor).toBeUndefined();
   });
 
   it('fills nulls inside a patch action with an omitted assignee', async () => {

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { createPlan } from '../../engine/create';
-import { parseMajorAmount } from '../../engine/money';
+import { currencyExponent, parseMajorAmount } from '../../engine/money';
+import { currencyChangeError } from '../../engine/reducers/event';
 import type { Occasion, Plan } from '../../engine/types';
 import { localToday, localeDefaults } from '../../lib/format';
 import { savePlan } from '../../state/persistence';
 import { usePlan } from '../../state/store';
 import { text } from './form';
-import { IntakeBox, type Prefill } from './IntakeBox';
+import { IntakeBox, asOccasion, type Prefill } from './IntakeBox';
 
 const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: string }[] = [
   { value: 'wedding', label: 'Wedding' },
@@ -16,6 +17,80 @@ const OCCASION_OPTIONS: readonly { readonly value: Occasion; readonly label: str
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY'] as const;
 
+/** Applies parsed intake values to the form's setters; occasion goes through a type guard. */
+function dispatchPrefill(
+  values: Prefill,
+  set: {
+    readonly name: (value: string) => void;
+    readonly dateISO: (value: string) => void;
+    readonly guests: (value: string) => void;
+    readonly budget: (value: string) => void;
+    readonly occasion: (value: Occasion) => void;
+  },
+): void {
+  const parsedOccasion = values.occasion !== undefined ? asOccasion(values.occasion) : null;
+  if (parsedOccasion !== null) set.occasion(parsedOccasion);
+  if (values.name !== undefined) set.name(values.name);
+  if (values.dateISO !== undefined) set.dateISO(values.dateISO);
+  if (values.guests !== undefined) set.guests(values.guests);
+  if (values.budget !== undefined) set.budget(values.budget);
+}
+
+type Submission =
+  | { readonly kind: 'error'; readonly message: string; readonly field?: string }
+  | { readonly kind: 'ready'; readonly next: Plan };
+
+/** Everything the submit button needs, decided outside React so it stays under the complexity gate. */
+function resolveSubmission(
+  data: FormData,
+  currency: string,
+  locale: string,
+  plan: Plan | null,
+): Submission {
+  // Currency policy: locked once records exist; otherwise the budget is re-entered fresh
+  // (the form clears it on change), so no amount is ever silently reinterpreted.
+  if (plan !== null) {
+    const issue = currencyChangeError(plan, currency, text(data, 'budget').trim().length > 0);
+    if (issue !== null) {
+      return { kind: 'error', message: issue.message, field: issue.field };
+    }
+  }
+  const result = buildPlan(data, currency, locale, plan);
+  if (!result.ok) {
+    return result.error.field === undefined
+      ? { kind: 'error', message: result.error.message }
+      : { kind: 'error', message: result.error.message, field: result.error.field };
+  }
+  const next = plan === null ? result.value.plan : carryWorkOver(result.value.plan, plan);
+  return { kind: 'ready', next };
+}
+
+interface SetupSeed {
+  readonly name: string;
+  readonly occasion: Occasion;
+  readonly dateISO: string;
+  readonly guests: string;
+  readonly budget: string;
+  readonly currency: string;
+  readonly locale: string;
+}
+
+/** Initial form values for create (blank) or edit (the plan's own values, exponent-correct). */
+function setupSeed(
+  plan: Plan | null,
+  defaults: { readonly currency: string; readonly locale: string },
+): SetupSeed {
+  return {
+    name: plan?.name ?? '',
+    occasion: plan?.occasion ?? 'wedding',
+    dateISO: plan?.dateISO ?? '',
+    guests: plan === null ? '' : String(plan.guestTarget),
+    budget: plan === null ? '' : displayMajor(plan.budgetMinor, plan.currency),
+    currency: plan?.currency ?? defaults.currency,
+    locale: plan?.locale ?? defaults.locale,
+  };
+}
+
 /**
  * Event setup: describe the event in your own words (AI fills the form when available; the
  * form always works by hand), then create or edit the plan. The engine validates everything.
@@ -23,48 +98,47 @@ const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY'] as const;
 export function SetupView({ onCreated, plan }: { onCreated: () => void; plan: Plan | null }) {
   const store = usePlan();
   const defaults = localeDefaults();
-  const [name, setName] = useState(plan?.name ?? '');
-  const [occasion, setOccasion] = useState<Occasion>(plan?.occasion ?? 'wedding');
-  const [dateISO, setDateISO] = useState(plan?.dateISO ?? '');
-  const [guests, setGuests] = useState(plan === null ? '' : String(plan.guestTarget));
-  const [budget, setBudget] = useState(plan === null ? '' : String(plan.budgetMinor / 10 ** 2));
-  const [currency, setCurrency] = useState<string>(plan?.currency ?? defaults.currency);
-  const [locale] = useState(plan?.locale ?? defaults.locale);
+  const [seed] = useState<SetupSeed>(() => setupSeed(plan, defaults));
+  const [name, setName] = useState(seed.name);
+  const [occasion, setOccasion] = useState<Occasion>(seed.occasion);
+  const [dateISO, setDateISO] = useState(seed.dateISO);
+  const [guests, setGuests] = useState(seed.guests);
+  const [budget, setBudget] = useState(seed.budget);
+  const [currency, setCurrency] = useState<string>(seed.currency);
+  const [currencyHint, setCurrencyHint] = useState<string | null>(null);
+  const [locale] = useState(seed.locale);
   const [error, setError] = useState<{ message: string; field?: string } | null>(null);
 
   function applyPrefill(values: Prefill) {
-    const setters: Record<string, (value: string) => void> = {
+    dispatchPrefill(values, {
       name: setName,
       dateISO: setDateISO,
       guests: setGuests,
       budget: setBudget,
-    };
-    for (const [key, value] of Object.entries(values) as [keyof Prefill, string][]) {
-      setters[key]?.(value);
-    }
+      occasion: setOccasion,
+    });
   }
 
   function submit(data: FormData) {
-    const result = buildPlan(data, currency, locale, plan);
-    if (!result.ok) {
+    const outcome = resolveSubmission(data, currency, locale, plan);
+    if (outcome.kind === 'error') {
       setError(
-        result.error.field === undefined
-          ? { message: result.error.message }
-          : { message: result.error.message, field: result.error.field },
+        outcome.field === undefined
+          ? { message: outcome.message }
+          : { message: outcome.message, field: outcome.field },
       );
       return;
     }
     setError(null);
-    const next = plan === null ? result.value.plan : carryWorkOver(result.value.plan, plan);
-    const saved = savePlan(next);
+    const saved = savePlan(outcome.next);
     if (!saved.ok && saved.reason !== null) setError({ message: saved.reason });
-    store.replace(next);
+    store.replace(outcome.next);
     onCreated();
   }
 
   return (
     <>
-      <IntakeBox occasion={occasion} onPrefill={applyPrefill} />
+      <IntakeBox currency={currency} onPrefill={applyPrefill} />
       <form
         className="card"
         aria-labelledby="setup-title"
@@ -135,7 +209,7 @@ export function SetupView({ onCreated, plan }: { onCreated: () => void; plan: Pl
             />
           </div>
           <div>
-            <label htmlFor="f-budget">Total budget in major units (e.g. 800000)</label>
+            <label htmlFor="f-budget">Total budget in {currency} (e.g. 800000)</label>
             <input
               id="f-budget"
               name="budget"
@@ -153,7 +227,14 @@ export function SetupView({ onCreated, plan }: { onCreated: () => void; plan: Pl
               id="f-currency"
               value={currency}
               onChange={(event) => {
-                setCurrency(event.target.value);
+                const next = event.target.value;
+                setCurrency(next);
+                // Amounts are never converted: the budget must be typed fresh in the new
+                // currency, in the new currency's own decimal system.
+                setBudget('');
+                setCurrencyHint(
+                  `Currency set to ${next}. Enter your budget in ${next} — existing amounts are not converted automatically.`,
+                );
               }}
             >
               {CURRENCIES.map((code) => (
@@ -164,6 +245,11 @@ export function SetupView({ onCreated, plan }: { onCreated: () => void; plan: Pl
             </select>
           </div>
         </div>
+        {currencyHint !== null && (
+          <p className="muted" role="status">
+            {currencyHint}
+          </p>
+        )}
         <p className="muted">Locale {locale} — used for all money and date formatting.</p>
         <button type="submit" className="primary">
           {plan === null ? 'Create the plan' : 'Save changes'}
@@ -180,6 +266,12 @@ function FormError({ error }: { error: { message: string; field?: string } | nul
       {error.message}
     </p>
   );
+}
+
+/** Minor -> major for the edit form's input, with the plan currency's own exponent. */
+function displayMajor(minor: number, currency: string): string {
+  const exponent = currencyExponent(currency);
+  return exponent === null ? String(minor) : String(Math.round(minor / 10 ** exponent));
 }
 
 /** Builds the createPlan input from form data; parse failures become engine-validated rejections. */
@@ -208,6 +300,7 @@ function buildPlan(
 /**
  * createPlan rebuilds the defaults; editing must keep the family's real work: vendors,
  * expenses, guests and manual tasks carry over, and changed basics re-derive the rest.
+ * The currency is only adopted after currencyChangeError() passed in submit().
  */
 function carryWorkOver(fresh: Plan, current: Plan): Plan {
   return {

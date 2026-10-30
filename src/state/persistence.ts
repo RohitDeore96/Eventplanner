@@ -1,11 +1,14 @@
 import { z } from 'zod';
 import '../schemas/zodRuntime.js';
 import type { Plan } from '../engine/types';
+import { MAX_AMOUNT_MINOR } from '../config/limits';
 
 /**
  * Local-first persistence: the plan lives in the browser. Everything loaded from storage is
- * untrusted, so it is migrated (schemaVersion) and then re-validated by the caller through
- * the engine — nothing reaches the UI without passing validation.
+ * untrusted, so it is migrated (schemaVersion), validated DEEPLY — every nested record, not
+ * just the plan's top level — and checked for domain invariants (referential integrity and
+ * dependency-graph sanity) before it may reach the UI. Corrupt data never crashes the app:
+ * it is rejected and the app starts fresh.
  */
 
 export const SCHEMA_VERSION = 1;
@@ -25,6 +28,147 @@ export interface StorageStatus {
   readonly reason: string | null;
 }
 
+const minor = z.number().int().min(0).max(MAX_AMOUNT_MINOR);
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const idField = z.string().min(1).max(100);
+
+const categorySchema = z
+  .object({
+    id: idField,
+    key: z.string().min(1).max(100),
+    name: z.string().min(1).max(120),
+    plannedMinor: minor,
+  })
+  .strict();
+
+const instalmentSchema = z
+  .object({
+    id: idField,
+    kind: z.enum(['advance', 'instalment', 'balance']),
+    dueISO: isoDate,
+    amountMinor: minor,
+  })
+  .strict();
+
+const vendorSchema = z
+  .object({
+    id: idField,
+    categoryId: idField,
+    name: z.string().min(1).max(120),
+    contactNote: z.string().max(500),
+    status: z.enum(['not_started', 'contacted', 'quoted', 'booked', 'cancelled']),
+    committedMinor: minor.nullable(),
+    schedule: z.array(instalmentSchema).max(12),
+  })
+  .strict();
+
+const expenseSchema = z
+  .object({
+    id: idField,
+    categoryId: idField,
+    vendorId: idField.nullable(),
+    instalmentId: idField.nullable(),
+    dateISO: isoDate,
+    amountMinor: minor,
+    note: z.string().max(500),
+  })
+  .strict();
+
+const taskSchema = z
+  .object({
+    id: idField,
+    title: z.string().min(1).max(120),
+    dueISO: isoDate,
+    dependsOn: z.array(idField).max(10),
+    assignee: z.string().max(80).nullable(),
+    done: z.boolean(),
+  })
+  .strict();
+
+const dietary = z.enum([
+  'vegetarian',
+  'vegan',
+  'halal',
+  'kosher',
+  'gluten_free',
+  'nut_allergy',
+  'jain',
+]);
+
+const guestSchema = z
+  .object({
+    id: idField,
+    name: z.string().min(1).max(120),
+    rsvp: z.enum(['yes', 'no', 'pending']),
+    plusOnes: z.number().int().min(0).max(10),
+    dietary: z.array(dietary).max(10),
+    group: z.string().max(80),
+  })
+  .strict();
+
+const deepPlanSchema = z
+  .object({
+    id: idField,
+    name: z.string().min(1).max(120),
+    occasion: z.enum(['wedding', 'birthday', 'community']),
+    dateISO: isoDate,
+    currency: z.string().min(3).max(3),
+    locale: z.string().min(2).max(35),
+    budgetMinor: minor,
+    guestTarget: z.number().int().min(1).max(100_000),
+    categories: z.array(categorySchema).max(30),
+    vendors: z.array(vendorSchema).max(200),
+    expenses: z.array(expenseSchema).max(5_000),
+    tasks: z.array(taskSchema).max(500),
+    guests: z.array(guestSchema).max(5_000),
+  })
+  .strict();
+
+/** Referential integrity: no record may point at something that does not exist. */
+function referencesHold(plan: Plan): boolean {
+  const categoryIds = new Set(plan.categories.map((c) => c.id));
+  const vendorIds = new Set(plan.vendors.map((v) => v.id));
+  const taskIds = new Set(plan.tasks.map((t) => t.id));
+  const instalmentIds = new Set(plan.vendors.flatMap((v) => v.schedule.map((i) => i.id)));
+  for (const vendor of plan.vendors) {
+    if (!categoryIds.has(vendor.categoryId)) return false;
+  }
+  for (const expense of plan.expenses) {
+    if (!categoryIds.has(expense.categoryId)) return false;
+    if (expense.vendorId !== null && !vendorIds.has(expense.vendorId)) return false;
+    if (expense.instalmentId !== null && !instalmentIds.has(expense.instalmentId)) return false;
+  }
+  for (const task of plan.tasks) {
+    if (task.dependsOn.some((dep) => !taskIds.has(dep))) return false;
+  }
+  return !hasDependencyCycle(plan.tasks);
+}
+
+/** Kahn's check: a stored dependency cycle would send the timeline into an impossible order. */
+function hasDependencyCycle(tasks: readonly Plan['tasks'][number][]): boolean {
+  const indegree = new Map<string, number>();
+  const dependents = new Map<string, string[]>();
+  for (const task of tasks) {
+    indegree.set(task.id, task.dependsOn.length);
+    for (const dep of task.dependsOn) {
+      dependents.set(dep, [...(dependents.get(dep) ?? []), task.id]);
+    }
+  }
+  const ready: string[] = tasks.filter((t) => (indegree.get(t.id) ?? 0) === 0).map((t) => t.id);
+  let seen = 0;
+  while (ready.length > 0) {
+    const current = ready.shift();
+    if (current === undefined) break;
+    seen += 1;
+    for (const dependent of dependents.get(current) ?? []) {
+      const left = (indegree.get(dependent) ?? 0) - 1;
+      indegree.set(dependent, left);
+      if (left === 0) ready.push(dependent);
+    }
+  }
+  return seen !== tasks.length;
+}
+
 /** Migrations run oldest -> newest. Each step takes the previous version's shape. */
 function migrate(raw: Record<string, unknown>): Plan | null {
   const version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
@@ -34,31 +178,10 @@ function migrate(raw: Record<string, unknown>): Plan | null {
   if (version < 1) {
     data = { ...data, schemaVersion: 1, savedAtISO: new Date().toISOString() };
   }
-  return isPlanShape(data.plan) ? (data.plan as Plan) : null;
-}
-
-/**
- * Structural pre-check before the engine re-validates the real invariants. Storage is
- * untrusted input, so the shape is checked with a schema, not trust.
- */
-const planShape = z.object({
-  id: z.string(),
-  name: z.string(),
-  occasion: z.string(),
-  dateISO: z.string(),
-  currency: z.string(),
-  locale: z.string(),
-  budgetMinor: z.number(),
-  guestTarget: z.number(),
-  categories: z.array(z.unknown()),
-  vendors: z.array(z.unknown()),
-  expenses: z.array(z.unknown()),
-  tasks: z.array(z.unknown()),
-  guests: z.array(z.unknown()),
-});
-
-function isPlanShape(value: unknown): boolean {
-  return planShape.safeParse(value).success;
+  const parsed = deepPlanSchema.safeParse(data.plan);
+  if (!parsed.success) return null;
+  const plan = parsed.data as Plan;
+  return referencesHold(plan) ? plan : null;
 }
 
 export function loadSavedPlan(storage: Storage = window.localStorage): Plan | null {

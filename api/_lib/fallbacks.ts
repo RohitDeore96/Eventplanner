@@ -1,3 +1,4 @@
+import { majorToMinor } from '../../src/engine/money.js';
 import type { Ideas, IntakeParse, PlanReview, QuoteFields } from '../../src/schemas/ai.js';
 
 /**
@@ -19,8 +20,12 @@ const UNIT: Record<string, number> = {
   thousand: 1_000,
 };
 
-/** Forgiving rupee reader for fallback intake: "8 lakh", "8L", "2 crore", "450000". */
-function parseRupees(text: string): number | null {
+/**
+ * Forgiving amount reader for fallback intake: "8 lakh", "8L", "2 crore", "8,00,000", "450000".
+ * Returns MAJOR units (rupees as written) — never minor. Convert with majorToMinor() exactly
+ * once, with the plan's currency, before storing anything in a `*Minor` field.
+ */
+export function parseMajorAmountLoose(text: string): number | null {
   // Numbers with an explicit unit first ("8 lakh"), so "200 guests" is not read as ₹200.
   const withUnit = /(\d+(?:\.\d+)?)\s*(l|lac|lacs|lakh|lakhs|cr|crore|crores|k|thousand)\b/i.exec(
     text,
@@ -29,10 +34,12 @@ function parseRupees(text: string): number | null {
     const value = Number(withUnit[1]) * (UNIT[(withUnit[2] ?? '').toLowerCase()] ?? 1);
     if (Number.isFinite(value) && value > 0) return Math.round(value);
   }
-  const plain = /\b(\d{4,})\b/.exec(text);
-  if (plain !== null) {
-    const value = Number(plain[1]);
-    if (Number.isFinite(value) && value > 0) return value;
+  // Plain digits with optional thousands separators ("8,00,000", "80,000", "450000").
+  // ISO dates are stripped first so a year is never read as a budget.
+  const candidates = text.replace(/\d{4}-\d{2}-\d{2}/g, ' ').match(/\d[\d,]*(?:\.\d+)?/g) ?? [];
+  for (const candidate of candidates) {
+    const value = Number(candidate.replace(/,/g, ''));
+    if (Number.isFinite(value) && value >= 1000) return value;
   }
   return null;
 }
@@ -91,13 +98,15 @@ function guessName(text: string): string | null {
 }
 
 /** Regex intake: honest nulls for anything it cannot see; the form stays the source of truth. */
-export function fallbackIntake(text: string): IntakeParse {
+export function fallbackIntake(text: string, currency = 'INR'): IntakeParse {
+  const stated = parseMajorAmountLoose(text);
   return {
     name: guessName(text),
     occasion: guessOccasion(text),
     dateISO: guessDate(text),
     guests: guessGuests(text),
-    budgetMinor: parseRupees(text),
+    // The one and only major -> minor conversion, with the plan's currency (JPY has none).
+    budgetMinor: stated === null ? null : majorToMinor(stated, currency),
     notes: null,
   };
 }

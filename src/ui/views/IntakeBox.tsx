@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { currencyExponent } from '../../engine/money';
+import type { Occasion } from '../../engine/types';
 import { aiClient } from '../../lib/aiClient';
 
 export interface Prefill {
   readonly name?: string;
+  readonly occasion?: string;
   readonly dateISO?: string;
   readonly guests?: string;
   readonly budget?: string;
@@ -11,12 +14,17 @@ export interface Prefill {
 /**
  * "Describe your event" box. Calls /api/parse-intake; with no key or AI down, the endpoint's
  * deterministic fallback answers and the source label says so. The form below always works.
+ *
+ * Money contract: the API answers in true minor units; the only conversion here is
+ * minor -> major FOR DISPLAY in the form input, using the selected currency's exponent
+ * (JPY has none, so no division happens for yen).
  */
 export function IntakeBox({
+  currency,
   onPrefill,
 }: {
+  currency: string;
   onPrefill: (values: Prefill) => void;
-  occasion?: string;
 }) {
   const [text, setText] = useState('');
   const [status, setStatus] = useState<string | null>(null);
@@ -26,14 +34,16 @@ export function IntakeBox({
     setBusy(true);
     setStatus('Reading your description…');
     try {
-      const reply = await aiClient.parseIntake(text);
+      const reply = await aiClient.parseIntake(text, currency);
       const parsed = reply.body;
+      const exponent = currencyExponent(currency);
       onPrefill({
         ...(parsed.name !== null ? { name: parsed.name } : {}),
+        ...(parsed.occasion !== null ? { occasion: parsed.occasion } : {}),
         ...(parsed.dateISO !== null ? { dateISO: parsed.dateISO } : {}),
         ...(parsed.guests !== null ? { guests: String(parsed.guests) } : {}),
-        ...(parsed.budgetMinor !== null
-          ? { budget: String(Math.round(parsed.budgetMinor / 100)) }
+        ...(parsed.budgetMinor !== null && exponent !== null
+          ? { budget: String(Math.round(parsed.budgetMinor / 10 ** exponent)) }
           : {}),
       });
       const filled = [
@@ -86,4 +96,9 @@ export function IntakeBox({
       </div>
     </section>
   );
+}
+
+/** Guard so a bad cast can never leak into the typed prefill. */
+export function asOccasion(value: string): Occasion | null {
+  return value === 'wedding' || value === 'birthday' || value === 'community' ? value : null;
 }

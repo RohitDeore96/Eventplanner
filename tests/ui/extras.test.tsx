@@ -111,7 +111,7 @@ describe('App shell extras', () => {
       await user.type(screen.getByLabelText('Event name'), 'Export test');
       await user.type(screen.getByLabelText('Event date'), '2027-08-01');
       await user.type(screen.getByLabelText('Expected guests'), '50');
-      await user.type(screen.getByLabelText('Total budget in major units (e.g. 800000)'), '200000');
+      await user.type(screen.getByLabelText(/Total budget in/), '200000');
       fireEventSubmit('Create the plan');
 
       await waitFor(() => {

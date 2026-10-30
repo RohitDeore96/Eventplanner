@@ -225,13 +225,19 @@ function Shell({ plan }: { plan: Plan | null }) {
   const store = usePlanStore(localToday(), plan);
   const [hasPlan, setHasPlan] = useState(plan !== null);
   const [tab, setTab] = useState<TabId>(plan === null ? 'setup' : 'budget');
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   // The store owns the plan from here on; the prop is only the seed (saved plan or null).
   const current = store.state.history.present;
   const view = !hasPlan ? 'setup' : tab;
 
+  // Autosave follows the ACTIVE plan's lifecycle, not the seed prop: once a plan exists
+  // (created in this session or loaded), every change, undo and redo is saved. A failed
+  // write surfaces a clear, recoverable message instead of being swallowed.
   useEffect(() => {
-    if (plan !== null) savePlan(current);
-  }, [current, plan]);
+    if (!hasPlan) return;
+    const status = savePlan(current);
+    setSaveNotice(status.ok ? null : (status.reason ?? 'Your latest change was not saved.'));
+  }, [current, hasPlan]);
 
   return (
     <PlanContext.Provider value={store}>
@@ -250,6 +256,15 @@ function Shell({ plan }: { plan: Plan | null }) {
           {hasPlan && <Readiness plan={current} />}
           <HeaderControls store={store} hasPlan={hasPlan} />
         </div>
+        {saveNotice !== null && (
+          <p className="alert" role="status">
+            <strong>
+              <span aria-hidden="true">⚠️</span> {saveNotice}
+            </strong>{' '}
+            Your plan is still open — export JSON to keep a copy, or free up browser storage and
+            make a change to autosave again.
+          </p>
+        )}
       </header>
       <div className="layout">
         <nav aria-label="Plan sections">

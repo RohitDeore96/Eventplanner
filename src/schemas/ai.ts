@@ -13,7 +13,7 @@ const QUOTE_MAX_CHARS = 6000;
 const QUESTION_MAX_CHARS = 500;
 const INSTRUCTION_MAX_CHARS = 400;
 
-export const intakeParseSchema = z.object({
+const intakeParseSchema = z.object({
   name: z.string().max(80).nullable(),
   occasion: z.enum(['wedding', 'birthday', 'community']).nullable(),
   dateISO: z
@@ -25,6 +25,18 @@ export const intakeParseSchema = z.object({
   notes: z.string().max(500).nullable(),
 });
 export type IntakeParse = z.infer<typeof intakeParseSchema>;
+
+/**
+ * What the MODEL fills: amounts in MAJOR units, exactly as the human wrote them ("8 lakh"
+ * -> 800000). Converting major -> minor is the server's job, done exactly once with the
+ * request currency — models must never be trusted to know minor-unit exponents.
+ */
+export const aiIntakeParseSchema = intakeParseSchema.omit({ budgetMinor: true }).extend({
+  budgetMajor: z.number().int().min(0).max(1_000_000_000_000).nullable(),
+});
+
+/** The six currencies the app supports, shared by requests. */
+const currencyCodeSchema = z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY']);
 
 export const ideasSchema = z.object({
   themes: z.array(z.string().min(1).max(120)).max(6),
@@ -110,7 +122,11 @@ export const patchProposalSchema = z.object({
 export type PatchProposal = z.infer<typeof patchProposalSchema>;
 
 /** Request bodies, one per endpoint. Text fields are capped; everything is re-validated server-side. */
-export const parseIntakeRequest = z.object({ text: z.string().min(1).max(INTAKE_MAX_CHARS) });
+export const parseIntakeRequest = z.object({
+  text: z.string().min(1).max(INTAKE_MAX_CHARS),
+  /** The plan's currency, so amounts are read in the right minor units. Defaults to INR. */
+  currency: currencyCodeSchema.default('INR'),
+});
 export const ideasRequest = z.object({
   occasion: z.enum(['wedding', 'birthday', 'community']),
   vibe: z.string().max(120),
