@@ -44,7 +44,7 @@ const categorySchema = z
 const instalmentSchema = z
   .object({
     id: idField,
-    kind: z.enum(['advance', 'instalment', 'balance']),
+    kind: z.enum(['advance', 'instalment', 'milestone', 'final', 'balance', 'custom']),
     dueISO: isoDate,
     amountMinor: minor,
   })
@@ -91,8 +91,11 @@ const dietary = z.enum([
   'halal',
   'kosher',
   'gluten_free',
+  'dairy_free',
   'nut_allergy',
+  'no_onion_garlic',
   'jain',
+  'other',
 ]);
 
 const guestSchema = z

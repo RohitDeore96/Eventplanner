@@ -62,8 +62,15 @@ export const aiClient = {
     occasion: string,
     vibe: string,
     guests: number,
+    context?: { readonly budgetMinor?: number; readonly notes?: string },
   ): Promise<AiReply<Ideas & { source: string }>> =>
-    post('/api/suggest-ideas', { occasion, vibe, guests }),
+    post('/api/suggest-ideas', {
+      occasion,
+      vibe,
+      guests,
+      ...(context?.budgetMinor !== undefined ? { budgetMinor: context.budgetMinor } : {}),
+      ...(context?.notes !== undefined && context.notes.length > 0 ? { notes: context.notes } : {}),
+    }),
   review: (facts: string): Promise<AiReply<PlanReview & { source: string }>> =>
     post('/api/review-plan', { facts }),
   ask: (question: string, facts: string): Promise<AiReply<PlannerAnswer & { source: string }>> =>

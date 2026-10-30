@@ -31,6 +31,9 @@ export function AssistantView({ plan }: { plan: Plan }) {
   const [ideas, setIdeas] = useState<IdeasReply | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [ideasNotice, setIdeasNotice] = useState<string | null>(null);
+  // The family's own preferences: their words drive the suggestions, never a hardcoded vibe.
+  const [vibe, setVibe] = useState('');
+  const [priorities, setPriorities] = useState('');
 
   const facts = useMemo(() => planFacts(plan, today), [plan, today]);
 
@@ -65,7 +68,12 @@ export function AssistantView({ plan }: { plan: Plan }) {
     setIdeasBusy(true);
     setIdeasNotice(null);
     try {
-      setIdeas(await aiClient.ideas(plan.occasion, 'warm and festive', plan.guestTarget));
+      setIdeas(
+        await aiClient.ideas(plan.occasion, vibe.trim(), plan.guestTarget, {
+          budgetMinor: plan.budgetMinor,
+          notes: priorities.trim(),
+        }),
+      );
     } catch {
       setIdeasNotice('Ideas are offline. Try again later.');
     } finally {
@@ -139,7 +147,33 @@ export function AssistantView({ plan }: { plan: Plan }) {
 
       <section className="card" aria-labelledby="ideas-title">
         <h2 id="ideas-title">Ideas</h2>
-        <p className="muted">Tuned to your occasion. No prices — ideas only.</p>
+        <p className="muted">Tuned to your occasion and preferences. No prices — ideas only.</p>
+        <div className="grid">
+          <div>
+            <label htmlFor="ideas-vibe">Style or theme you want (your own words)</label>
+            <input
+              id="ideas-vibe"
+              value={vibe}
+              maxLength={200}
+              placeholder="e.g. pastel evening, marigold, cricket theme"
+              onChange={(event) => {
+                setVibe(event.target.value);
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="ideas-notes">Priorities, place or traditions (optional)</label>
+            <input
+              id="ideas-notes"
+              value={priorities}
+              maxLength={300}
+              placeholder="e.g. mostly elders, want a haldi at home, Pune"
+              onChange={(event) => {
+                setPriorities(event.target.value);
+              }}
+            />
+          </div>
+        </div>
         <button
           type="button"
           className="primary"
@@ -148,7 +182,7 @@ export function AssistantView({ plan }: { plan: Plan }) {
           }}
           disabled={ideasBusy}
         >
-          {ideasBusy ? 'Thinking…' : 'Suggest ideas'}
+          {ideasBusy ? 'Thinking…' : ideas === null ? 'Suggest ideas' : 'Regenerate ideas'}
         </button>
         {ideasNotice !== null && (
           <p className="muted" role="status">

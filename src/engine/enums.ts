@@ -1,4 +1,4 @@
-import type { BookingStatus, DietaryTag, Occasion, Rsvp } from './types';
+import type { BookingStatus, DietaryTag, Occasion, PaymentKind, Rsvp } from './types';
 
 /**
  * Runtime enum values, kept beside the types they mirror. Reducers use them to reject
@@ -13,12 +13,23 @@ export const BOOKING_STATUSES: readonly BookingStatus[] = [
   'booked',
   'cancelled',
 ];
+export const PAYMENT_KINDS: readonly PaymentKind[] = [
+  'advance',
+  'instalment',
+  'milestone',
+  'final',
+  'balance',
+  'custom',
+];
 export const DIETARY_TAGS: readonly DietaryTag[] = [
   'vegetarian',
   'vegan',
   'halal',
   'kosher',
   'gluten_free',
+  'dairy_free',
   'nut_allergy',
+  'no_onion_garlic',
   'jain',
+  'other',
 ];

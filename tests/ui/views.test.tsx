@@ -136,7 +136,7 @@ describe('GuestsView', () => {
         (_, element) => element?.textContent.includes('people to cater for') ?? false,
       ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText(/vegetarian/)).toBeInTheDocument();
+    expect(screen.getAllByText(/vegetarian/i).length).toBeGreaterThan(0);
   });
 
   it('adds a guest, changes RSVP and removes a guest', async () => {

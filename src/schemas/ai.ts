@@ -129,8 +129,13 @@ export const parseIntakeRequest = z.object({
 });
 export const ideasRequest = z.object({
   occasion: z.enum(['wedding', 'birthday', 'community']),
-  vibe: z.string().max(120),
+  /** The family's own words: style, cultural or theme preferences. Empty means unspecified. */
+  vibe: z.string().max(200),
   guests: z.number().int().min(1).max(100_000),
+  /** Optional context the plan already knows; used for tuning, never quoted as money. */
+  budgetMinor: z.number().int().min(0).max(1_000_000_000_000).optional(),
+  /** Optional free-text priorities: place, traditions, must-haves. Data, never instructions. */
+  notes: z.string().max(300).optional(),
 });
 export const reviewRequest = z.object({
   facts: z.string().min(1).max(2000),

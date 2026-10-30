@@ -4,9 +4,18 @@ import type { Minor } from './money';
 export type Occasion = 'wedding' | 'birthday' | 'community';
 export type Rsvp = 'yes' | 'no' | 'pending';
 export type BookingStatus = 'not_started' | 'contacted' | 'quoted' | 'booked' | 'cancelled';
-type PaymentKind = 'advance' | 'instalment' | 'balance';
+export type PaymentKind = 'advance' | 'instalment' | 'milestone' | 'final' | 'balance' | 'custom';
 export type DietaryTag =
-  'vegetarian' | 'vegan' | 'halal' | 'kosher' | 'gluten_free' | 'nut_allergy' | 'jain';
+  | 'vegetarian'
+  | 'vegan'
+  | 'halal'
+  | 'kosher'
+  | 'gluten_free'
+  | 'dairy_free'
+  | 'nut_allergy'
+  | 'no_onion_garlic'
+  | 'jain'
+  | 'other';
 
 export interface Category {
   readonly id: string;

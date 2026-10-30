@@ -437,3 +437,27 @@ th {
     border-color: #999;
   }
 }
+
+/* Dietary picker: compact checkbox group inside guest forms. */
+.dietary-picker {
+  border: 1px solid var(--border, #ccc);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  max-width: 100%;
+}
+
+.dietary-picker legend {
+  font-size: 0.85rem;
+  padding: 0 0.25rem;
+}
+
+.dietary-picker .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}

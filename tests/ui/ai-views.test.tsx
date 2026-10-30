@@ -119,6 +119,41 @@ describe('AssistantView', () => {
     });
   });
 
+  it('sends the family\u2019s own preferences, budget context and priorities (P4)', async () => {
+    fetchMock.mockResolvedValue(
+      reply({
+        themes: ['Cricket ground evening'],
+        activities: ['Box cricket'],
+        foodStyle: ['Live chaat'],
+        personalTouches: ['Jersey wall'],
+        source: 'gemini-3.6-flash',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    renderView((current) => <AssistantView plan={current} />, plan);
+    const user = userEvent.setup();
+    // The hardcoded "warm and festive" vibe is gone: empty preferences are sent as empty.
+    await user.type(
+      screen.getByLabelText('Style or theme you want (your own words)'),
+      'cricket theme',
+    );
+    await user.type(
+      screen.getByLabelText('Priorities, place or traditions (optional)'),
+      'mostly kids',
+    );
+    await user.click(screen.getByRole('button', { name: 'Suggest ideas' }));
+    await waitFor(() => {
+      expect(screen.getByText('Cricket ground evening')).toBeInTheDocument();
+    });
+    const call = fetchMock.mock.calls.find(([url]) => String(url).includes('suggest-ideas'));
+    const init = call?.[1] as { body?: string } | undefined;
+    const sent = JSON.parse(init?.body ?? '{}') as Record<string, unknown>;
+    expect(sent.vibe).toBe('cricket theme');
+    expect(sent.notes).toBe('mostly kids');
+    expect(sent.budgetMinor).toBe(plan.budgetMinor);
+    expect(sent.guests).toBe(plan.guestTarget);
+  });
+
   it('renders ideas without prices', async () => {
     fetchMock.mockResolvedValue(
       reply({

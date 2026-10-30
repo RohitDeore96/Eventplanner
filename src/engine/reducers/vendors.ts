@@ -1,5 +1,5 @@
 import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits';
-import { BOOKING_STATUSES } from '../enums';
+import { BOOKING_STATUSES, PAYMENT_KINDS } from '../enums';
 import { fail, ok, type Result } from '../result';
 import type { BookingStatus, Instalment, Plan, Vendor } from '../types';
 import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate';
@@ -194,6 +194,9 @@ export function setSchedule(plan: Plan, id: string, schedule: readonly Instalmen
   for (const item of list) {
     const failure = firstFailure([
       checkId(item.id, 'schedule'),
+      // The kind arrives from untrusted input (forms, storage, AI): validate against the
+      // closed set, never store it raw.
+      checkEnum((item as { kind?: unknown }).kind, PAYMENT_KINDS, 'kind', 'Payment kind'),
       checkDate(item.dueISO, 'schedule'),
       checkAmount(item.amountMinor, 'schedule', 'Instalment'),
     ]);
