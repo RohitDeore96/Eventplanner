@@ -98,7 +98,10 @@ Fresh inspection before the mission work. Every claimed defect was verified in c
   cycle check; corrupt data starts the app fresh instead of crashing.
 - Vendor payment schedules end-to-end; quotation library (validated, per plan), side-by-side
   comparison, honest inquiry drafts, acceptance through the reducer.
-- What-if scenarios with preview-on-copy and one-step apply (`applyAll`).
+- What-if scenarios with preview-on-copy and one-step apply (`applyAll`), plus the full
+  stress test (all three shocks at once, survives/breaks verdict) — one undo step per batch.
+- Multi-event workspace (storage v2, safe migration), All-events manager, cash-flow
+  calendar by month, session activity log, and EN/हिन्दी/मराठी chrome labels.
 - Fourth occasion type (milestone) with distinct splits, tasks and fallback ideas.
 - Playwright real-browser suite (desktop + mobile) running the production build via
   `vite preview`; mocked AI endpoints for determinism.

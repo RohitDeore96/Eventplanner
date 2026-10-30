@@ -76,3 +76,14 @@ rejected (`502 AI_RESPONSE_INVALID`), never guessed.
   plus the untouched raw text, and the app offers an exportable copy plus a fresh start.
 - **Legacy cleanup**: the storage model is one active plan under `utsav.plans.v1`; the
   unused `utsav.activeId.v1` key from an abandoned design is scrubbed on save and clear.
+
+## Additions: cash-flow engine, activity log, i18n, workspace (2026-10)
+
+- `src/engine/cashflow.ts` — pure `cashflow(plan, today)`: scheduled instalments by due
+  month with paid/still-to-pay per entry and an overdue list. Payments tab renders it.
+- `src/state/activity.ts` — one human line per `PlanAction`, resolved against the plan
+  BEFORE the change (so deleted records stay named); exhaustive handler map, compile-time
+  checked against the action union.
+- `src/lib/i18n.ts` — chrome label dictionaries (en/hi/mr) with per-key English fallback.
+- `src/state/persistence.ts` — workspace record v2: `plans[]` + `activeId`, per-event deep
+  validation, migration from v1/v0, `MAX_EVENTS` cap, byte cap unchanged.

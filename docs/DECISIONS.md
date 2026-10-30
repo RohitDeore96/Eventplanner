@@ -61,3 +61,20 @@ Default category splits are basis-point constants used once at creation. Only am
 The UI landed faster than branch tests. Thresholds are ratcheted to just below the measured
 actual (95 lines / 94 statements / 94 functions / 83 branches) and must never move DOWN.
 Next pass: raise branches toward 90 by testing AI-panel error branches and SetupView edits.
+
+## Multi-event storage v2, batches and labels (R8/X9/X6)
+
+- `utsav.plans.v1` holds ONE workspace record: `schemaVersion 2`, up to 12 plans, `activeId`.
+  Version 1 (single `plan`) and version 0 migrate forward; an event failing its own deep
+  validation is dropped alone and the count is reported — the rest of the family's data
+  survives and nothing fails silently.
+- `savePlan()` stays as the compatible upsert: it always makes its plan the active event
+  (it is only ever called for the active plan or a brand-new one).
+- A batch of actions (scenario, accepted quotation) folds into ONE history entry via
+  `applyAllActions()` — all-or-nothing, one undo step — matching what the UI always claimed.
+- The activity log (X9) mirrors the history entries one line each, in `planState` (not the
+  engine): it is session state like the undo stack itself, capped at 100, and the UI says so.
+- The cash-flow calendar (X8) derives from vendor schedules + expenses that reference
+  instalments; no separate "paid" flag exists anywhere.
+- Hindi/Marathi (X10) is chrome-scoped by design: exhaustive dictionaries with English
+  fallback per key, so a missing translation can never render as an empty label.
