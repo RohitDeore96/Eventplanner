@@ -3,6 +3,7 @@ import type { PlanAction } from '../../engine/actions';
 import { parseMajorAmount } from '../../engine/money';
 import type { BookingStatus, Plan } from '../../engine/types';
 import { money } from '../../lib/format';
+import { aiClient } from '../../lib/aiClient';
 import { usePlan } from '../../state/store';
 import { text } from './form';
 
@@ -15,7 +16,7 @@ const STATUS_OPTIONS: readonly { readonly value: BookingStatus; readonly label: 
 ];
 
 /** Per-category vendor checklist: which vendor types to book, with booking status and payment schedule. */
-export function VendorsView({ plan }: { plan: Plan }) {
+export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
   const store = usePlan();
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -134,6 +135,8 @@ export function VendorsView({ plan }: { plan: Plan }) {
         )}
       </section>
 
+      <QuoteBox plan={plan} />
+
       {plan.vendors.length > 0 && (
         <section className="card" aria-labelledby="vendors-title">
           <h2 id="vendors-title">Your vendors</h2>
@@ -199,5 +202,155 @@ export function VendorsView({ plan }: { plan: Plan }) {
         </section>
       )}
     </>
+  );
+}
+
+interface ExtractedQuote {
+  readonly guestMinimum: number | null;
+  readonly taxIncluded: boolean | null;
+  readonly advancePercent: number | null;
+  readonly cancellationPolicy: string | null;
+}
+
+/** Deterministic checks the engine can make against the pasted quote. */
+function quoteFlags(result: ExtractedQuote | null, plan: Plan): string[] {
+  if (result === null) return [];
+  const flags: string[] = [];
+  if (result.guestMinimum !== null && result.guestMinimum > plan.guestTarget) {
+    flags.push(`Minimum ${result.guestMinimum} plates is above your ${plan.guestTarget} guests.`);
+  }
+  if (result.taxIncluded === null) flags.push('The quote does not say whether tax is included.');
+  if (result.advancePercent !== null && result.advancePercent > 50) {
+    flags.push(`Advance ${result.advancePercent}% is high (above 50%).`);
+  }
+  if (result.cancellationPolicy === null) flags.push('No cancellation policy stated.');
+  return flags;
+}
+
+export function QuoteBox({ plan }: { plan: Plan }): React.ReactNode {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    vendorName: string | null;
+    totalPriceMinor: number | null;
+    pricePerPlateMinor: number | null;
+    guestMinimum: number | null;
+    advancePercent: number | null;
+    taxIncluded: boolean | null;
+    cancellationPolicy: string | null;
+    source: string;
+  } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function extract() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const reply = await aiClient.extractQuote(text);
+      setResult(reply.body);
+    } catch {
+      setNotice('Quote reading is unavailable. Add the vendor by hand below.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const flags = result === null ? quoteFlags(result, plan) : [];
+
+  return (
+    <section className="card" aria-labelledby="quote-title">
+      <h2 id="quote-title">Read a vendor quote</h2>
+      <p className="muted">
+        Paste a WhatsApp or email quote; unstated fields stay empty — nothing is invented.
+      </p>
+      <label htmlFor="quote-text">Quote text</label>
+      <textarea
+        id="quote-text"
+        maxLength={6000}
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+        }}
+      />
+      <button
+        type="button"
+        className="primary"
+        onClick={() => {
+          void extract();
+        }}
+        disabled={busy || text.trim().length === 0}
+      >
+        {busy ? 'Reading…' : 'Read the quote'}
+      </button>
+      {notice !== null && (
+        <p className="muted" role="status">
+          {notice}
+        </p>
+      )}
+      {result !== null && (
+        <div aria-live="polite">
+          <table>
+            <caption className="visually-hidden">Extracted quote fields</caption>
+            <tbody>
+              <tr>
+                <th scope="row">Vendor</th>
+                <td>{result.vendorName ?? 'Not stated'}</td>
+              </tr>
+              <tr>
+                <th scope="row">Total</th>
+                <td>
+                  {result.totalPriceMinor === null
+                    ? 'Not stated'
+                    : money(result.totalPriceMinor, plan)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Per plate</th>
+                <td>
+                  {result.pricePerPlateMinor === null
+                    ? 'Not stated'
+                    : money(result.pricePerPlateMinor, plan)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Guest minimum</th>
+                <td>{result.guestMinimum ?? 'Not stated'}</td>
+              </tr>
+              <tr>
+                <th scope="row">Advance</th>
+                <td>
+                  {result.advancePercent === null ? 'Not stated' : `${result.advancePercent}%`}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Tax included</th>
+                <td>
+                  {result.taxIncluded === null ? 'Not stated' : result.taxIncluded ? 'Yes' : 'No'}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Cancellation</th>
+                <td>{result.cancellationPolicy ?? 'Not stated'}</td>
+              </tr>
+            </tbody>
+          </table>
+          {flags.length > 0 && (
+            <div className="alert">
+              <strong>
+                <span aria-hidden="true">⚠️</span> Things to check
+              </strong>
+              <ul>
+                {flags.map((flag) => (
+                  <li key={flag}>{flag}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="muted">
+            Read by {result.source} — verify against the original before booking.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

@@ -1,32 +1,51 @@
 import { useState } from 'react';
-
-export interface IntakePrefill {
-  readonly name?: string;
-  readonly dateISO?: string;
-  readonly guests?: string;
-  readonly budget?: string;
-}
+import { aiClient } from '../../lib/aiClient';
+import type { Prefill } from './SetupView';
 
 /**
- * "Describe your event" box. In M3 this calls POST /api/parse-intake (Gemini) with a
- * deterministic fallback; until the API ships, the box states plainly that it is offline
- * so nothing is invented. The form below always works by hand.
+ * "Describe your event" box. Calls /api/parse-intake; with no key or AI down, the endpoint's
+ * deterministic fallback answers and the source label says so. The form below always works.
  */
 export function IntakeBox({
   onPrefill,
 }: {
-  onPrefill: (values: IntakePrefill) => void;
+  onPrefill: (values: Prefill) => void;
   occasion?: string;
 }) {
   const [text, setText] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function runIntake() {
-    // Placeholder intake: recognise nothing automatically, say so, keep the user in control.
-    setStatus(
-      'Automatic reading is not connected yet. Fill the form below — it takes under a minute.',
-    );
-    onPrefill({});
+  async function runIntake() {
+    setBusy(true);
+    setStatus('Reading your description…');
+    try {
+      const reply = await aiClient.parseIntake(text);
+      const parsed = reply.body;
+      onPrefill({
+        ...(parsed.name !== null ? { name: parsed.name } : {}),
+        ...(parsed.dateISO !== null ? { dateISO: parsed.dateISO } : {}),
+        ...(parsed.guests !== null ? { guests: String(parsed.guests) } : {}),
+        ...(parsed.budgetMinor !== null
+          ? { budget: String(Math.round(parsed.budgetMinor / 100)) }
+          : {}),
+      });
+      const filled = [
+        parsed.occasion,
+        parsed.dateISO,
+        parsed.guests !== null ? `${parsed.guests} guests` : null,
+        parsed.budgetMinor !== null ? 'budget' : null,
+      ].filter((part) => part !== null);
+      setStatus(
+        filled.length > 0
+          ? `Filled ${filled.join(', ')} from your description — check it below. (answered by: ${reply.source})`
+          : `I could not read clear details — fill the form below. (answered by: ${reply.source})`,
+      );
+    } catch {
+      setStatus('The reader is unavailable. Fill the form below — it takes under a minute.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -44,8 +63,14 @@ export function IntakeBox({
         }}
       />
       <div className="row">
-        <button type="button" onClick={runIntake} disabled={text.trim().length === 0}>
-          Fill form from description
+        <button
+          type="button"
+          onClick={() => {
+            void runIntake();
+          }}
+          disabled={busy || text.trim().length === 0}
+        >
+          {busy ? 'Reading…' : 'Fill form from description'}
         </button>
         {status !== null && (
           <p className="muted" role="status">

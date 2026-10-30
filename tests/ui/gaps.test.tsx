@@ -54,7 +54,7 @@ describe('intake box', () => {
     const box = screen.getByLabelText(/For example/);
     await user.type(box, 'Shaadi in Pune, 200 guests, 8 lakh budget');
     await user.click(screen.getByRole('button', { name: 'Fill form from description' }));
-    expect(await screen.findByText(/not connected yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/unavailable/i)).toBeInTheDocument();
   });
 });
 

@@ -8,9 +8,10 @@ import { BudgetView } from './views/BudgetView';
 import { GuestsView } from './views/GuestsView';
 import { SetupView } from './views/SetupView';
 import { TimelineView } from './views/TimelineView';
+import { AssistantView } from './views/AssistantView';
 import { VendorsView } from './views/VendorsView';
 
-type TabId = 'setup' | 'budget' | 'timeline' | 'guests' | 'vendors';
+type TabId = 'setup' | 'budget' | 'timeline' | 'guests' | 'vendors' | 'assistant';
 
 const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
   { id: 'setup', label: 'Event' },
@@ -18,6 +19,7 @@ const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'guests', label: 'Guests' },
   { id: 'vendors', label: 'Vendors' },
+  { id: 'assistant', label: 'Assistant' },
 ];
 
 /** Resets the error state when the user clicks again — recovery, not a dead end. */
@@ -76,6 +78,105 @@ function Readiness({ plan }: { plan: Plan }) {
   );
 }
 
+function HeaderControls({
+  store,
+  onReset,
+}: {
+  store: ReturnType<typeof usePlanStore>;
+  onReset: () => void;
+}): React.ReactNode {
+  return (
+    <div className="row">
+      <button
+        type="button"
+        onClick={() => {
+          store.undo();
+        }}
+        disabled={store.state.history.past.length === 0}
+      >
+        Undo
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          store.redo();
+        }}
+        disabled={store.state.history.future.length === 0}
+      >
+        Redo
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onReset();
+        }}
+      >
+        Reset
+      </button>
+    </div>
+  );
+}
+
+function TabList({
+  active,
+  hasPlan,
+  onSelect,
+}: {
+  active: TabId;
+  hasPlan: boolean;
+  onSelect: (tab: TabId) => void;
+}): React.ReactNode {
+  return (
+    <div className="tabs" role="tablist">
+      {TABS.map((tab) => (
+        <button
+          key={tab.id}
+          role="tab"
+          id={`tab-${tab.id}`}
+          aria-selected={active === tab.id}
+          aria-controls={`panel-${tab.id}`}
+          disabled={!hasPlan && tab.id !== 'setup'}
+          onClick={() => {
+            onSelect(tab.id);
+          }}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ViewSwitch({
+  view,
+  hasPlan,
+  plan,
+  onCreated,
+}: {
+  view: TabId;
+  hasPlan: boolean;
+  plan: Plan;
+  onCreated: () => void;
+}): React.ReactNode {
+  if (!hasPlan || view === 'setup') {
+    return <SetupView onCreated={onCreated} plan={hasPlan ? plan : null} />;
+  }
+  switch (view) {
+    case 'timeline':
+      return <TimelineView plan={plan} />;
+    case 'guests':
+      return <GuestsView plan={plan} />;
+    case 'vendors':
+      return <VendorsView plan={plan} />;
+    case 'assistant':
+      return <AssistantView plan={plan} />;
+    case 'budget':
+      return <BudgetView plan={plan} />;
+    default:
+      return <SetupView onCreated={onCreated} plan={null} />;
+  }
+}
+
 function Shell({ plan }: { plan: Plan | null }) {
   const store = usePlanStore(localToday(), plan);
   const [hasPlan, setHasPlan] = useState(plan !== null);
@@ -108,74 +209,25 @@ function Shell({ plan }: { plan: Plan | null }) {
             </div>
           </div>
           {hasPlan && <Readiness plan={current} />}
-          {hasPlan && (
-            <div className="row">
-              <button
-                type="button"
-                onClick={() => {
-                  store.undo();
-                }}
-                disabled={store.state.history.past.length === 0}
-              >
-                Undo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  store.redo();
-                }}
-                disabled={store.state.history.future.length === 0}
-              >
-                Redo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  resetAll();
-                }}
-              >
-                Reset
-              </button>
-            </div>
-          )}
+          {hasPlan && <HeaderControls store={store} onReset={resetAll} />}
         </div>
       </header>
       <div className="layout">
         <nav aria-label="Plan sections">
-          <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                id={`tab-${t.id}`}
-                aria-selected={view === t.id}
-                aria-controls={`panel-${t.id}`}
-                disabled={!hasPlan && t.id !== 'setup'}
-                onClick={() => {
-                  setTab(t.id);
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <TabList active={view} hasPlan={hasPlan} onSelect={setTab} />
         </nav>
         <main id="main">
           <div role="tabpanel" id={`panel-${view}`} aria-labelledby={`tab-${view}`}>
             <ErrorBoundary key={view}>
-              {view === 'setup' && (
-                <SetupView
-                  onCreated={() => {
-                    setHasPlan(true);
-                    setTab('budget');
-                  }}
-                  plan={hasPlan ? current : null}
-                />
-              )}
-              {view === 'budget' && hasPlan && <BudgetView plan={current} />}
-              {view === 'timeline' && hasPlan && <TimelineView plan={current} />}
-              {view === 'guests' && hasPlan && <GuestsView plan={current} />}
-              {view === 'vendors' && hasPlan && <VendorsView plan={current} />}
+              <ViewSwitch
+                view={view}
+                hasPlan={hasPlan}
+                plan={current}
+                onCreated={() => {
+                  setHasPlan(true);
+                  setTab('budget');
+                }}
+              />
             </ErrorBoundary>
           </div>
         </main>
