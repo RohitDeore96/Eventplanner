@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
+import '../../src/schemas/zodRuntime.js';
 
 /**
  * Route plumbing shared by every endpoint: method allow-list, content-type, same-origin,

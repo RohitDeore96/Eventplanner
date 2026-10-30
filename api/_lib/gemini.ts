@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import '../../src/schemas/zodRuntime.js';
 import { modelChain, MAX_MODEL_ATTEMPTS } from './models.js';
 import { systemPrompt } from './prompts.js';
 

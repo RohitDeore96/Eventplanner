@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import '../schemas/zodRuntime.js';
 import type { Plan } from '../engine/types';
 
 /**

@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import './zodRuntime.js';
 
 /**
- * Shared AI contract schemas — used by the serverless functions (input and Gemini output
+ * Shared AI contract schemas — used by the serverless functions (input and AI output
  * validation), by the client (response validation) and by the tests. One source of truth.
  * The AI never sends money: every amount here is either null or a non-negative integer of
  * minor units that the ENGINE will re-check against the plan before anything is applied.
