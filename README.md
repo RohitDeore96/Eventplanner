@@ -33,17 +33,10 @@ everything else, instantly, in the browser. **The AI proposes; the engine dispos
   <img src="docs/screenshots/timeline-dark.png" alt="Timeline in dark mode: dependency-ordered tasks with overdue and partly-paid flags, Done and Delay actions, and a one-tap calendar export" width="49%" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/assistant-light.png" alt="Assistant tab: a plan review grounded in the plan's own numbers, ask-the-planner box, occasion-tuned ideas, and AI-suggested changes that the engine checks before anything is applied" width="72%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/guests-light.png" alt="Guests tab: RSVP counts, dietary preferences and the catering headcount that follows them automatically" width="49%" />
-  <img src="docs/screenshots/vendors-light.png" alt="Vendors tab: booking checklist with per-category planned amounts and statuses from not started to booked" width="49%" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/budget-mobile.png" alt="Budget view on a phone-sized screen: the same numbers in a single-column layout with 44 px touch targets" width="240" />
+  <sub><b>Budget</b> (light) and <b>Timeline</b> (dark): one plan, two views, numbers that always reconcile — every other screen is in <a href="#-screenshots">Screenshots</a>.</sub>
 </p>
 
-**Jump to:** [The problem](#-the-problem) · [The idea](#-the-idea-one-plan-everything-connected) · [The design rule](#%EF%B8%8F-the-design-rule-the-ai-proposes-the-engine-disposes) · [Try it](#%EF%B8%8F-try-it-in-two-minutes) · [Features](#-what-it-does) · [Architecture](#%EF%B8%8F-architecture) · [AI usage](#-ai-usage) · [What makes it different](#-what-makes-utsav-different) · [Quality](#-quality) · [Security](#-security) · [Run locally](#-run-it-locally) · [Deploy](#-deploy-on-vercel)
+**Jump to:** [The problem](#-the-problem) · [The idea](#-the-idea-one-plan-everything-connected) · [The design rule](#%EF%B8%8F-the-design-rule-the-ai-proposes-the-engine-disposes) · [Try it](#%EF%B8%8F-try-it-in-two-minutes) · [Screenshots](#-screenshots) · [Features](#-what-it-does) · [Architecture](#%EF%B8%8F-architecture) · [AI usage](#-ai-usage) · [What makes it different](#-what-makes-utsav-different) · [Quality](#-quality) · [Security](#-security) · [Run locally](#-run-it-locally) · [Deploy](#-deploy-on-vercel)
 
 ## 🤯 The problem
 
@@ -127,6 +120,48 @@ Open the **[live app](https://eventplanner-mocha.vercel.app/)**:
    nothing at all.
 7. ↩️ **Undo everything.** Every change — yours or AI's — is one undo step. **Export
    JSON/CSV** gives you the real data, not a summary.
+
+## 📸 Screenshots
+
+Every tab of the live app — light and dark themes, desktop and phone. Captions say what
+to look at; the numbers in one view are the same numbers every other view shows.
+
+<p align="center">
+  <img src="docs/screenshots/assistant-light.png" alt="Assistant tab: a plan review grounded in the plan's own numbers, ask-the-planner box, occasion-tuned ideas, and AI-suggested changes that the engine checks before anything is applied" width="72%" />
+</p>
+<p align="center">
+  <sub><b>Assistant</b> — a review grounded in the plan's own numbers, ask-the-planner in English or Hinglish,<br/>occasion-tuned ideas, and AI-suggested changes the engine checks before anything is applied.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/guests-light.png" alt="Guests tab: RSVP counts, dietary preferences and the catering headcount that follows them automatically" width="100%" /><br/>
+      <sub><b>Guests</b> — RSVP and dietary needs; the catering headcount follows automatically.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/vendors-light.png" alt="Vendors tab: booking checklist with per-category planned amounts and statuses from not started to booked" width="100%" /><br/>
+      <sub><b>Vendors</b> — booking checklist with per-category amounts and payment statuses.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/timeline-light.png" alt="Timeline in light mode: dependency-ordered tasks with overdue and partly-paid flags, Done and Delay actions, and a one-tap calendar export" width="100%" /><br/>
+      <sub><b>Timeline</b> — dependency-ordered tasks; <i>Delay 7d</i> ripples with written reasons.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/budget-dark.png" alt="Budget view in dark mode: planned, committed, paid and remaining per category with a plain-language warning" width="100%" /><br/>
+      <sub><b>Budget (dark)</b> — the same reconciled numbers in the designed dark theme.</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/budget-mobile.png" alt="Budget view on a phone-sized screen: the same numbers in a single-column layout with 44 px touch targets" width="240" />
+</p>
+<p align="center">
+  <sub><b>On a phone</b> — the same plan in a single column, 44 px touch targets, WCAG 2.1 AA contrast in both themes.</sub>
+</p>
 
 ## ✨ What it does
 
