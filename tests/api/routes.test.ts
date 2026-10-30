@@ -321,4 +321,73 @@ describe('API routes: with a mocked AI endpoint', () => {
     );
     expect(res.json()).toMatchObject({ status: 502, body: { error: 'AI_UPSTREAM' } });
   });
+
+  it('returns a validated AI patch on propose-patch (union schema round-trip)', async () => {
+    const patch = {
+      summary: 'Add the mehndi afternoon',
+      actions: [
+        {
+          type: 'task/add',
+          id: 'mehndi-afternoon',
+          title: 'Mehndi afternoon',
+          dueISO: '2027-02-10',
+          dependsOn: [],
+          assignee: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn((_url: unknown, _init?: { body?: string }): Promise<Response> =>
+      Promise.resolve(new Response(aiEnvelope(JSON.stringify(patch)), { status: 200 })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const mod = await import('../../api/propose-patch');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(
+      mockReq({ instruction: 'add mehndi tasks', facts: 'Budget: ok', today: '2026-10-30' }),
+      res,
+    );
+    const { status, body } = res.json();
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ summary: 'Add the mehndi afternoon', source: 'gemini-3.6-flash' });
+    // The union must reach the provider as anyOf, not a collapsed string schema.
+    const firstInit = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined;
+    const sent = JSON.parse(firstInit?.body ?? '{}') as {
+      generationConfig?: { responseSchema?: { properties?: { actions?: { items?: unknown } } } };
+    };
+    expect(sent.generationConfig?.responseSchema?.properties?.actions?.items).toHaveProperty(
+      'anyOf',
+    );
+  });
+
+  it('maps an aborted AI call to 504 AI_TIMEOUT', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          (_url: unknown, init?: { signal?: AbortSignal }): Promise<Response> =>
+            new Promise((_resolve, reject) => {
+              init?.signal?.addEventListener('abort', () =>
+                reject(new DOMException('The operation was aborted.', 'AbortError')),
+              );
+            }),
+        ),
+      );
+      vi.resetModules();
+      const mod = await import('../../api/propose-patch');
+      const handler = mod.default;
+      const res = mockRes();
+      const pending = handler(
+        mockReq({ instruction: 'add tasks', facts: 'Budget: ok', today: '2026-10-30' }),
+        res,
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      await pending;
+      expect(res.json()).toMatchObject({ status: 504, body: { error: 'AI_TIMEOUT' } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

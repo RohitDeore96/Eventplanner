@@ -184,7 +184,8 @@ async function runGuarded<T>(config: RouteConfig<T>, input: T, res: ApiResponse)
     const body = await config.run(input, { signal: controller.signal });
     sendJson(res, 200, body);
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
+    const message = error instanceof Error ? error.message : '';
+    if ((error instanceof Error && error.name === 'AbortError') || message === 'AI_TIMEOUT') {
       sendError(res, 504, 'AI_TIMEOUT');
       return;
     }

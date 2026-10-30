@@ -99,6 +99,12 @@ function toResponseSchema(node: z.ZodType): Record<string, unknown> {
           return literal.value;
         }),
       };
+    case 'union':
+      return {
+        anyOf: (def.options ?? []).map((option) =>
+          toResponseSchema(option as unknown as z.ZodType),
+        ),
+      };
     case 'optional':
     case 'nullable': {
       const inner = toResponseSchema(def.innerType as unknown as z.ZodType);
@@ -211,7 +217,8 @@ export async function generateJson<T>(
       cacheSet(key, parsed.data);
       return { body: parsed.data, model };
     } catch (error) {
-      if (options.signal.aborted) throw new Error('AbortError', { cause: error });
+      // Preserve the original abort signal error so runGuarded can map it to 504.
+      if (options.signal.aborted) throw error;
       if (error instanceof Error && error.message === 'AI_DAILY_CAP') throw error;
       if (error instanceof Error && error.message === 'AI_RESPONSE_INVALID') lastError = error;
     }
