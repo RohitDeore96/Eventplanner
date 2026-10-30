@@ -5,3 +5,4 @@ reports
 package-lock.json
 docs/METRICS.md
 dist/
+test-results/

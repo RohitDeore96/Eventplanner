@@ -1,5 +1,11 @@
 {
-  "entry": ["scripts/*.ts", "scripts/*.mjs", "tests/**/*.test.ts", "api/*.ts"],
+  "entry": [
+    "scripts/*.ts",
+    "scripts/*.mjs",
+    "tests/**/*.test.ts",
+    "api/*.ts",
+    "tests/e2e/**/*.spec.ts"
+  ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}", "api/**/*.ts"],
   "ignoreDependencies": [],
   "ignore": []

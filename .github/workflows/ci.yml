@@ -40,3 +40,24 @@ jobs:
         run: node scripts/secret-scan.mjs
       - name: Repo size under 10 MB
         run: node scripts/check-repo-size.mjs
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install (from lockfile)
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Real-browser E2E (production build, desktop + mobile)
+        run: npm run test:e2e
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/

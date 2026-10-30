@@ -8,7 +8,7 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-363%20automated-2f6b45)
+![Tests](https://img.shields.io/badge/tests-438%20unit%20%C2%B7%2014%20browser-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
 ![a11y](https://img.shields.io/badge/axe-0%20violations%20%C2%B7%20light%20%26%20dark-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
@@ -22,7 +22,7 @@ everything else, instantly, in the browser. **The AI proposes; the engine dispos
 <table>
 <tr>
 <td align="center"><b>1 plan</b><br/><sub>budget, timeline, guests, vendors and payments stay in sync</sub></td>
-<td align="center"><b>3 occasions</b><br/><sub>wedding, kid's birthday, community festival — each with its own presets</sub></td>
+<td align="center"><b>4 occasions</b><br/><sub>wedding, kid's birthday, community festival, milestone celebration — each with its own presets</sub></td>
 <td align="center"><b>6 guarded AI touchpoints</b><br/><sub>language only, never the maths</sub></td>
 <td align="center"><b>1 engine</b><br/><sub>pure TypeScript; the AI can't touch a single rupee</sub></td>
 </tr>
@@ -165,19 +165,22 @@ to look at; the numbers in one view are the same numbers every other view shows.
 
 ## ✨ What it does
 
-| You need to                    | Utsav gives you                                                                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| 💰 Keep spending in check      | Occasion presets, per-category planned/committed/paid/remaining that always reconcile, expense log, over-allocation guards      |
-| 🧾 Pay vendors in instalments  | Scheduled payments per vendor, partial payments, "partly paid — balance due" flags, cash-to-pay total                           |
-| 📅 Never miss a deadline       | Dependency-aware timeline with overdue and impossible flags, delay propagation with written reasons, **calendar export (.ics)** |
-| 👥 Survive a bigger guest list | RSVP tracking (confirmed/declined) with dietary needs feeding the catering headcount automatically                              |
-| 🧾 Read vendor quotes          | AI quote extraction with **honest gaps**: unstated fields stay empty and are flagged, never guessed                             |
-| 📋 Know who to book            | A vendor checklist per occasion with statuses, and per-vendor payment tracking                                                  |
-| 💡 Get fresh ideas             | Occasion-tuned themes, activities, food style and personal touches — **no prices, ever**                                        |
-| 🧭 Ask about your plan         | A planner that answers in English or Hinglish, grounded in the plan's own facts, with a built-in fallback when AI is down       |
-| 🤖 Change plans by sentence    | Free-text → AI patch → engine dry-run → before/after → approve as one undo step (or reject, changing nothing)                   |
-| ↩️ Change your mind            | Undo/redo for every accepted change, **Load demo event**, Reset, JSON/CSV export                                                |
-| 🌙 Work anywhere               | Designed dark mode, 44 px touch targets, keyboard-operable throughout, WCAG 2.1 AA contrast enforced by test in both themes     |
+| You need to                    | Utsav gives you                                                                                                                                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 💰 Keep spending in check      | Occasion presets, per-category planned/committed/paid/remaining that always reconcile, expense log, over-allocation guards                                                                                                          |
+| 🧾 Pay vendors in instalments  | Per-vendor schedules (advance, instalments, milestone, final, balance), record payments against each one — partial payments, "partly paid — balance due" and overdue flags straight from the real expense ledger, cash-to-pay total |
+| 📅 Never miss a deadline       | Dependency-aware timeline with overdue and impossible flags, delay propagation with written reasons, **calendar export (.ics)**                                                                                                     |
+| 👥 Survive a bigger guest list | RSVP tracking (confirmed/declined) with dietary needs feeding the catering headcount automatically                                                                                                                                  |
+| 👥 Manage dietary needs        | Ten dietary tags per guest, inline editing, search and RSVP/group filters, allergy alerts written in words (never colour alone)                                                                                                     |
+| 🧾 Read vendor quotes          | AI quote extraction with **honest gaps**: unstated fields stay empty and are flagged, never guessed                                                                                                                                 |
+| 📊 Compare quotations          | Save up to three quotes per category, compare effective price for your guest count, cost per guest, vs-category budget and risk flags — accept the winner and the engine books the vendor                                           |
+| 📋 Know who to book            | A vendor checklist per occasion with statuses, and per-vendor payment tracking                                                                                                                                                      |
+| 💡 Get fresh ideas             | Ideas tuned to YOUR words (style, priorities, place) plus the occasion — **no prices, ever**                                                                                                                                        |
+| 🔮 Stress-test the plan        | What-if scenarios (guests +20%, vendor +10%, budget −15%, venue/catering shocks, closer date) previewed on a copy — apply only on approval                                                                                          |
+| 🧭 Ask about your plan         | A planner that answers in English or Hinglish, grounded in the plan's own facts, with a built-in fallback when AI is down                                                                                                           |
+| 🤖 Change plans by sentence    | Free-text → AI patch → engine dry-run → before/after → approve as one undo step (or reject, changing nothing)                                                                                                                       |
+| ↩️ Change your mind            | Undo/redo for every accepted change, **Load demo event**, Reset, JSON/CSV export                                                                                                                                                    |
+| 🌙 Work anywhere               | Designed dark mode, 44 px touch targets, keyboard-operable throughout, WCAG 2.1 AA contrast enforced by test in both themes                                                                                                         |
 
 ## ⚖️ How the work is split
 
@@ -275,8 +278,9 @@ guarded, labelled and reversible.
   step, persisted across reloads.
 - **See it before you build it.** A one-click demo event — a full wedding with vendors,
   instalments, expenses, RSVPs and an overdue payment — populates every screen instantly.
-- **Proof over promises.** 363 automated tests with enforced coverage gates, generated
-  metrics, a strict CSP, and honest "not done yet" notes throughout the docs.
+- **Proof over promises.** 438 automated unit/integration tests plus 14 real-browser
+  Playwright journeys (desktop and mobile, on the production build), enforced coverage gates,
+  generated metrics, a strict CSP, and honest "not done yet" notes throughout the docs.
 
 ## ✅ Quality
 
@@ -290,11 +294,14 @@ guarded, labelled and reversible.
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 363 automated tests
+### Testing: 438 automated tests + 14 real-browser journeys
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet
-that may only move up).
+that may only move up). **Playwright E2E** (`npm run test:e2e`) runs the production build in
+real Chromium — desktop and mobile — through the core journeys: intake, budget moves, vendor
+payments with reload persistence, dietary needs, AI-patch reject/apply/undo, offline-AI
+fallbacks and a zero-console-error walk. AI endpoints are mocked for determinism.
 
 - **Engine**: unit tests per module, snapshot tests for occasion presets, and **property
   tests with fast-check**: arbitrary JSON as an action never throws, category totals always
@@ -337,7 +344,8 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 - The rate limiter and daily AI cap are **per serverless instance** (no shared store yet).
 - Accessibility is tested with axe in jsdom and token math — not yet with real screen readers.
 - The quote reader depends on what the pasted text says; unstated fields stay empty on purpose.
-- Scenario comparison and share links are engine-ready but not yet in the UI.
+- Share links are not built. Scenario comparison IS in the UI now (Budget → What-if
+  scenarios); printing a summary is on the roadmap.
 - Real-browser Playwright e2e is on the roadmap; current browser-adjacent coverage is
   component-level (axe + jsdom).
 - Until the AI provider key is configured in the Vercel dashboard (variable names in
@@ -372,6 +380,7 @@ npm run dev             # terminal 2: the app on :5173 (proxies /api)
 | `npm run build`                | production build                                                             |
 | `node scripts/gen-metrics.mjs` | regenerate `docs/METRICS.md` from real runs                                  |
 | `node scripts/secret-scan.mjs` | scan the repo for accidental secrets                                         |
+| `npm run test:e2e`             | Playwright: real-browser journeys (desktop + mobile) on the production build |
 | `npm run mutation`             | Stryker mutation testing (slow; scheduled job)                               |
 
 Environment (all optional, exact names in `.env.example`): the AI provider key — the app is

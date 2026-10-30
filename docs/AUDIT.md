@@ -67,3 +67,38 @@ Ran after M4, before the M5 docs pass. Commands and raw outcomes:
 | Vercel deploy                                                  | Not verified from this environment (no account access); config is in place                                                |
 | Stryker mutation run                                           | Not run this pass (scheduled job; ~3 s per mutant)                                                                        |
 | Playwright real-browser e2e                                    | Not run in this environment (no browser download); axe runs in jsdom instead                                              |
+
+## Mission audit (2026-10-30, commit 682fc14)
+
+Fresh inspection before the mission work. Every claimed defect was verified in code first.
+
+| ID   | Severity | Defect (verified evidence)                                                                                                                                                                                                    | Fix commit  |
+| ---- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| M-01 | Critical | Intake budget unit mismatch: fallback stored major rupees in `budgetMinor` (8 lakh → 800000) and the UI divided by 100, so ₹8,00,000 became ₹8,000; the AI prompt never mentioned units; a route test encoded the wrong value | 7213c32     |
+| M-02 | Critical | Autosave gated on the original `plan` prop, so plans created from empty storage never saved later changes, undo or redo                                                                                                       | 7213c32     |
+| M-03 | Critical | Currency change silently reinterpreted amounts (same-exponent switch bypassed the reducer via the setup form; no records-exist guard)                                                                                         | 7213c32     |
+| M-04 | Critical | Intake detected an occasion but never applied it to the form (prefill object omitted it)                                                                                                                                      | 7213c32     |
+| M-05 | High     | Persistence validated only the plan's top level; nested vendor/expense/task/guest records and referential integrity were unchecked                                                                                            | 7213c32     |
+| M-06 | High     | No dietary management in the UI (guests always created with `dietary: []`)                                                                                                                                                    | 6c0ed90     |
+| M-07 | High     | Ideas hardcoded the vibe "warm and festive" — no personalization inputs                                                                                                                                                       | 6c0ed90     |
+| M-08 | High     | Vendor payment schedules existed only in the engine; the UI admitted they were "next (M2 close-out)"                                                                                                                          | 6c0ed90     |
+| M-09 | High     | Quotations were extract-and-display only: no save, no comparison, no acceptance                                                                                                                                               | 6c0ed90     |
+| M-10 | Medium   | Scenario comparison existed in the engine with no UI                                                                                                                                                                          | 010a479     |
+| M-11 | Medium   | Only three occasion types; the mission requires four with meaningful differences                                                                                                                                              | 071412d     |
+| M-12 | Medium   | No real-browser E2E while the competitor runs one                                                                                                                                                                             | this commit |
+| M-13 | Low      | `setSchedule` never validated the instalment `kind` field from untrusted input                                                                                                                                                | 6c0ed90     |
+| M-14 | Low      | CI `branches` filter YAML was malformed                                                                                                                                                                                       | this commit |
+
+## Mission additions (2026-10-30)
+
+- One monetary-unit contract: readers state MAJOR units; the server converts to minor units
+  exactly once with the request currency (`majorToMinor`); the UI converts minor → major for
+  display with `currencyExponent` (JPY needs none). Regression suite: `tests/api/intake-money.test.ts`.
+- Deep storage validation: strict nested record schemas + referential integrity + dependency
+  cycle check; corrupt data starts the app fresh instead of crashing.
+- Vendor payment schedules end-to-end; quotation library (validated, per plan), side-by-side
+  comparison, honest inquiry drafts, acceptance through the reducer.
+- What-if scenarios with preview-on-copy and one-step apply (`applyAll`).
+- Fourth occasion type (milestone) with distinct splits, tasks and fallback ideas.
+- Playwright real-browser suite (desktop + mobile) running the production build via
+  `vite preview`; mocked AI endpoints for determinism.
