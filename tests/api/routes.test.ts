@@ -305,4 +305,20 @@ describe('API routes: with a mocked AI endpoint', () => {
     expect(body).toMatchObject({ source: 'built-in' });
     expect(vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
   });
+
+  it('maps an upstream rejection on a no-fallback route to 502 AI_UPSTREAM', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((): Promise<Response> => Promise.resolve(new Response('bad key', { status: 401 }))),
+    );
+    vi.resetModules();
+    const mod = await import('../../api/propose-patch');
+    const handler = mod.default;
+    const res = mockRes();
+    await handler(
+      mockReq({ instruction: 'add tasks', facts: 'Budget: ok', today: '2026-10-30' }),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 502, body: { error: 'AI_UPSTREAM' } });
+  });
 });

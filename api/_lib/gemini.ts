@@ -190,7 +190,15 @@ export async function generateJson<T>(
         body: JSON.stringify(payload),
         signal: options.signal,
       });
-      const reply = (await response.json()) as GenerateContentReply;
+      const rawText = await response.text();
+      let reply: GenerateContentReply;
+      try {
+        reply = JSON.parse(rawText) as GenerateContentReply;
+      } catch {
+        // Upstream error pages are not always JSON (HTML/plain). Still a failed attempt.
+        lastError = new Error(`AI_HTTP_${response.status}`, { cause: 'non-JSON reply' });
+        continue;
+      }
       if (!response.ok) {
         lastError = new Error(`AI_HTTP_${response.status}`, { cause: reply.error?.message });
         continue;

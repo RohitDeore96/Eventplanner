@@ -119,14 +119,18 @@ function sendRunError(res: ApiResponse, error: unknown): void {
         ? 503
         : message === 'AI_RESPONSE_INVALID'
           ? 502
-          : 500;
+          : message.startsWith('AI_HTTP_')
+            ? 502
+            : 500;
   const code =
     status === 429
       ? 'AI_DAILY_CAP'
       : status === 503
         ? 'AI_UNAVAILABLE'
         : status === 502
-          ? 'AI_RESPONSE_INVALID'
+          ? message.startsWith('AI_HTTP_')
+            ? 'AI_UPSTREAM'
+            : 'AI_RESPONSE_INVALID'
           : 'INTERNAL_ERROR';
   sendError(res, status, code);
 }
