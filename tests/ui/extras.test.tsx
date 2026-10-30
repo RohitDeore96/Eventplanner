@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent,  render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest';
@@ -23,6 +23,19 @@ function renderView(node: (current: Plan) => React.ReactNode, seed: Plan): PlanA
           ? { ok: true, message: null }
           : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
       },
+      applyAll: (actions) => {
+        let rolling = state.history;
+        for (const action of actions) {
+          const next = applyAction(rolling, action, { today: TODAY });
+          if (!next.ok) {
+            return { ok: false, message: next.error.message, field: next.error.field ?? '' };
+          }
+          rolling = next.value;
+        }
+        applied.push(...actions);
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
+      },
       replace: (next) => {
         setState(initPlanState(next));
       },
@@ -43,6 +56,7 @@ import { App } from '../../src/ui/App';
 import { TimelineView } from '../../src/ui/views/TimelineView';
 import { PlanContext, type Store } from '../../src/state/store';
 import { initPlanState, planReducer, type PlanState } from '../../src/state/planState';
+import { applyAction } from '../../src/engine/history';
 import type { PlanAction } from '../../src/engine/actions';
 import { patchActionsFromProposal } from '../../src/schemas/patchBridge';
 import { planFacts } from '../../src/lib/facts';
@@ -152,3 +166,35 @@ function fireEventSubmit(buttonLabel: string): void {
   const event = new Event('submit', { bubbles: true, cancelable: true });
   form.dispatchEvent(event);
 }
+
+describe('budget expense deletion (branch)', () => {
+  it('deletes a recorded expense and the ledger updates', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByLabelText('Event name'), 'Delete expense party');
+    await user.type(
+      screen.getByLabelText('Event date'),
+      new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10),
+    );
+    await user.type(screen.getByLabelText('Expected guests'), '50');
+    await user.type(screen.getByLabelText(/Total budget in/), '200000');
+    const create = screen.getByRole('button', { name: 'Create the plan' }).closest('form');
+    if (create === null) throw new Error('no create form');
+    fireEvent.submit(create);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Amount spent')).toBeInTheDocument();
+    });
+    await user.type(screen.getByLabelText('Amount spent'), '5000');
+    await user.type(screen.getByLabelText('Date'), new Date().toISOString().slice(0, 10));
+    const expenseForm = screen.getByRole('button', { name: 'Add expense' }).closest('form');
+    if (expenseForm === null) throw new Error('no expense form');
+    fireEvent.submit(expenseForm);
+    await waitFor(() => {
+      expect(screen.getByText('Expense recorded.')).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    });
+  });
+});

@@ -5,6 +5,7 @@ import type { Plan } from '../../engine/types';
 import { localToday, money } from '../../lib/format';
 import { usePlan } from '../../state/store';
 import { text } from './form';
+import { ScenarioPanel } from './ScenarioPanel';
 
 /**
  * Budget: planned vs committed vs paid per category, moving money between categories, and
@@ -243,6 +244,7 @@ export function BudgetView({ plan }: { plan: Plan }) {
           </table>
         )}
       </section>
+      <ScenarioPanel plan={plan} />
     </>
   );
 }

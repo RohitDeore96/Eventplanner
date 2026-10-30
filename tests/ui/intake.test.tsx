@@ -111,3 +111,81 @@ describe('intake prefill applies every detected field', () => {
     expect(await screen.findByText(/currency is locked/)).toBeInTheDocument();
   });
 });
+
+describe('intake prefill with sparse AI replies', () => {
+  it('fills only what the reply states and leaves the rest untouched', async () => {
+    localStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: unknown): Promise<Response> => {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: null,
+              occasion: null,
+              dateISO: null,
+              guests: 40,
+              budgetMinor: null,
+              notes: null,
+              source: 'built-in',
+            }),
+            { status: 200 },
+          ),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(
+      screen.getByLabelText(/For example: "Shaadi in Pune/),
+      'some party for 40 guests',
+    );
+    await user.click(screen.getByRole('button', { name: 'Fill form from description' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Expected guests')).toHaveValue(40);
+    });
+    // Nothing else was invented: occasion keeps its default, budget stays empty.
+    expect(screen.getByLabelText('Occasion')).toHaveValue('wedding');
+    expect(screen.getByLabelText(/Total budget in/)).toHaveValue('');
+    expect(screen.getByText(/Filled 40 guests/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('intake prefill guards', () => {
+  it('ignores an occasion value outside the supported set instead of applying it', async () => {
+    localStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: unknown, _init?: unknown): Promise<Response> => {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: null,
+              occasion: 'anniversary',
+              dateISO: null,
+              guests: null,
+              budgetMinor: null,
+              notes: null,
+              source: 'built-in',
+            }),
+            { status: 200 },
+          ),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(
+      screen.getByLabelText(/For example: "Shaadi in Pune/),
+      'anniversary party somehow',
+    );
+    await user.click(screen.getByRole('button', { name: 'Fill form from description' }));
+    await waitFor(() => {
+      expect(screen.getByText(/answered by: built-in/)).toBeInTheDocument();
+    });
+    // The invalid occasion never reached the select.
+    expect(screen.getByLabelText('Occasion')).toHaveValue('wedding');
+    vi.unstubAllGlobals();
+  });
+});

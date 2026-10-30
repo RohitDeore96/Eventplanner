@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { PlanContext, type Store } from '../../src/state/store';
-import { initPlanState, planReducer } from '../../src/state/planState';
+import { initPlanState, planReducer, type PlanState } from '../../src/state/planState';
+import { applyAction } from '../../src/engine/history';
 import type { Plan } from '../../src/engine/types';
 import { budgetTotals, instalmentPayments, vendorPayments } from '../../src/engine/budget';
 import { makePlan, run, TODAY } from '../helpers';
@@ -40,6 +41,23 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
       return next.lastError === null
         ? { ok: true, message: null }
         : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
+    },
+    applyAll: (actions) => {
+      let rolling = state.history;
+      let error: PlanState['lastError'] = null;
+      for (const action of actions) {
+        const next = applyAction(rolling, action, { today: TODAY });
+        if (!next.ok) {
+          error = next.error;
+          break;
+        }
+        rolling = next.value;
+      }
+      if (error === null) {
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
+      }
+      return { ok: false, message: error.message, field: error.field ?? '' };
     },
     replace: (next) => {
       setState(initPlanState(next));
@@ -204,6 +222,18 @@ describe('vendor schedule edge cases', () => {
           ? { ok: true, message: null }
           : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
       },
+      applyAll: (actions) => {
+        let rolling = state.history;
+        for (const action of actions) {
+          const next = applyAction(rolling, action, { today: TODAY });
+          if (!next.ok) {
+            return { ok: false, message: next.error.message, field: next.error.field ?? '' };
+          }
+          rolling = next.value;
+        }
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
+      },
       replace: () => undefined,
       undo: () => undefined,
       redo: () => undefined,
@@ -235,19 +265,76 @@ describe('vendor schedule edge cases', () => {
     });
     render(<Harness2 seed={scheduled} />);
     const row = rowCell('Advance')?.closest('tr');
-    if (row === undefined) throw new Error('no row');
+    if (row === null || row === undefined) throw new Error('no row');
     const input = within(row).getByLabelText('Amount paid now');
     await user.clear(input);
     await user.type(input, 'not-a-number');
-    const payForm = within(row)
-      .getByRole('button', { name: 'Record payment' })
-      .closest('form');
+    const payForm = within(row).getByRole('button', { name: 'Record payment' }).closest('form');
     if (payForm === null) throw new Error('no pay form');
     fireEvent.submit(payForm);
     await waitFor(() => {
       // The engine's own rejection message surfaces inline, next to the payment row.
       const status = within(row).getByRole('status');
       expect(status.textContent.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('vendor card editing (branch coverage)', () => {
+  function Harness3({ seed }: { seed: Plan }): React.ReactNode {
+    const [state, setState] = useState(() => initPlanState(seed));
+    const store: Store = {
+      plan: seed,
+      state,
+      dispatch: (event) => {
+        setState(planReducer(state, event, TODAY));
+      },
+      apply: (action) => {
+        const next = planReducer(state, { kind: 'apply', action }, TODAY);
+        setState(next);
+        return next.lastError === null
+          ? { ok: true, message: null }
+          : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
+      },
+      applyAll: (actions) => {
+        let rolling = state.history;
+        for (const action of actions) {
+          const next = applyAction(rolling, action, { today: TODAY });
+          if (!next.ok) {
+            return { ok: false, message: next.error.message, field: next.error.field ?? '' };
+          }
+          rolling = next.value;
+        }
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
+      },
+      replace: () => undefined,
+      undo: () => undefined,
+      redo: () => undefined,
+    };
+    return (
+      <PlanContext.Provider value={store}>
+        <VendorsView plan={state.history.present} />
+      </PlanContext.Provider>
+    );
+  }
+
+  it('saves an agreed price and removes a vendor without payments', async () => {
+    const user = userEvent.setup();
+    render(<Harness3 seed={plan} />);
+    const price = screen.getByLabelText('Agreed price (blank clears it)');
+    await user.clear(price);
+    await user.type(price, '90000');
+    const priceForm = screen.getByRole('button', { name: 'Save price' }).closest('form');
+    if (priceForm === null) throw new Error('no price form');
+    fireEvent.submit(priceForm);
+    await waitFor(() => {
+      const booked = screen.getAllByRole('heading', { name: 'Sharma Caterers' }).length;
+      expect(booked).toBeGreaterThan(0);
+    });
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Sharma Caterers' })).toBeNull();
     });
   });
 });

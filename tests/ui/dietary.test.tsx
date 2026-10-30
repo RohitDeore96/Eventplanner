@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { PlanContext, type Store } from '../../src/state/store';
-import { initPlanState, planReducer } from '../../src/state/planState';
+import { initPlanState, planReducer, type PlanState } from '../../src/state/planState';
+import { applyAction } from '../../src/engine/history';
 import type { Plan } from '../../src/engine/types';
 import { makePlan, run, TODAY } from '../helpers';
 import { useState } from 'react';
@@ -39,6 +40,23 @@ function Harness({ seed }: { seed: Plan }): React.ReactNode {
       return next.lastError === null
         ? { ok: true, message: null }
         : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
+    },
+    applyAll: (actions) => {
+      let rolling = state.history;
+      let error: PlanState['lastError'] = null;
+      for (const action of actions) {
+        const next = applyAction(rolling, action, { today: TODAY });
+        if (!next.ok) {
+          error = next.error;
+          break;
+        }
+        rolling = next.value;
+      }
+      if (error === null) {
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
+      }
+      return { ok: false, message: error.message, field: error.field ?? '' };
     },
     replace: (plan) => {
       setState(initPlanState(plan));

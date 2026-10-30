@@ -7,6 +7,7 @@ import { axe } from 'vitest-axe';
 import { PlanContext, type Store } from '../../src/state/store';
 import type { PlanState } from '../../src/state/planState';
 import { initPlanState, planReducer } from '../../src/state/planState';
+import { applyAction } from '../../src/engine/history';
 import type { PlanAction } from '../../src/engine/actions';
 import { makePlan, run, TODAY } from '../helpers';
 import type { Plan } from '../../src/engine/types';
@@ -41,6 +42,18 @@ function renderView(node: (current: Plan) => React.ReactNode, seed: Plan): PlanA
         return next.lastError === null
           ? { ok: true, message: null }
           : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
+      },
+      applyAll: (actions) => {
+        let rolling = state.history;
+        for (const action of actions) {
+          const next = applyAction(rolling, action, { today: TODAY });
+          if (!next.ok) {
+            return { ok: false, message: next.error.message, field: next.error.field ?? '' };
+          }
+          rolling = next.value;
+        }
+        setState({ history: rolling, lastError: null });
+        return { ok: true, message: null };
       },
       replace: (next) => {
         setState(initPlanState(next));

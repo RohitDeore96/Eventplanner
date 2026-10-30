@@ -20,6 +20,7 @@ export interface PlanState {
 
 export type PlanEvent =
   | { readonly kind: 'apply'; readonly action: PlanAction }
+  | { readonly kind: 'applyAll'; readonly actions: readonly PlanAction[] }
   | { readonly kind: 'patch'; readonly patch: PlanPatch }
   | { readonly kind: 'replace'; readonly plan: Plan }
   | { readonly kind: 'undo' }
@@ -47,6 +48,21 @@ export function planReducer(state: PlanState, event: PlanEvent, today: string): 
       return next.ok
         ? { history: next.value, lastError: null }
         : { ...state, lastError: failure(next) };
+    }
+    case 'applyAll': {
+      // A batch (scenario, accepted quotation) folds into ONE history entry: it either
+      // applies in order or stops at the first rejection, and Undo reverses all of it.
+      let history = state.history;
+      let lastError: PlanState['lastError'] = null;
+      for (const action of event.actions) {
+        const next = applyAction(history, action, context);
+        if (!next.ok) {
+          lastError = failure(next);
+          break;
+        }
+        history = next.value;
+      }
+      return lastError === null ? { history, lastError: null } : { ...state, lastError };
     }
     case 'patch': {
       const next = acceptPatch(state.history, event.patch, context);

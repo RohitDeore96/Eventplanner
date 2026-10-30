@@ -677,17 +677,11 @@ function QuotationCompare({
       );
       return;
     }
-    let failed: string | null = null;
-    for (const action of actions) {
-      const outcome = store.apply(action);
-      if (!outcome.ok) {
-        failed = outcome.message ?? 'The quotation could not be accepted.';
-        break;
-      }
-    }
+    const outcome = store.applyAll(actions);
     setNotice(
-      failed ??
-        `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`,
+      outcome.ok
+        ? `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`
+        : (outcome.message ?? 'The quotation could not be accepted.'),
     );
     onChanged();
   }
