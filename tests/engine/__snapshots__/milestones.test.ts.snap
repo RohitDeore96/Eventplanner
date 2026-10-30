@@ -1,0 +1,52 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generated schedule is pinned (golden) > birthday with a year of notice 1`] = `
+[
+  "e-set-budget|Agree the budget and theme|2027-09-15|",
+  "e-book-main|Book the venue or set up the space|2027-09-25|e-set-budget",
+  "e-send-invites|Send invitations|2027-10-09|e-book-main",
+  "e-confirm-vendors|Confirm all vendors and arrival times|2027-10-23|e-book-main",
+  "e-final-headcount|Lock the final headcount with caterer|2027-10-25|e-send-invites",
+  "e-final-payments|Settle remaining vendor balances|2027-10-28|e-confirm-vendors",
+  "e-event-day|Event day run-through|2027-10-30|e-final-payments",
+]
+`;
+
+exports[`generated schedule is pinned (golden) > community with a year of notice 1`] = `
+[
+  "e-set-budget|Agree scope, budget and volunteers|2027-08-31|",
+  "e-book-main|Secure the venue and permissions|2027-09-15|e-set-budget",
+  "e-send-invites|Announce the event|2027-10-02|e-book-main",
+  "e-confirm-vendors|Confirm all vendors and arrival times|2027-10-23|e-book-main",
+  "e-final-headcount|Lock the final headcount with caterer|2027-10-25|e-send-invites",
+  "e-final-payments|Settle remaining vendor balances|2027-10-28|e-confirm-vendors",
+  "e-event-day|Event day run-through|2027-10-30|e-final-payments",
+]
+`;
+
+exports[`generated schedule is pinned (golden) > places the crowd task chronologically for a large event 1`] = `
+[
+  "e-set-budget|Agree the budget and priorities|2027-05-03|",
+  "e-book-main|Book the venue|2027-06-02|e-set-budget",
+  "e-book-photo|Book photographer|2027-07-02|e-book-main",
+  "e-send-invites|Send invitations|2027-08-31|e-book-main",
+  "e-crowd-plan|Plan seating, entry flow and accessibility|2027-10-16|e-book-main",
+  "e-confirm-vendors|Confirm all vendors and arrival times|2027-10-23|e-book-main",
+  "e-final-headcount|Lock the final headcount with caterer|2027-10-25|e-send-invites",
+  "e-final-payments|Settle remaining vendor balances|2027-10-28|e-confirm-vendors",
+  "e-event-day|Event day run-through|2027-10-30|e-final-payments",
+]
+`;
+
+exports[`generated schedule is pinned (golden) > wedding with a year of notice 1`] = `
+[
+  "e-set-budget|Agree the budget and priorities|2027-05-03|",
+  "e-book-main|Book the venue|2027-06-02|e-set-budget",
+  "e-book-photo|Book photographer|2027-07-02|e-book-main",
+  "e-send-invites|Send invitations|2027-08-31|e-book-main",
+  "e-confirm-vendors|Confirm all vendors and arrival times|2027-10-23|e-book-main",
+  "e-final-headcount|Lock the final headcount with caterer|2027-10-25|e-send-invites",
+  "e-final-payments|Settle remaining vendor balances|2027-10-28|e-confirm-vendors",
+  "e-event-day|Event day run-through|2027-10-30|e-final-payments",
+]
+`;
