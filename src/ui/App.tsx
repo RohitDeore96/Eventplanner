@@ -3,6 +3,8 @@ import { summarize } from '../engine/summary';
 import type { Plan } from '../engine/types';
 import { localToday } from '../lib/format';
 import { clearSavedPlan, loadSavedPlan, savePlan } from '../state/persistence';
+import { buildDemoPlan } from '../state/demo';
+import { exportCsv, exportJson } from '../lib/export';
 import { PlanContext, usePlanStore } from '../state/store';
 import { BudgetView } from './views/BudgetView';
 import { GuestsView } from './views/GuestsView';
@@ -80,39 +82,81 @@ function Readiness({ plan }: { plan: Plan }) {
 
 function HeaderControls({
   store,
-  onReset,
+  hasPlan,
 }: {
   store: ReturnType<typeof usePlanStore>;
-  onReset: () => void;
+  hasPlan: boolean;
 }): React.ReactNode {
   return (
     <div className="row">
-      <button
-        type="button"
-        onClick={() => {
-          store.undo();
-        }}
-        disabled={store.state.history.past.length === 0}
-      >
-        Undo
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          store.redo();
-        }}
-        disabled={store.state.history.future.length === 0}
-      >
-        Redo
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          onReset();
-        }}
-      >
-        Reset
-      </button>
+      {!hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            const demo = buildDemoPlan(localToday());
+            if (demo !== null) {
+              savePlan(demo);
+              store.replace(demo);
+              window.location.reload();
+            }
+          }}
+        >
+          Load demo event
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            exportJson(store.state.history.present);
+          }}
+        >
+          Export JSON
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            exportCsv(store.state.history.present);
+          }}
+        >
+          Export CSV
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            store.undo();
+          }}
+          disabled={store.state.history.past.length === 0}
+        >
+          Undo
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            store.redo();
+          }}
+          disabled={store.state.history.future.length === 0}
+        >
+          Redo
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            clearSavedPlan();
+            window.location.reload();
+          }}
+        >
+          Reset
+        </button>
+      )}
     </div>
   );
 }
@@ -189,11 +233,6 @@ function Shell({ plan }: { plan: Plan | null }) {
     if (plan !== null) savePlan(current);
   }, [current, plan]);
 
-  function resetAll() {
-    clearSavedPlan();
-    window.location.reload(); // the reload starts from empty storage
-  }
-
   return (
     <PlanContext.Provider value={store}>
       <a className="skip-link" href="#main">
@@ -209,7 +248,7 @@ function Shell({ plan }: { plan: Plan | null }) {
             </div>
           </div>
           {hasPlan && <Readiness plan={current} />}
-          {hasPlan && <HeaderControls store={store} onReset={resetAll} />}
+          <HeaderControls store={store} hasPlan={hasPlan} />
         </div>
       </header>
       <div className="layout">
