@@ -532,3 +532,15 @@ th {
   border-color: var(--danger, #b3261e);
   color: var(--danger, #b3261e);
 }
+
+/* X10 language picker sits with the header controls. */
+.lang-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.lang-picker select {
+  padding: 0.25rem 0.4rem;
+}

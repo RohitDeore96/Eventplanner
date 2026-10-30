@@ -13,6 +13,7 @@ import {
 import { MAX_EVENTS } from '../config/limits';
 import { buildDemoPlan } from '../state/demo';
 import { exportCsv, exportJson, exportTextFile } from '../lib/export';
+import { LANGS, loadLang, storeLang, translate, type Lang } from '../lib/i18n';
 import { PlanContext, usePlanStore } from '../state/store';
 import { BudgetView } from './views/BudgetView';
 import { GuestsView } from './views/GuestsView';
@@ -35,16 +36,16 @@ type TabId =
   | 'activity'
   | 'assistant';
 
-const TABS: readonly { readonly id: TabId; readonly label: string }[] = [
-  { id: 'events', label: 'All events' },
-  { id: 'setup', label: 'Event' },
-  { id: 'budget', label: 'Budget' },
-  { id: 'timeline', label: 'Timeline' },
-  { id: 'guests', label: 'Guests' },
-  { id: 'vendors', label: 'Vendors' },
-  { id: 'cashflow', label: 'Payments' },
-  { id: 'activity', label: 'Activity' },
-  { id: 'assistant', label: 'Assistant' },
+const TABS: readonly TabId[] = [
+  'events',
+  'setup',
+  'budget',
+  'timeline',
+  'guests',
+  'vendors',
+  'cashflow',
+  'activity',
+  'assistant',
 ];
 
 /** Resets the error state when the user clicks again — recovery, not a dead end. */
@@ -79,7 +80,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { message: string
   }
 }
 
-function Readiness({ plan }: { plan: Plan }) {
+function Readiness({ plan, lang }: { plan: Plan; lang: Lang }) {
   const today = localToday();
   const summary = useMemo(() => summarize(plan, today), [plan, today]);
   const done = summary.readiness.tasksDone;
@@ -87,17 +88,17 @@ function Readiness({ plan }: { plan: Plan }) {
   const pct = total === 0 ? 100 : Math.round((done / total) * 100);
   const label =
     summary.readiness.status === 'on_track'
-      ? 'On track'
+      ? translate(lang, 'readiness.onTrack')
       : summary.readiness.status === 'at_risk'
-        ? 'At risk'
-        : 'Needs attention';
+        ? translate(lang, 'readiness.atRisk')
+        : translate(lang, 'readiness.needsAttention');
   return (
     <p className="readiness">
       <span className={`badge ${summary.readiness.status === 'on_track' ? 'success' : 'warn'}`}>
         <span aria-hidden="true">{summary.readiness.status === 'on_track' ? '✓' : '!'}</span>{' '}
         {label}
       </span>
-      <progress max={100} value={pct} aria-label={`Plan readiness ${pct}%`} />
+      <progress max={100} value={pct} aria-label={`${translate(lang, 'readiness.aria')} ${pct}%`} />
       <span>{pct}%</span>
     </p>
   );
@@ -106,13 +107,34 @@ function Readiness({ plan }: { plan: Plan }) {
 function HeaderControls({
   store,
   hasPlan,
+  lang,
+  onLang,
 }: {
   store: ReturnType<typeof usePlanStore>;
   hasPlan: boolean;
+  lang: Lang;
+  onLang: (lang: Lang) => void;
 }): React.ReactNode {
   const [confirmReset, setConfirmReset] = useState(false);
   return (
     <div className="row">
+      <label className="lang-picker">
+        <span className="muted">{translate(lang, 'header.language')}</span>
+        <select
+          value={lang}
+          aria-label={translate(lang, 'header.language')}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (next === 'en' || next === 'hi' || next === 'mr') onLang(next);
+          }}
+        >
+          {LANGS.map((option) => (
+            <option key={option.id} value={option.id} lang={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {!hasPlan && (
         <button
           type="button"
@@ -125,7 +147,7 @@ function HeaderControls({
             }
           }}
         >
-          Load demo event
+          {translate(lang, 'header.loadDemo')}
         </button>
       )}
       {hasPlan && (
@@ -135,7 +157,7 @@ function HeaderControls({
             exportJson(store.state.history.present);
           }}
         >
-          Export JSON
+          {translate(lang, 'header.exportJson')}
         </button>
       )}
       {hasPlan && (
@@ -145,7 +167,7 @@ function HeaderControls({
             exportCsv(store.state.history.present);
           }}
         >
-          Export CSV
+          {translate(lang, 'header.exportCsv')}
         </button>
       )}
       {hasPlan && (
@@ -156,7 +178,7 @@ function HeaderControls({
           }}
           disabled={store.state.history.past.length === 0}
         >
-          Undo
+          {translate(lang, 'header.undo')}
         </button>
       )}
       {hasPlan && (
@@ -167,7 +189,7 @@ function HeaderControls({
           }}
           disabled={store.state.history.future.length === 0}
         >
-          Redo
+          {translate(lang, 'header.redo')}
         </button>
       )}
       {hasPlan && (
@@ -177,7 +199,7 @@ function HeaderControls({
             setConfirmReset(true);
           }}
         >
-          Reset
+          {translate(lang, 'header.reset')}
         </button>
       )}
       {hasPlan && confirmReset && (
@@ -190,7 +212,7 @@ function HeaderControls({
               window.location.reload();
             }}
           >
-            Delete every saved event
+            {translate(lang, 'header.resetConfirm')}
           </button>
           <button
             type="button"
@@ -198,7 +220,7 @@ function HeaderControls({
               setConfirmReset(false);
             }}
           >
-            Keep my events
+            {translate(lang, 'header.resetCancel')}
           </button>
         </>
       )}
@@ -209,27 +231,29 @@ function HeaderControls({
 function TabList({
   active,
   hasPlan,
+  lang,
   onSelect,
 }: {
   active: TabId;
   hasPlan: boolean;
+  lang: Lang;
   onSelect: (tab: TabId) => void;
 }): React.ReactNode {
   return (
     <div className="tabs" role="tablist">
-      {TABS.map((tab) => (
+      {TABS.map((tabId) => (
         <button
-          key={tab.id}
+          key={tabId}
           role="tab"
-          id={`tab-${tab.id}`}
-          aria-selected={active === tab.id}
-          aria-controls={`panel-${tab.id}`}
-          disabled={!hasPlan && tab.id !== 'setup' && tab.id !== 'events'}
+          id={`tab-${tabId}`}
+          aria-selected={active === tabId}
+          aria-controls={`panel-${tabId}`}
+          disabled={!hasPlan && tabId !== 'setup' && tabId !== 'events'}
           onClick={() => {
-            onSelect(tab.id);
+            onSelect(tabId);
           }}
         >
-          {tab.label}
+          {translate(lang, `tab.${tabId}`)}
         </button>
       ))}
     </div>
@@ -344,6 +368,11 @@ function Shell({ workspace }: { workspace: Workspace }) {
   const [creatingNew, setCreatingNew] = useState(false);
   const [tab, setTab] = useState<TabId>(seed === null ? 'setup' : 'budget');
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [lang, setLang] = useState<Lang>(() => loadLang());
+  // The document language follows the label language, for screen readers.
+  useEffect(() => {
+    document.documentElement.lang = lang === 'en' ? 'en' : lang;
+  }, [lang]);
   // The store owns the ACTIVE plan from here on; `events` mirrors what storage holds.
   const current = store.state.history.present;
   const hasPlan = activeId !== null && events.some((p) => p.id === activeId);
@@ -397,7 +426,7 @@ function Shell({ workspace }: { workspace: Workspace }) {
   return (
     <PlanContext.Provider value={store}>
       <a className="skip-link" href="#main">
-        Skip to main content
+        {translate(lang, 'a11y.skip')}
       </a>
       <header className="masthead">
         <div className="masthead-inner">
@@ -408,8 +437,16 @@ function Shell({ workspace }: { workspace: Workspace }) {
               <span className="tagline">Every utsav, one connected plan.</span>
             </div>
           </div>
-          {hasPlan && <Readiness plan={current} />}
-          <HeaderControls store={store} hasPlan={hasPlan} />
+          {hasPlan && <Readiness plan={current} lang={lang} />}
+          <HeaderControls
+            store={store}
+            hasPlan={hasPlan}
+            lang={lang}
+            onLang={(next) => {
+              setLang(next);
+              storeLang(next);
+            }}
+          />
         </div>
         {saveNotice !== null && (
           <p className="alert" role="status">
@@ -435,6 +472,7 @@ function Shell({ workspace }: { workspace: Workspace }) {
           <TabList
             active={tab}
             hasPlan={hasPlan}
+            lang={lang}
             onSelect={(next) => {
               setCreatingNew(false);
               setTab(next);
