@@ -34,3 +34,15 @@ Default category splits are basis-point constants used once at creation. Only am
 - `dependency-cruiser`: enforces layers and bans cycles and orphans.
 - `knip`: fails on unused files and exports. In sandboxes where it cannot allocate memory, set `KNIP_DISABLE_RAW_TRANSFER=1` (a documented knip switch).
 - `typescript-eslint` strict-type-checked, `prettier`, `tsx` for scripts.
+
+## Dependency ledger (one line each, per house rule)
+
+- `react`, `react-dom` — the UI layer; the only render library considered for this scope.
+- `vite`, `@vitejs/plugin-react` — build/dev server; zero-config, fast, framework-per-Vercel.
+- `zod` — one schema language shared by client, server and tests for every untrusted input.
+- `@google/genai` — the official Gemini SDK, used only inside `api/` serverless functions.
+- `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`,
+  `vitest-axe`, `jsdom` — component and accessibility testing without a browser in the loop.
+- `fast-check` (pre-existing) — property/fuzz tests for engine and reducer robustness.
+- Deliberately NOT added: state libraries (one reducer + context suffices), UI component
+  kits (design tokens + small CSS keep the bundle at ~90 KB gz and CSP strict), form libraries.

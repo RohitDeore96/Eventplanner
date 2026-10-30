@@ -26,3 +26,20 @@ AI text --> patch (validated) --> dry run ----+        ^
 4. `acceptPatch` pushes the result as a single history entry so one undo reverts it.
 
 Not built yet: the Gemini call that produces the patch, its schema validation, and the deterministic fallback.
+
+## The AI patch flow (added M3)
+
+1. The family types what they want changed in the Assistant tab.
+2. The client sends a compact facts summary (built from `summarize`) plus the instruction to
+   `POST /api/propose-patch`, guarded like every route.
+3. Gemini returns a small JSON patch (at most 10 ops of `task/add`, `task/update`,
+   `task/delay`, `budget/move`, `category/add`), schema-validated server-side and client-side.
+4. The ENGINE dry-runs the patch in the browser (`dryRunPatch`): any change that would
+   enlarge an error condition (over-allocation, over-commitment) or introduce a new error is
+   blocked with the exact reason.
+5. The UI shows the before/after per category plus added/rescheduled tasks. **Apply** goes
+   through `acceptPatch` — one undo step. **Reject** touches nothing.
+
+The same shape powers every AI touchpoint: intake, ideas, review, ask-the-planner and quote
+extraction all return zod-validated JSON, all degrade to deterministic fallbacks, and none
+of them can change the plan without the family's explicit approval.
