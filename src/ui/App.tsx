@@ -15,7 +15,7 @@ import { duplicatePlan } from '../engine/duplicate';
 import { buildDemoPlan } from '../state/demo';
 import { deletePreferences } from '../state/prefs';
 import { deleteQuotesFor } from '../state/quotes';
-import { exportCsv, exportJson, exportTextFile } from '../lib/export';
+import { exportCsv, exportJson, exportSummary, exportTextFile } from '../lib/export';
 import { LANGS, loadLang, storeLang, translate, type Lang } from '../lib/i18n';
 import { PlanContext, usePlanStore } from '../state/store';
 import { BudgetView } from './views/BudgetView';
@@ -174,6 +174,16 @@ function HeaderControls({
           }}
         >
           {translate(lang, 'header.exportCsv')}
+        </button>
+      )}
+      {hasPlan && (
+        <button
+          type="button"
+          onClick={() => {
+            exportSummary(store.state.history.present);
+          }}
+        >
+          {translate(lang, 'header.exportSummary')}
         </button>
       )}
       {hasPlan && (
