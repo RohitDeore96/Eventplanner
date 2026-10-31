@@ -40,7 +40,7 @@ export function TimelineView({ plan }: { plan: Plan }) {
             Add timeline to calendar (.ics)
           </button>
         </div>
-        <table>
+        <table tabIndex={0}>
           <caption className="visually-hidden">Tasks with due dates, status and actions</caption>
           <thead>
             <tr>

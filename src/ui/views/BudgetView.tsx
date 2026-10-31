@@ -61,7 +61,7 @@ export function BudgetView({ plan }: { plan: Plan }) {
 
       <section className="card" aria-labelledby="alloc-title">
         <h2 id="alloc-title">Where the budget stands</h2>
-        <table>
+        <table tabIndex={0}>
           <caption className="visually-hidden">
             Budget categories with planned, committed, paid and remaining amounts
           </caption>
@@ -201,7 +201,7 @@ function AllocationEditor({
         {unallocated > 0 && ` ${money(unallocated, plan)} of the budget is still unallocated.`}
         {unallocated < 0 && ` Allocations exceed the budget by ${money(-unallocated, plan)}.`}
       </p>
-      <table>
+      <table tabIndex={0}>
         <caption className="visually-hidden">Allocation editor with lock toggles</caption>
         <thead>
           <tr>
@@ -550,7 +550,7 @@ function ExpenseSection({
               </select>
             </div>
           </div>
-          <table>
+          <table tabIndex={0}>
             <caption className="visually-hidden">Expenses logged so far</caption>
             <thead>
               <tr>

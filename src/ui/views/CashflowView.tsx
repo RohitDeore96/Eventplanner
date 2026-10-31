@@ -79,7 +79,7 @@ export function CashflowView({ plan }: { plan: Plan }): React.ReactNode {
                   — {money(month.toPayMinor, plan)} to pay of {money(month.scheduledMinor, plan)}
                 </span>
               </h3>
-              <table>
+              <table tabIndex={0}>
                 <thead>
                   <tr>
                     <th scope="col">Due</th>

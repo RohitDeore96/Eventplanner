@@ -87,16 +87,29 @@ a {
   border-radius: 50%;
 }
 
+/* The brand name is the page's single h1; margins are reset so the
+   semantic upgrade from span leaves the masthead visually identical. */
 .brand .name {
+  margin: 0;
   font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .brand .tagline {
   display: block;
+  margin: 0;
   font-size: 0.78rem;
+  color: var(--on-maroon);
+  opacity: 0.92;
+}
+
+/* Secondary text uses --text-muted, tuned for ivory surfaces. On the maroon header
+   band that token sits at 1.3:1 (axe: color-contrast, serious); header secondary text
+   uses the on-maroon token instead. */
+.masthead .muted {
   color: var(--on-maroon);
   opacity: 0.92;
 }
@@ -415,8 +428,15 @@ th {
 
 /* ---------- misc ---------- */
 
+/* position: fixed, not absolute: a fixed box never contributes to any scrollable
+   overflow area. As absolute, a visually-hidden element inside a wide table still
+   positioned against the root and widened the page by its static offset (found by
+   the 320 px reflow scan: documentElement.scrollWidth up to 479 at a 320 viewport).
+   Fixed keeps the same invisibility with no scroll side effects. */
 .visually-hidden {
-  position: absolute;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   margin: -1px;

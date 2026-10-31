@@ -234,6 +234,38 @@ function HeaderControls({
   );
 }
 
+const TAB_MOVEMENT_KEYS = ['ArrowRight', 'ArrowLeft', 'Home', 'End'] as const;
+
+/**
+ * Keyboard support for the ARIA tabs pattern beyond plain Tab/Enter: arrow keys move
+ * between tabs (wrapping) and activate them, Home/End jump to the ends. Tab itself is
+ * left as a native stop on each button, so both navigation habits work.
+ */
+function onTabListKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+  if (!(TAB_MOVEMENT_KEYS as readonly string[]).includes(event.key)) return;
+  const tabs = Array.from(
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]:not([disabled])'),
+  );
+  if (tabs.length === 0) return;
+  const currentIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true'),
+  );
+  const nextIndex =
+    event.key === 'ArrowRight'
+      ? (currentIndex + 1) % tabs.length
+      : event.key === 'ArrowLeft'
+        ? (currentIndex - 1 + tabs.length) % tabs.length
+        : event.key === 'Home'
+          ? 0
+          : tabs.length - 1;
+  const next = tabs[nextIndex];
+  if (next === undefined) return;
+  event.preventDefault();
+  next.focus();
+  next.click();
+}
+
 function TabList({
   active,
   hasPlan,
@@ -246,7 +278,7 @@ function TabList({
   onSelect: (tab: TabId) => void;
 }): React.ReactNode {
   return (
-    <div className="tabs" role="tablist">
+    <div className="tabs" role="tablist" onKeyDown={onTabListKeyDown}>
       {TABS.map((tabId) => (
         <button
           key={tabId}
@@ -526,8 +558,9 @@ function Shell({ workspace }: { workspace: Workspace }) {
           <div className="brand">
             <img src="/logo.png" alt="" width={40} height={40} />
             <div>
-              <span className="name">Utsav</span>
-              <span className="tagline">Every utsav, one connected plan.</span>
+              {/* Single page heading: the product name. Styled by .brand .name. */}
+              <h1 className="name">Utsav</h1>
+              <p className="tagline">Every utsav, one connected plan.</p>
             </div>
           </div>
           {hasPlan && <Readiness plan={current} lang={lang} />}
@@ -579,7 +612,8 @@ function Shell({ workspace }: { workspace: Workspace }) {
             }}
           />
         </nav>
-        <main id="main">
+        {/* tabIndex -1 lets the skip link move real focus here on activation. */}
+        <main id="main" tabIndex={-1}>
           <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
             <ErrorBoundary key={tab}>
               <ViewSwitch

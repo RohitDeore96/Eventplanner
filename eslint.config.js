@@ -2,7 +2,17 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['node_modules', 'dist', 'coverage', 'reports', '.stryker-tmp', '*.cjs'] },
+  {
+    ignores: [
+      'node_modules',
+      'dist',
+      'coverage',
+      'reports',
+      '.stryker-tmp',
+      '*.cjs',
+      'e2e/artifacts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -46,9 +56,25 @@ export default tseslint.config(
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
+        // Browser globals used inside page.evaluate() closures.
+        document: 'readonly',
+        getComputedStyle: 'readonly',
+        setTimeout: 'readonly',
       },
     },
   },
   { files: ['scripts/**'], rules: { 'no-console': 'off' } },
+  {
+    // Playwright spec files: browser globals, node output channel, no TS project needed
+    // beyond the service they already get (they are excluded from tsconfig's src project).
+    files: ['e2e/specs/**/*.spec.ts'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: { 'no-console': 'off' },
+  },
   { files: ['*.config.js'], ...tseslint.configs.disableTypeChecked },
 );

@@ -89,7 +89,7 @@ export function AiPatchPanel({ plan }: { plan: Plan }) {
       {dry?.ok && pending !== null && (
         <div aria-live="polite">
           <h3>{pending.patch.summary}</h3>
-          <table>
+          <table tabIndex={0}>
             <caption className="visually-hidden">Before and after for each category</caption>
             <thead>
               <tr>

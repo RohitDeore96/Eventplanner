@@ -74,7 +74,7 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
     <>
       <section className="card" aria-labelledby="checklist-title">
         <h2 id="checklist-title">Booking checklist</h2>
-        <table>
+        <table tabIndex={0}>
           <caption className="visually-hidden">Vendor categories with booking progress</caption>
           <thead>
             <tr>
@@ -381,7 +381,7 @@ function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): React.Rea
           overdue warnings and settle only when real payments are recorded.
         </p>
       ) : (
-        <table>
+        <table tabIndex={0}>
           <caption className="visually-hidden">
             Scheduled payments for {vendor.name} with paid amounts and status
           </caption>
@@ -916,7 +916,7 @@ function ExtractedQuoteView({
   ];
   return (
     <div aria-live="polite">
-      <table>
+      <table tabIndex={0}>
         <caption className="visually-hidden">Extracted quote fields</caption>
         <tbody>
           {rows.map((row) => (
@@ -1183,7 +1183,7 @@ function QuoteCard({
           </span>
         )}
       </p>
-      <table>
+      <table tabIndex={0}>
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
@@ -1328,7 +1328,7 @@ function VendorPaymentHistory({ plan, vendor }: { plan: Plan; vendor: Vendor }):
   return (
     <>
       <h4>Payment history</h4>
-      <table>
+      <table tabIndex={0}>
         <caption className="visually-hidden">Payments recorded for {vendor.name}</caption>
         <thead>
           <tr>

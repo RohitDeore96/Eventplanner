@@ -83,7 +83,7 @@ export function RunSheetView({ plan }: { plan: Plan }) {
             needs, in order.
           </p>
         ) : (
-          <table>
+          <table tabIndex={0}>
             <caption className="visually-hidden">
               Event-day activities with times, owner, place and status
             </caption>

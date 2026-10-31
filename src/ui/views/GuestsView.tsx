@@ -247,7 +247,7 @@ export function GuestsView({ plan }: { plan: Plan }) {
         ) : visible.length === 0 ? (
           <p className="muted">No guests match these filters.</p>
         ) : (
-          <table>
+          <table tabIndex={0}>
             <caption className="visually-hidden">
               Guests with RSVP, plus-ones, dietary needs and group
             </caption>

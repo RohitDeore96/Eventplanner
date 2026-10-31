@@ -11,7 +11,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: 'e2e/specs',
-  outputDir: 'e2e/artifacts',
+  // Results and the HTML report are siblings under the gitignored working area so the
+  // reporter's clear-before-write cannot destroy test results.
+  outputDir: 'e2e/artifacts/results',
   timeout: 45_000,
   fullyParallel: true,
   // Two workers keep memory pressure low in CI and sandboxes: a browser launch failure
