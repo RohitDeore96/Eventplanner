@@ -567,6 +567,8 @@ describe('guests', () => {
         plusOnes: 0,
         dietary: [],
         group: '',
+        contact: '',
+        note: '',
       })),
     };
     expect(errorCode(many, guest({ id: 'over' }))).toBe('TOO_MANY_GUESTS');

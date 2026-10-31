@@ -64,6 +64,22 @@ async function mockAi(page: Page): Promise<void> {
         source: 'built-in',
       });
     }
+    if (url.includes('extract-quote')) {
+      return json({
+        vendorName: 'Sharma Caterers',
+        category: null,
+        totalPriceMinor: 12_000_000,
+        pricePerPlateMinor: null,
+        guestMinimum: 100,
+        overtimeFeePerHourMinor: null,
+        taxIncluded: false,
+        advancePercent: 30,
+        cancellationPolicy: '14 days notice',
+        inclusions: ['staff', 'crockery'],
+        exclusions: ['tax', 'flowers'],
+        source: 'built-in',
+      });
+    }
     return json({ error: 'NOT_MOCKED' });
   });
 }
@@ -478,7 +494,7 @@ test.describe('Journey 7: existing-plan migration', () => {
       schemaVersion: number;
       plans: { expenses: { note: string }[] }[];
     };
-    expect(stored.schemaVersion).toBe(2);
+    expect(stored.schemaVersion).toBe(3);
     expect(stored.plans[0]?.expenses.map((e) => e.note)).toContain('extra marigold');
     await page.reload();
     const after = await storedPlan(page);
@@ -591,5 +607,281 @@ test.describe('Journey 9: differentiators on the real build', () => {
     await expect(page.getByRole('tab', { name: 'वेळापत्रक' })).toBeVisible();
     // The choice persists for the next visit.
     expect(await page.evaluate(() => localStorage.getItem('utsav.lang.v1'))).toBe('mr');
+  });
+});
+
+test.describe('Journey 11 (Phase 2 B): expenses link to vendors and instalments', () => {
+  test.setTimeout(90_000);
+  test('link an expense to a vendor instalment, reassign it, keep the summaries honest', async ({
+    page,
+  }) => {
+    await createPlan(page);
+    // A booked catering vendor with one scheduled instalment.
+    await page.getByRole('tab', { name: 'Vendors' }).click();
+    await page.getByLabel('Vendor name').fill('Annapurna Caterers');
+    await page.getByLabel('Status').selectOption('booked');
+    await page.getByLabel('Agreed price (only for booked)').fill('100000');
+    await submit(page, 'Add vendor');
+    await page.getByLabel('Due date').fill(FUTURE_DATE);
+    await page.getByLabel('Amount', { exact: true }).fill('40000');
+    await submit(page, 'Add to schedule');
+    await expect(page.getByRole('row').filter({ hasText: 'Advance' }).first()).toBeVisible();
+
+    // Journey B step: create an expense linked to that vendor and instalment.
+    await page.getByRole('tab', { name: 'Budget' }).click();
+    await page.getByLabel('Vendor (optional)').selectOption({ label: 'Annapurna Caterers' });
+    await page.getByLabel('Payment instalment (optional)').selectOption({ index: 1 });
+    await page.getByLabel('Amount spent').fill('25000');
+    await page.getByLabel('Date', { exact: true }).fill(FUTURE_DATE);
+    await page.getByLabel('Note (optional)').fill('advance part one');
+    await submit(page, 'Add expense');
+    await expect(page.getByText('settles a scheduled payment')).toBeVisible();
+    const stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    expect(stored).toContain('"instalmentId":"i-');
+
+    // Re-link the expense back to direct spend; the summaries must follow.
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel(/Vendor \(this expense's category/).selectOption('');
+    await submit(page, 'Save');
+    await expect(page.getByText('Expense updated.')).toBeVisible();
+    const relinkedRow = page.getByRole('row').filter({ hasText: 'advance part one' });
+    await expect(relinkedRow).toContainText('Direct spend');
+  });
+});
+
+test.describe('Journey 12 (Phase 2 C): quotations captured, corrected, accepted', () => {
+  test.setTimeout(90_000);
+  test('extract, correct, save, compare and accept — the vendor is booked once', async ({
+    page,
+  }) => {
+    await createPlan(page);
+    await mockAi(page);
+    await page.getByRole('tab', { name: 'Vendors' }).click();
+    await page
+      .getByLabel('Quote text')
+      .fill('Sharma Caterers: total 120000, advance 30%, tax excluded, min 100 plates');
+    await page.getByRole('button', { name: 'Read the quote' }).click();
+    await expect(page.getByText(/Correct anything the reader got wrong/)).toBeVisible();
+    // Correct the total before saving (M7.2): 120000 -> 110000.
+    await page.getByLabel('Stated total (blank = not stated)').fill('110000');
+    await page.getByRole('button', { name: 'Save quotation' }).click();
+    await expect(page.getByText(/Quotation saved/)).toBeVisible();
+    const saved = await page.evaluate(() => localStorage.getItem('utsav.quotes.v1'));
+    expect(saved).toContain('"totalPriceMinor":11000000');
+
+    // Save a second, cheaper quote; the mock reads the same text, so the family renames
+    // the draft before saving — exactly what the correction form is for.
+    await page.getByLabel('Quote text').fill('Bhagwati Foods: total 95000, advance 25%');
+    await page.getByRole('button', { name: 'Read the quote' }).click();
+    await expect(page.getByText(/Correct anything the reader got wrong/)).toBeVisible();
+    const vendorField = page.locator('#q-vendor');
+    await vendorField.fill('Bhagwati Foods');
+    await page.getByLabel('Stated total (blank = not stated)').fill('95000');
+    await page.getByRole('button', { name: 'Save quotation' }).click();
+    await expect(page.getByText(/Quotation saved/)).toBeVisible();
+    await expect(page.getByText(/Compare saved quotations/)).toBeVisible();
+    const compare = page.locator('section').filter({ hasText: 'Compare saved quotations' });
+    await expect(compare.getByRole('heading', { name: 'Bhagwati Foods' })).toBeVisible();
+    await expect(compare.getByRole('heading', { name: 'Sharma Caterers' })).toBeVisible();
+
+    // Accept the cheaper one; the vendor appears booked at the effective price.
+    const card = compare
+      .locator('div.card')
+      .filter({ has: page.getByRole('heading', { name: 'Bhagwati Foods' }) })
+      .first();
+    await card.getByRole('button', { name: 'Accept this quotation' }).click();
+    await expect(page.getByText(/the vendor is booked at the effective price/)).toBeVisible();
+    await page.reload();
+    await page.getByRole('tab', { name: 'Vendors' }).click();
+    // After acceptance the name appears twice: the booked vendor card and the quote card.
+    await expect(page.getByRole('heading', { name: 'Bhagwati Foods' }).first()).toBeVisible();
+    const afterReload = await page.evaluate(() => localStorage.getItem('utsav.quotes.v1'));
+    expect(afterReload).toContain('"status":"accepted"');
+    // The accepted quote cannot be accepted twice — its button is disabled after reload.
+    const acceptedCard = page.locator('div.card').filter({ hasText: 'Bhagwati Foods' }).first();
+    await expect(acceptedCard.getByRole('button', { name: 'Accepted' })).toBeDisabled();
+  });
+});
+
+test.describe('Journey 13 (Phase 2 E): budget trade-offs and locks', () => {
+  test.setTimeout(90_000);
+  test('lock a category, fund another from the free money, verify the totals', async ({ page }) => {
+    await createPlan(page);
+    // Lock the venue category through the allocation editor.
+    const venueRow = page
+      .getByRole('row')
+      .filter({ hasText: 'Venue' })
+      .filter({ has: page.getByRole('checkbox') })
+      .first();
+    await venueRow.getByRole('checkbox').check();
+    await expect(page.getByText('Venue locked.')).toBeVisible();
+    await expect(page.getByText('🔒 locked').first()).toBeVisible();
+
+    // Fund decor by an amount covered by unallocated/slack money, then apply.
+    await page.getByLabel('Category to fund').selectOption({ label: 'Decor and flowers' });
+    await page.getByLabel('Extra money needed').fill('50000');
+    await submit(page, 'Show the trade-off');
+    await expect(page.getByText(/Proposed: Decor and flowers/)).toBeVisible();
+    await page.getByRole('button', { name: 'Apply this trade-off' }).click();
+    await expect(page.getByText(/Trade-off applied as one undo step/)).toBeVisible();
+
+    // The budget is still whole: allocations sum to the budget after the trade-off.
+    const stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    const parsed = JSON.parse(stored ?? '{}') as {
+      plans: { categories: { plannedMinor: number }[]; budgetMinor: number }[];
+    };
+    const active = parsed.plans[0] ?? { categories: [], budgetMinor: 0 };
+    const sum = active.categories.reduce((acc, c) => acc + c.plannedMinor, 0);
+    expect(sum).toBe(active.budgetMinor);
+  });
+});
+
+test.describe('Journey 14 (Phase 2 F): event-day run sheet', () => {
+  test.setTimeout(90_000);
+  test('add activities, see the conflict, fix it, and print only the sheet', async ({ page }) => {
+    await createPlan(page);
+    await page.getByRole('tab', { name: 'Run sheet' }).click();
+    await page.getByLabel('Activity', { exact: true }).fill('Venue setup');
+    await page.getByLabel('Where (optional)').fill('Lawn');
+    await submit(page, 'Add activity');
+    await expect(page.getByText('Venue setup')).toBeVisible();
+
+    // An overlapping activity raises the conflict, never silently moves anything.
+    await page.getByLabel('Activity', { exact: true }).fill('Decoration check');
+    await page.getByLabel('Where (optional)').fill('Lawn');
+    await submit(page, 'Add activity');
+    await expect(page.getByText(/scheduling conflict/)).toBeVisible();
+    expect(await page.getByText('Venue setup overlaps Decoration check').count()).toBeGreaterThan(
+      0,
+    );
+
+    // Correct the conflict by moving the second activity later.
+    const entryRow = page.getByRole('row').filter({ hasText: 'Decoration check' }).first();
+    await entryRow.getByRole('button', { name: 'Edit' }).click();
+    const editForm = page.getByRole('form', { name: 'Edit Decoration check' });
+    await editForm.getByLabel('Start').fill('13:00');
+    await editForm.getByLabel('End').fill('14:30');
+    await submit(page, 'Save');
+    await expect(page.getByText('Activity updated.')).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'Decoration check' })).toContainText(
+      '13:00',
+    );
+
+    // Print emulation: only the run sheet survives on paper, with the event header.
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('.print-only h1')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Budget' })).toBeHidden();
+    await page.emulateMedia({ media: 'screen' });
+    await page.reload();
+    await page.getByRole('tab', { name: 'Run sheet' }).click();
+    await expect(page.getByText('Venue setup')).toBeVisible();
+  });
+});
+
+test.describe('Journey 15 (Phase 2 G): scenarios reject then apply', () => {
+  test.setTimeout(90_000);
+  test('reject leaves the plan untouched; apply changes it and undo reverses', async ({ page }) => {
+    await createPlan(page);
+    await page.getByRole('tab', { name: 'Budget' }).click();
+    const before = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+
+    // REJECT: preview the guest growth and discard it.
+    await page.getByRole('radio', { name: /Guests \+20%/ }).check();
+    await page.getByRole('button', { name: 'Preview impact' }).click();
+    await expect(page.getByText(/Preview: Guests \+20%/)).toBeVisible();
+    await page.getByRole('button', { name: 'Discard preview' }).click();
+    expect(await page.evaluate(() => localStorage.getItem('utsav.plans.v1'))).toBe(before);
+
+    // APPLY: the family's own assumptions change the plan as one undoable step.
+    await page.getByLabel('Guests', { exact: true }).fill('200');
+    await page.getByRole('button', { name: 'Preview my scenario' }).click();
+    await expect(page.getByText(/Guest target: 150 → 200/)).toBeVisible();
+    await page.getByRole('button', { name: 'Apply my scenario' }).click();
+    await expect(page.getByText(/Scenario applied as one undo step/)).toBeVisible();
+    const applied = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    expect(applied).toContain('"guestTarget":200');
+    expect(applied).not.toBe(before);
+
+    // Undo from the header restores the exact pre-scenario state.
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.getByRole('button', { name: 'Redo' })).toBeEnabled();
+  });
+});
+
+test.describe('Journey 16 (Phase 2 H): duplicate, archive, restore, delete', () => {
+  test.setTimeout(90_000);
+  test('the full event-library lifecycle keeps every surviving event intact', async ({ page }) => {
+    // Event A with a distinctive guest count.
+    await createPlan(page, '800000');
+    // Event B with different data.
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await page.getByRole('button', { name: 'New event' }).click();
+    await page.getByLabel('Event name').fill('Diwali party');
+    await page.getByLabel('Event date').fill(FUTURE_DATE);
+    await page.getByLabel('Expected guests').fill('40');
+    await page.getByLabel(/Total budget in/).fill('150000');
+    await submit(page, 'Create the plan');
+
+    // Switch back to A; B's data must not leak.
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Asha and Dev wedding' })
+      .getByRole('button', { name: 'Open' })
+      .click();
+    await expect(page.getByRole('tab', { name: 'Budget' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    // Duplicate A; the copy joins the library under its own name.
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Asha and Dev wedding' })
+      .getByRole('button', { name: 'Duplicate' })
+      .click();
+    await expect(page.getByText(/Created “Copy of Asha and Dev wedding”/)).toBeVisible();
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'Copy of Asha and Dev wedding' }),
+    ).toBeVisible();
+
+    // Archive B, verify it leaves the working list, restore it.
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Diwali party' })
+      .getByRole('button', { name: 'Archive' })
+      .click();
+    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
+    const stored = await page.evaluate(() => localStorage.getItem('utsav.plans.v1'));
+    const workspace = JSON.parse(stored ?? '{}') as {
+      archivedIds: string[];
+      plans: { id: string; name: string }[];
+    };
+    const diwali = workspace.plans.find((p) => p.name === 'Diwali party');
+    expect(diwali).toBeDefined();
+    expect(workspace.archivedIds).toEqual([diwali?.id]);
+    await page.getByRole('button', { name: 'Restore' }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: 'Diwali party' })).toBeVisible();
+
+    // Refresh restores the correct active event and library.
+    await page.reload();
+    await page.getByRole('tab', { name: 'All events' }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: 'Diwali party' })).toBeVisible();
+
+    // Delete B with confirmation; A and the copy survive untouched.
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Diwali party' })
+      .getByRole('button', { name: 'Delete' })
+      .click();
+    await page.getByRole('button', { name: /Really delete “Diwali party”/ }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: 'Diwali party' })).toHaveCount(0);
+    await expect(
+      page.getByRole('listitem').filter({ hasText: /^Asha and Dev wedding/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('listitem').filter({ hasText: 'Copy of Asha and Dev wedding' }),
+    ).toBeVisible();
   });
 });

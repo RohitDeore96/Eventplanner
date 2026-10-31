@@ -19,6 +19,13 @@ import {
   updateTask,
 } from './reducers/tasks.js';
 import { addVendor, deleteVendor, setSchedule, updateVendor } from './reducers/vendors.js';
+import {
+  addRunSheetEntry,
+  deleteRunSheetEntry,
+  moveRunSheetEntry,
+  toggleRunSheetEntry,
+  updateRunSheetEntry,
+} from './runsheet.js';
 import { fail, ok, type Result } from './result.js';
 import type { Plan } from './types.js';
 
@@ -35,7 +42,7 @@ type Handlers = {
 const handlers: Handlers = {
   'event/update': (plan, a, c) => updateEvent(plan, a.changes, c.today),
   'category/add': (plan, a) => addCategory(plan, a.id, a.name, a.plannedMinor),
-  'category/update': (plan, a) => updateCategory(plan, a.id, a.name, a.plannedMinor),
+  'category/update': (plan, a) => updateCategory(plan, a.id, a.name, a.plannedMinor, a.locked),
   'category/delete': (plan, a) => deleteCategory(plan, a.id),
   'budget/move': (plan, a) => moveBudget(plan, a.fromId, a.toId, a.amountMinor),
   'task/add': (plan, a) => addTask(plan, a),
@@ -54,6 +61,11 @@ const handlers: Handlers = {
   'guest/add': (plan, a) => addGuest(plan, a),
   'guest/update': (plan, a) => updateGuest(plan, a.id, a),
   'guest/delete': (plan, a) => deleteGuest(plan, a.id),
+  'runsheet/add': (plan, a) => addRunSheetEntry(plan, a),
+  'runsheet/update': (plan, a) => updateRunSheetEntry(plan, a.id, a),
+  'runsheet/delete': (plan, a) => deleteRunSheetEntry(plan, a.id),
+  'runsheet/reorder': (plan, a) => moveRunSheetEntry(plan, a.id, a.toIndex),
+  'runsheet/toggle': (plan, a) => toggleRunSheetEntry(plan, a.id, a.done),
 };
 
 /**

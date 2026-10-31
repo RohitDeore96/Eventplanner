@@ -128,6 +128,24 @@ Defect register (Phase 1 execution):
 | D9  | no live-AI verification procedure                                                                                                                  | P2       | `scripts/live-ai-smoke.mjs` (env-gated, honest SKIP)                                   | SKIP path run                                                       |
 | D10 | repo-size gate read humanized `git count-objects -vH`; newer git prints `1.58 MiB`, the `\d+` regex parsed it as 1 KiB and METRICS printed 0.00 MB | P2       | script uses raw `-v` output (KiB on every git version)                                 | script run reports 1.58 MB on the audited repo; METRICS regenerated |
 
+### Phase 2 (product workflows) status
+
+Verified 2026-10-31: `npm run check` (632 tests) + 54 real-browser journey runs on the
+production build. Every row cites its implementation and its tests.
+
+| ID    | Workflow                              | Status | Evidence                                                                                                                                                                                                                                    |
+| ----- | ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2-1  | Vendor records + payment schedules    | PASS   | contact person/phone/email, editable details, search + status filter, instalment add/remove (paid protected), payment history — `VendorsView.tsx`, `reducers/vendors.ts`; `vendor-payments.test.tsx`, `phase2*.test.tsx`, e2e Journeys 3/11 |
+| P2-2  | Expense ↔ vendor/instalment linking   | PASS   | add/edit forms with vendor → instalment cascade, category auto-match, reassignment revalidated, no double counting — `BudgetView.tsx`, `updateExpense`; `expense-links.test.ts`, e2e Journey 11                                             |
+| P2-3  | Quotation lifecycle                   | PASS   | extract → manual correction → save → review/shortlist/rejected → accepted (once, ever) with validity + notes — `state/quotes.ts` v2, `quoteCompare.ts`; `state-stores.test.ts`, `phase2-surface.test.tsx`, e2e Journey 12                   |
+| P2-4  | Guest CRUD + dietary                  | PASS   | full CRUD, search/filters, dietary editing, contact + note fields — `GuestsView.tsx`; `guests.test.ts`, `dietary.test.tsx`, e2e Journey 5                                                                                                   |
+| P2-5  | Context-aware personalization         | PASS   | persisted per-event preferences (sidecar), request carries formality/tier/must-haves/remaining budget/booked vendors — `state/prefs.ts`, `AssistantView.tsx`; `state-stores.test.ts`, `phase2-surface.test.tsx`                             |
+| P2-6  | Budget allocation + locks + trade-off | PASS   | per-category editor, locks enforced in the engine (moves + edits + scenarios), unallocated display, shortfall-safe trade-off planner — `reducers/budget.ts`, `tradeoff.ts`; `tradeoff.test.ts`, e2e Journey 13                              |
+| P2-7  | Event-day run sheet                   | PASS   | entries with times/owner/place, conflict detection (overlap + vendor double-booking), reorder, done, print-only sheet — `runsheet.ts`, `RunSheetView.tsx`; `runsheet.test.ts`, e2e Journey 14                                               |
+| P2-8  | Scenario workflow                     | PASS   | fixed pressures + custom assumptions, preview on a copy, reject changes nothing, apply is one undo step — `ScenarioPanel.tsx`; `scenario.test.tsx`, `phase2-integration.test.tsx`, e2e Journey 15                                           |
+| P2-9  | Multi-event management                | PASS   | workspace v3 with archive list; duplicate (fresh ids, remapped references), archive/restore, delete with confirmation — `duplicate.ts`, `persistence.ts`; `duplicate.test.ts`, `multievent.test.tsx`, e2e Journey 16                        |
+| P2-10 | Product integration + mobile          | PASS   | Run sheet tab joins the 10-tab navigation, i18n keys in EN/HI/MR, sticky header + scrollable tables on phones — `App.tsx`, `app.css`; full e2e suite on the mobile profile                                                                  |
+
 ## C. Differentiators
 
 | ID  | Differentiator                                             | Status                                                                                                                                                |

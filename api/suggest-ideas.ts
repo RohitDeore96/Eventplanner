@@ -22,6 +22,21 @@ export default createHandler({
       input.notes !== undefined && input.notes.length > 0
         ? `Priorities and context: ${wrapUserText('notes', input.notes)}`
         : '',
+      input.formality !== undefined
+        ? `Formality: ${input.formality}. Match the tone of the suggestions to it.`
+        : '',
+      input.budgetTier !== undefined
+        ? `Budget tier: ${input.budgetTier}. Keep suggestions realistic for that tier; never state amounts.`
+        : '',
+      input.mustHaves !== undefined && input.mustHaves.length > 0
+        ? `Must-haves (non-negotiable): ${wrapUserText('must-haves', input.mustHaves)}`
+        : '',
+      input.remainingBudgetMinor !== undefined
+        ? 'Some budget is still unspent: at least one suggestion should fit what remains to spend; never state amounts.'
+        : '',
+      input.bookedVendors !== undefined && input.bookedVendors > 0
+        ? `Some vendors are already booked (${input.bookedVendors}); do not suggest replacing confirmed services, and never invent vendor names.`
+        : '',
     ]
       .filter((line) => line.length > 0)
       .join('\n');

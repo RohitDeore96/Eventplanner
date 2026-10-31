@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import type { PlanAction } from '../../engine/actions';
+import { parseMajorAmount } from '../../engine/money';
+import { reducePlan } from '../../engine/reducer';
+import { ok, type Result } from '../../engine/result';
 import {
   comparePlans,
   buildScenario,
@@ -28,6 +32,11 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
   );
   const [stress, setStress] = useState<StressReport | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Custom scenario (M12.1): the family's own assumptions — new guest count and/or budget.
+  const [customGuests, setCustomGuests] = useState(String(plan.guestTarget));
+  const [customBudget, setCustomBudget] = useState(
+    String(Math.round(plan.budgetMinor / 10 ** (plan.currency === 'JPY' ? 0 : 2))),
+  );
 
   const spec = SCENARIOS.find((s) => s.id === selected) ?? null;
 
@@ -84,6 +93,58 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       return;
     }
     const outcome = store.applyAll(actions, `What-if scenario: ${spec?.label ?? selected}`);
+    setPreview(null);
+    setNotice(
+      outcome.ok
+        ? 'Scenario applied as one undo step — use Undo in the header to reverse it.'
+        : (outcome.message ?? 'The scenario could not be applied.'),
+    );
+  }
+
+  function showCustomPreview(): void {
+    const actions = customScenarioActions(plan, customGuests, customBudget);
+    if (actions === null) {
+      setNotice('Enter a whole guest count of 1 or more, and/or a budget amount.');
+      setPreview(null);
+      return;
+    }
+    if (actions.length === 0) {
+      setNotice('Nothing would change — the values match the plan as it stands.');
+      setPreview(null);
+      return;
+    }
+    const after = reducePlanCopy(plan, actions, today);
+    if (!after.ok) {
+      setNotice(after.error.message);
+      setPreview(null);
+      return;
+    }
+    const comparison = comparePlans(plan, after.value, today);
+    const lines: string[] = [];
+    const delta = (value: number): string =>
+      `${value >= 0 ? '+' : '−'}${money(Math.abs(value), plan)}`;
+    if (comparison.budgetDelta !== 0) lines.push(`Budget: ${delta(comparison.budgetDelta)}`);
+    if (comparison.guestTargetDelta !== 0) {
+      lines.push(
+        `Guest target: ${plan.guestTarget} → ${after.value.guestTarget} (${comparison.guestTargetDelta > 0 ? '+' : ''}${comparison.guestTargetDelta})`,
+      );
+    }
+    if (comparison.committedDelta !== 0)
+      lines.push(`Committed: ${delta(comparison.committedDelta)}`);
+    if (comparison.newWarnings.length > 0) {
+      lines.push(`${comparison.newWarnings.length} new warning(s) would appear`);
+    }
+    if (comparison.resolvedWarnings.length > 0) {
+      lines.push(`${comparison.resolvedWarnings.length} warning(s) would clear`);
+    }
+    setPreview({ headline: 'Your own assumptions', lines });
+    setNotice(null);
+  }
+
+  function applyCustom(): void {
+    const actions = customScenarioActions(plan, customGuests, customBudget);
+    if (actions === null || actions.length === 0) return;
+    const outcome = store.applyAll(actions, 'What-if scenario: your own assumptions');
     setPreview(null);
     setNotice(
       outcome.ok
@@ -174,6 +235,45 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
           </ul>
         </div>
       )}
+
+      <h3>Your own assumptions</h3>
+      <p className="muted">
+        Set the guest count and/or budget you actually expect; preview shows the impact, and Apply
+        is one undo step. Nothing changes until you apply.
+      </p>
+      <div className="row">
+        <div>
+          <label htmlFor="custom-guests">Guests</label>
+          <input
+            id="custom-guests"
+            inputMode="numeric"
+            value={customGuests}
+            onChange={(event) => {
+              setCustomGuests(event.target.value);
+            }}
+          />
+        </div>
+        <div>
+          <label htmlFor="custom-budget">Budget in {plan.currency}</label>
+          <input
+            id="custom-budget"
+            inputMode="decimal"
+            value={customBudget}
+            onChange={(event) => {
+              setCustomBudget(event.target.value);
+            }}
+          />
+        </div>
+        <button type="button" onClick={showCustomPreview}>
+          Preview my scenario
+        </button>
+        {preview !== null && preview.headline === 'Your own assumptions' && (
+          <button type="button" className="primary" onClick={applyCustom}>
+            Apply my scenario
+          </button>
+        )}
+      </div>
+
       <h3>{STRESS_SPEC.label}</h3>
       <p className="muted">{STRESS_SPEC.description} Nothing changes until you apply.</p>
       <div className="row">
@@ -230,4 +330,38 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       )}
     </section>
   );
+}
+
+/** Builds the engine actions for the family's own guest/budget assumptions; null when invalid. */
+function customScenarioActions(
+  plan: Plan,
+  guestsText: string,
+  budgetText: string,
+): PlanAction[] | null {
+  const guestsRaw: unknown = Number(guestsText.trim());
+  const budgetRaw = parseMajorAmount(budgetText.trim(), plan.currency);
+  if (guestsText.trim().length === 0 && budgetText.trim().length === 0) return [];
+  const guestsValid =
+    guestsText.trim().length > 0 && Number.isInteger(guestsRaw) && (guestsRaw as number) >= 1;
+  const budgetGiven = budgetText.trim().length > 0;
+  if (guestsText.trim().length > 0 && !guestsValid) return null;
+  if (budgetGiven && budgetRaw === null) return null;
+  const changes: { guestTarget?: number; budgetMinor?: number } = {};
+  if (guestsValid) changes.guestTarget = guestsRaw as number;
+  if (budgetGiven && budgetRaw !== null) changes.budgetMinor = budgetRaw;
+  if (changes.guestTarget === plan.guestTarget && changes.budgetMinor === plan.budgetMinor) {
+    return [];
+  }
+  return [{ type: 'event/update', changes }];
+}
+
+/** Runs actions on a COPY for preview; the real plan is only touched by Apply. */
+function reducePlanCopy(plan: Plan, actions: readonly PlanAction[], today: string): Result<Plan> {
+  let current = plan;
+  for (const action of actions) {
+    const next = reducePlan(current, action, { today });
+    if (!next.ok) return next;
+    current = next.value;
+  }
+  return ok(current);
 }

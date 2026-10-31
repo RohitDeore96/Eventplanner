@@ -87,3 +87,34 @@ rejected (`502 AI_RESPONSE_INVALID`), never guessed.
 - `src/lib/i18n.ts` — chrome label dictionaries (en/hi/mr) with per-key English fallback.
 - `src/state/persistence.ts` — workspace record v2: `plans[]` + `activeId`, per-event deep
   validation, migration from v1/v0, `MAX_EVENTS` cap, byte cap unchanged.
+
+## Additions: Phase 2 product workflows (2026-10-31)
+
+- **Storage v3** (`src/state/persistence.ts`): the workspace record gains
+  `archivedIds[]` (events set aside, never deleted). v0/v1/v2 migrate forward; the deep
+  validator now also covers run-sheet entries (calendar dates, owners exist, sane time
+  ranges) and drops an invalid event individually. `duplicatePlan()` (`src/engine/
+duplicate.ts`) copies an event under a fresh id set and remaps every internal
+  reference — vendors point at copied categories, expenses at copied vendors and
+  instalments, run-sheet owners at copied vendors.
+- **Category locks** (`Category.locked`): enforced in the reducer — `budget/move` and
+  `category/update` refuse to touch a locked allocation. Scenarios respect locks too: a
+  locked category keeps its allocation and the freed budget redistributes over unlocked
+  categories, in preview and in apply.
+- **Trade-off planner** (`src/engine/tradeoff.ts`): funds a category from unallocated
+  budget and unlocked slack (planned − committed, largest first). `tradeOffActions()`
+  returns nothing when the proposal still has a shortfall — the planner never emits an
+  action list that would break the budget.
+- **Run sheet** (`src/engine/runsheet.ts`, `src/ui/views/RunSheetView.tsx`): event-day
+  activities with HH:MM validation, end-after-start, owner-must-exist; overlap and
+  same-vendor double-booking are surfaced as conflicts for deliberate correction (never
+  auto-moved). The print stylesheet hides everything except the schedule card.
+- **Expense linking** (`updateExpense`): vendor/instalment reassignment runs the same
+  checks as creation against the expense's NEXT state, so an instalment can never end up
+  pointing at another vendor's schedule.
+- **Quotation library v2** (`src/state/quotes.ts`): `status` (review/shortlisted/accepted/
+  rejected), `validityDate`, `note`; acceptance marks the quote so duplicate acceptance is
+  impossible, and deleting an event clears its quotations and preferences.
+- **Preferences sidecar** (`src/state/prefs.ts`): one validated record per plan id
+  (`utsav.prefs.v1`) — vibe, formality, budget tier, must-haves, priorities — sent to the
+  ideas route with the remaining budget and booked-vendor count; no prices, ever.

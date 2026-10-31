@@ -210,6 +210,14 @@ export const ideasRequest = z.object({
   budgetMinor: z.number().int().min(0).max(1_000_000_000_000).optional(),
   /** Optional free-text priorities: place, traditions, must-haves. Data, never instructions. */
   notes: z.string().max(300).optional(),
+  /** Saved preferences (M9): the family's formality, budget tier and must-haves. */
+  formality: z.enum(['relaxed', 'traditional', 'formal']).optional(),
+  budgetTier: z.enum(['value', 'balanced', 'premium']).optional(),
+  mustHaves: z.string().max(300).optional(),
+  /** What is still unspent, so suggestions respect reality. Minor units; never stated to the family. */
+  remainingBudgetMinor: z.number().int().min(0).max(1_000_000_000_000).optional(),
+  /** How many vendors are already booked, so ideas acknowledge progress without inventing names. */
+  bookedVendors: z.number().int().min(0).max(200).optional(),
 });
 export const reviewRequest = z.object({
   facts: z.string().min(1).max(2000),

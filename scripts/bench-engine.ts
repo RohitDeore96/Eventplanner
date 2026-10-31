@@ -54,12 +54,17 @@ function sized(
     plusOnes: i % 2,
     dietary: i % 5 === 0 ? ['vegan'] : [],
     group: 'G',
+    contact: '',
+    note: '',
   }));
   const vendorList: Vendor[] = Array.from({ length: vendors }, (_, v) => ({
     id: `v${v}`,
     categoryId: venue,
     name: `Vendor ${v}`,
     contactNote: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
     status: 'booked',
     committedMinor: 1_000_000,
     schedule: Array.from({ length: instalments }, (_, i) => ({
@@ -67,6 +72,7 @@ function sized(
       kind: 'instalment' as const,
       dueISO: '2027-02-01',
       amountMinor: 1000,
+      note: '',
     })),
   }));
   const expenseList: Expense[] = Array.from({ length: expenses }, (_, i) => ({

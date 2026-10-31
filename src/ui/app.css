@@ -53,6 +53,11 @@ a {
 /* ---------- header ---------- */
 
 .masthead {
+  /* Sticky so Undo/Redo/Reset and the save notice stay reachable while scrolling —
+     on phones especially, where the budget tables are long. */
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: var(--maroon);
   color: var(--on-maroon);
   border-bottom: 4px solid var(--marigold);
@@ -337,6 +342,15 @@ caption {
   padding-bottom: 0.35rem;
 }
 
+/* On phones, wide tables (schedules, expense logs, run sheet) scroll within their own
+   box instead of pushing their action buttons past the viewport edge. */
+@media (max-width: 720px) {
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
 th,
 td {
   text-align: left;
@@ -436,6 +450,37 @@ th {
     box-shadow: none;
     border-color: #999;
   }
+
+  /* Run sheet printing (M7.5): only the schedule sheet lands on paper — navigation,
+     forms and every other card are hidden. The .print-only header carries the event
+     name and date, which the screen layout does not show. The app mounts into #root,
+     so cards are hidden individually instead of hiding body children. */
+  .layout > nav,
+  .card:not(.print-sheet),
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-sheet table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-sheet th,
+  .print-sheet td {
+    border: 1px solid #999;
+    padding: 0.3rem 0.45rem;
+    text-align: left;
+  }
+}
+
+/* The screen never shows the print header; print styles flip it on. */
+.print-only {
+  display: none;
 }
 
 /* Dietary picker: compact checkbox group inside guest forms. */

@@ -23,6 +23,14 @@ describe('events view (R8 UI)', () => {
         onOpen={onOpen}
         onDelete={() => undefined}
         onNew={() => undefined}
+
+        archivedIds={[]}
+
+        onDuplicate={() => undefined}
+
+        onArchive={() => undefined}
+
+        onRestore={() => undefined}
         canCreate
       />,
     );
@@ -43,12 +51,22 @@ describe('events view (R8 UI)', () => {
         onOpen={() => undefined}
         onDelete={onDelete}
         onNew={() => undefined}
+
+        archivedIds={[]}
+
+        onDuplicate={() => undefined}
+
+        onArchive={() => undefined}
+
+        onRestore={() => undefined}
         canCreate
       />,
     );
     await user.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDelete).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: /Really delete “Precious plan”/ }));
+    await user.click(
+      screen.getByRole('button', { name: /Really delete “Precious plan” and all its data/ }),
+    );
     expect(onDelete).toHaveBeenCalledWith('ev1');
   });
 
@@ -61,6 +79,14 @@ describe('events view (R8 UI)', () => {
         onOpen={() => undefined}
         onDelete={() => undefined}
         onNew={() => undefined}
+
+        archivedIds={[]}
+
+        onDuplicate={() => undefined}
+
+        onArchive={() => undefined}
+
+        onRestore={() => undefined}
         canCreate
       />,
     );
@@ -77,6 +103,14 @@ describe('events view (R8 UI)', () => {
         onOpen={() => undefined}
         onDelete={() => undefined}
         onNew={() => undefined}
+
+        archivedIds={[]}
+
+        onDuplicate={() => undefined}
+
+        onArchive={() => undefined}
+
+        onRestore={() => undefined}
         canCreate={false}
       />,
     );

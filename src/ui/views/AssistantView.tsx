@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Plan } from '../../engine/types';
+import { budgetTotals } from '../../engine/budget';
 import { localToday } from '../../lib/format';
 import { planFacts } from '../../lib/facts';
 import { aiClient, type AiReply } from '../../lib/aiClient';
+import {
+  EMPTY_PREFERENCES,
+  loadPreferences,
+  savePreferences,
+  type EventPreferences,
+} from '../../state/prefs';
 import { AiPatchPanel } from './AiPatchPanel';
 
 type IdeasReply = AiReply<{
@@ -31,9 +38,23 @@ export function AssistantView({ plan }: { plan: Plan }) {
   const [ideas, setIdeas] = useState<IdeasReply | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [ideasNotice, setIdeasNotice] = useState<string | null>(null);
-  // The family's own preferences: their words drive the suggestions, never a hardcoded vibe.
-  const [vibe, setVibe] = useState('');
-  const [priorities, setPriorities] = useState('');
+  // Saved per-event preferences (M9): they persist with the event and drive the suggestions.
+  const [prefs, setPrefs] = useState<EventPreferences>(EMPTY_PREFERENCES);
+  const [prefsNotice, setPrefsNotice] = useState<string | null>(null);
+  useEffect(() => {
+    setPrefs(loadPreferences(plan.id));
+  }, [plan.id]);
+
+  function updatePrefs(patch: Partial<EventPreferences>): void {
+    setPrefs((current) => {
+      const next = { ...current, ...patch };
+      const saved = savePreferences(plan.id, next);
+      setPrefsNotice(
+        saved ? 'Preferences saved with this event.' : 'Preferences could not be saved.',
+      );
+      return next;
+    });
+  }
 
   const facts = useMemo(() => planFacts(plan, today), [plan, today]);
 
@@ -68,10 +89,16 @@ export function AssistantView({ plan }: { plan: Plan }) {
     setIdeasBusy(true);
     setIdeasNotice(null);
     try {
+      const totals = budgetTotals(plan);
       setIdeas(
-        await aiClient.ideas(plan.occasion, vibe.trim(), plan.guestTarget, {
+        await aiClient.ideas(plan.occasion, prefs.vibe.trim(), plan.guestTarget, {
           budgetMinor: plan.budgetMinor,
-          notes: priorities.trim(),
+          notes: prefs.priorities.trim(),
+          ...(prefs.formality === '' ? {} : { formality: prefs.formality }),
+          ...(prefs.budgetTier === '' ? {} : { budgetTier: prefs.budgetTier }),
+          ...(prefs.mustHaves.trim().length > 0 ? { mustHaves: prefs.mustHaves.trim() } : {}),
+          remainingBudgetMinor: Math.max(0, totals.budget - totals.committed),
+          bookedVendors: plan.vendors.filter((v) => v.status === 'booked').length,
         }),
       );
     } catch {
@@ -146,18 +173,63 @@ export function AssistantView({ plan }: { plan: Plan }) {
       </section>
 
       <section className="card" aria-labelledby="ideas-title">
-        <h2 id="ideas-title">Ideas</h2>
-        <p className="muted">Tuned to your occasion and preferences. No prices — ideas only.</p>
+        <h2 id="ideas-title">Ideas from your preferences</h2>
+        <p className="muted">
+          Tuned to this event's occasion, budget reality and the preferences below — which are saved
+          with the event, so they survive reloads.
+        </p>
         <div className="grid">
           <div>
             <label htmlFor="ideas-vibe">Style or theme you want (your own words)</label>
             <input
               id="ideas-vibe"
-              value={vibe}
+              value={prefs.vibe}
               maxLength={200}
               placeholder="e.g. pastel evening, marigold, cricket theme"
               onChange={(event) => {
-                setVibe(event.target.value);
+                updatePrefs({ vibe: event.target.value });
+              }}
+            />
+          </div>
+          <div>
+            <label htmlFor="ideas-formality">Formality</label>
+            <select
+              id="ideas-formality"
+              value={prefs.formality}
+              onChange={(event) => {
+                updatePrefs({ formality: event.target.value as EventPreferences['formality'] });
+              }}
+            >
+              <option value="">Not set</option>
+              <option value="relaxed">Relaxed and homely</option>
+              <option value="traditional">Traditional</option>
+              <option value="formal">Formal</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="ideas-tier">Budget tier</label>
+            <select
+              id="ideas-tier"
+              value={prefs.budgetTier}
+              onChange={(event) => {
+                updatePrefs({ budgetTier: event.target.value as EventPreferences['budgetTier'] });
+              }}
+            >
+              <option value="">Not set</option>
+              <option value="value">Value — keep it lean</option>
+              <option value="balanced">Balanced</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="ideas-must">Must-haves (non-negotiable)</label>
+            <input
+              id="ideas-must"
+              value={prefs.mustHaves}
+              maxLength={300}
+              placeholder="e.g. live sitar, jain counter, grandmother seats first row"
+              onChange={(event) => {
+                updatePrefs({ mustHaves: event.target.value });
               }}
             />
           </div>
@@ -165,15 +237,20 @@ export function AssistantView({ plan }: { plan: Plan }) {
             <label htmlFor="ideas-notes">Priorities, place or traditions (optional)</label>
             <input
               id="ideas-notes"
-              value={priorities}
+              value={prefs.priorities}
               maxLength={300}
               placeholder="e.g. mostly elders, want a haldi at home, Pune"
               onChange={(event) => {
-                setPriorities(event.target.value);
+                updatePrefs({ priorities: event.target.value });
               }}
             />
           </div>
         </div>
+        {prefsNotice !== null && (
+          <p className="muted" role="status">
+            {prefsNotice}
+          </p>
+        )}
         <button
           type="button"
           className="primary"

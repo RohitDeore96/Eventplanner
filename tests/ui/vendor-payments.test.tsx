@@ -333,6 +333,7 @@ describe('vendor card editing (branch coverage)', () => {
       expect(booked).toBeGreaterThan(0);
     });
     await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: /Really remove “Sharma Caterers”/ }));
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Sharma Caterers' })).toBeNull();
     });

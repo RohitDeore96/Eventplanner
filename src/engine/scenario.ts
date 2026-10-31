@@ -143,13 +143,26 @@ function categoryIdByKey(plan: Plan, key: string): string | null {
 
 function scaleBudgetActions(plan: Plan, factor: number): PlanAction[] {
   const newBudget = Math.max(1, Math.round(plan.budgetMinor * factor));
-  const weights = plan.categories.map((c) => c.plannedMinor);
-  const allocated = allocateByWeights(newBudget, weights);
+  // Locked categories keep their allocation untouched; the unlocked ones share what
+  // remains of the scaled budget (M10: locks are respected by scenarios too).
+  const lockedSum = plan.categories
+    .filter((c) => c.locked)
+    .reduce((acc, c) => acc + c.plannedMinor, 0);
+  const scalable = plan.categories.filter((c) => !c.locked);
+  const restBudget = Math.max(0, newBudget - lockedSum);
+  const allocated = allocateByWeights(
+    restBudget,
+    scalable.map((c) => c.plannedMinor),
+  );
   if (allocated === null) return [];
+  const newPlanned = new Map<string, number>();
+  scalable.forEach((category, index) => {
+    newPlanned.set(category.id, allocated[index] ?? category.plannedMinor);
+  });
   return [
     { type: 'event/update', changes: { budgetMinor: newBudget } },
-    ...plan.categories.flatMap((category, index): PlanAction[] => {
-      const plannedMinor = allocated[index] ?? category.plannedMinor;
+    ...plan.categories.flatMap((category): PlanAction[] => {
+      const plannedMinor = newPlanned.get(category.id) ?? category.plannedMinor;
       return plannedMinor === category.plannedMinor
         ? []
         : [{ type: 'category/update', id: category.id, plannedMinor }];
@@ -167,15 +180,21 @@ function shiftCategoryActions(
   if (targetId === null) return [];
   const target = plan.categories.find((c) => c.id === targetId);
   if (target === undefined) return [];
+  if (target.locked) return []; // a locked category is never shifted (M10.3)
   const raised = Math.round(target.plannedMinor * factor);
   const delta = raised - target.plannedMinor;
   if (delta === 0) return [];
   const actions: PlanAction[] = [{ type: 'category/update', id: targetId, plannedMinor: raised }];
-  const absorberId = categoryIdByKey(plan, absorberKey);
-  const absorber = plan.categories.find((c) => c.id === absorberId);
-  if (absorber !== undefined) {
-    const reduced = Math.max(0, absorber.plannedMinor - delta);
-    actions.push({ type: 'category/update', id: absorber.id, plannedMinor: reduced });
+  // Absorb from the named absorber; when it is locked (or missing) the largest unlocked
+  // category with slack takes the difference instead — locks are never bypassed.
+  const absorber = plan.categories.find((c) => c.id === categoryIdByKey(plan, absorberKey));
+  const fallback = [...plan.categories]
+    .filter((c) => !c.locked && c.id !== targetId)
+    .sort((a, b) => b.plannedMinor - a.plannedMinor)[0];
+  const sink = absorber !== undefined && !absorber.locked ? absorber : fallback;
+  if (sink !== undefined && delta > 0) {
+    const reduced = Math.max(0, sink.plannedMinor - delta);
+    actions.push({ type: 'category/update', id: sink.id, plannedMinor: reduced });
   }
   return actions;
 }

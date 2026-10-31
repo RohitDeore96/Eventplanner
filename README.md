@@ -191,6 +191,16 @@ to look at; the numbers in one view are the same numbers every other view shows.
   </tr>
   <tr>
     <td width="50%" align="center">
+      <img src="docs/screenshots/runsheet-light.png" alt="Event-day run sheet: activities with times, owners and places, a conflict alert, and a print button that outputs only the schedule" width="100%" /><br/>
+      <sub><b>Run sheet</b> — the event day itself, hour by hour: owners, places,<br/>conflicts flagged for review, and a print button that prints only the schedule.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/quotes-light.png" alt="Quotation comparison: two saved quotes side by side with effective price, per-guest cost, vs-budget, validity and a shortlist status" width="100%" /><br/>
+      <sub><b>Quotations</b> — saved quotes with a review → shortlist → accept lifecycle;<br/>accepting books the vendor through the engine and can never happen twice.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
       <img src="docs/screenshots/hindi-light.png" alt="The app chrome in Hindi: tabs, header controls and readiness labels switch to Hindi or Marathi on demand" width="100%" /><br/>
       <sub><b>हिन्दी / मराठी</b> — the chrome speaks the family's language;<br/>the choice persists, and screen readers follow via <code>lang</code>.</sub>
     </td>
@@ -203,25 +213,25 @@ to look at; the numbers in one view are the same numbers every other view shows.
 
 ## ✨ What it does
 
-| You need to                    | Utsav gives you                                                                                                                                                                                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 💰 Keep spending in check      | Occasion presets, per-category planned/committed/paid/remaining that always reconcile, expense log, over-allocation guards                                                                                                                       |
-| 🧾 Pay vendors in instalments  | Per-vendor schedules (advance, instalments, milestone, final, balance), record payments against each one — partial payments, "partly paid — balance due" and overdue flags straight from the real expense ledger, cash-to-pay total              |
-| 📅 Never miss a deadline       | Dependency-aware timeline with overdue and impossible flags, delay propagation with written reasons, **calendar export (.ics)**                                                                                                                  |
-| 👥 Survive a bigger guest list | RSVP tracking (confirmed/declined) with dietary needs feeding the catering headcount automatically                                                                                                                                               |
-| 👥 Manage dietary needs        | Ten dietary tags per guest, inline editing, search and RSVP/group filters, allergy alerts written in words (never colour alone)                                                                                                                  |
-| 🧾 Read vendor quotes          | AI quote extraction with **honest gaps**: unstated fields stay empty and are flagged, never guessed                                                                                                                                              |
-| 📊 Compare quotations          | Save up to three quotes per category, compare effective price for your guest count, cost per guest, vs-category budget and risk flags — accept the winner and the engine books the vendor                                                        |
-| 🗓️ See when money leaves       | A **cash-flow calendar**: every scheduled payment in its due month with paid and still-to-pay columns, an overdue alert on top and per-month totals — driven by the same expense ledger                                                          |
-| 🎪 Plan more than one event    | A **multi-event workspace**: every event keeps its own budget, guests, vendors, expenses and timeline; switch in one click, create fresh, delete with an explicit confirmation — safely migrated from an older single-plan save                  |
-| 📋 Know who to book            | A vendor checklist per occasion with statuses, and per-vendor payment tracking                                                                                                                                                                   |
-| 💡 Get fresh ideas             | Ideas tuned to YOUR words (style, priorities, place) plus the occasion — **no prices, ever**                                                                                                                                                     |
-| 🔮 Stress-test the plan        | What-if scenarios (guests +20%, vendor +10%, budget −15%, venue/catering shocks, closer date) previewed on a copy — plus a **full stress test** that fires the three biggest shocks at once and says plainly whether the plan survives or breaks |
-| 🧭 Ask about your plan         | A planner that answers in English or Hinglish, grounded in the plan's own facts, with a built-in fallback when AI is down                                                                                                                        |
-| 🤖 Change plans by sentence    | Free-text → AI patch → engine dry-run → before/after → approve as one undo step (or reject, changing nothing)                                                                                                                                    |
-| ↩️ Change your mind            | Undo/redo for every accepted change, an **activity log** that reads like the plan's history, **Load demo event**, Reset, JSON/CSV export                                                                                                         |
-| 🗣️ Feel at home                | The app chrome — tabs, header controls, readiness — speaks **English, हिन्दी or मराठी**, persisted per browser, with the document language following for screen readers                                                                          |
-| 🌙 Work anywhere               | Designed dark mode, 44 px touch targets, keyboard-operable throughout, WCAG 2.1 AA contrast enforced by test in both themes                                                                                                                      |
+| You need to                    | Utsav gives you                                                                                                                                                                                                                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 💰 Keep spending in check      | Occasion presets, per-category planned/committed/paid/remaining that always reconcile, an **allocation editor with category locks**, unallocated/over-allocated at a glance, and a **trade-off planner** that funds a category without breaking the budget |
+| 🧾 Pay vendors in instalments  | Full vendor records (contact person, phone, email, notes), schedules per vendor with references, record payments against each instalment — partial payments, balances and overdue flags straight from the real ledger, plus payment history per vendor     |
+| 📅 Never miss a deadline       | Dependency-aware timeline with overdue and impossible flags, delay propagation with written reasons, **calendar export (.ics)**                                                                                                                            |
+| 👥 Survive a bigger guest list | RSVP tracking (confirmed/declined) with dietary needs feeding the catering headcount automatically                                                                                                                                                         |
+| 👥 Manage dietary needs        | Ten dietary tags per guest, inline editing, search and RSVP/group filters, allergy alerts written in words (never colour alone)                                                                                                                            |
+| 🧾 Read vendor quotes          | AI quote extraction with **honest gaps**: unstated fields stay empty and are flagged, never guessed                                                                                                                                                        |
+| 📊 Compare quotations          | Save quotes per category with a **review → shortlist → accepted/rejected lifecycle**, correct every extracted field before saving, validity dates and notes, side-by-side comparison — accepting books the vendor and can never happen twice               |
+| 🗓️ See when money leaves       | A **cash-flow calendar**: every scheduled payment in its due month with paid and still-to-pay columns, an overdue alert on top and per-month totals — driven by the same expense ledger                                                                    |
+| 🎪 Plan more than one event    | A **multi-event workspace**: every event keeps its own everything; **duplicate** copies a plan under fresh ids, **archive/restore** sets events aside without deleting, delete needs a real confirmation — migrated from older single-plan saves           |
+| 📋 Know who to book            | A vendor checklist per occasion with statuses, and per-vendor payment tracking                                                                                                                                                                             |
+| 💡 Get fresh ideas             | Ideas tuned to **saved per-event preferences** (style, formality, budget tier, must-haves) plus remaining budget and booked vendors — **no prices, ever**                                                                                                  |
+| 🔮 Stress-test the plan        | What-if scenarios (guests +20%, vendor +10%, budget −15%, venue/catering shocks, closer date) previewed on a copy — plus a **full stress test** that fires the three biggest shocks at once and says plainly whether the plan survives or breaks           |
+| 🧭 Ask about your plan         | A planner that answers in English or Hinglish, grounded in the plan's own facts, with a built-in fallback when AI is down                                                                                                                                  |
+| 🤖 Change plans by sentence    | Free-text → AI patch → engine dry-run → before/after → approve as one undo step (or reject, changing nothing)                                                                                                                                              |
+| ↩️ Change your mind            | Undo/redo for every accepted change, an **activity log** that reads like the plan's history, **Load demo event**, Reset, JSON/CSV export                                                                                                                   |
+| 🗣️ Feel at home                | The app chrome — tabs, header controls, readiness — speaks **English, हिन्दी or मराठी**, persisted per browser, with the document language following for screen readers                                                                                    |
+| 🌙 Work anywhere               | Designed dark mode, 44 px touch targets, keyboard-operable throughout, WCAG 2.1 AA contrast enforced by test in both themes                                                                                                                                |
 
 ## ⚖️ How the work is split
 

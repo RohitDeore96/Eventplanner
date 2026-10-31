@@ -134,6 +134,19 @@ const LABELS: { [K in PlanAction['type']]: Handler<K> } = {
     return `Guest “${name}” updated`;
   },
   'guest/delete': (action, ctx) => `Guest “${ctx.nameOf('guests', action.id)}” removed`,
+  'runsheet/add': (action) =>
+    `Run sheet: “${action.title}” ${action.dateISO} ${action.startTime}–${action.endTime}`,
+  'runsheet/update': (action) => {
+    if (action.startTime !== undefined || action.endTime !== undefined) {
+      return `Run sheet: “${action.title ?? action.id}” moved to ${action.startTime ?? '?'}–${action.endTime ?? '?'}`;
+    }
+    if (action.title !== undefined) return `Run sheet: activity renamed to “${action.title}”`;
+    return `Run sheet: activity ${action.id} updated`;
+  },
+  'runsheet/delete': (action) => `Run sheet: activity ${action.id} removed`,
+  'runsheet/reorder': (action) => `Run sheet: activity ${action.id} reordered`,
+  'runsheet/toggle': (action) =>
+    `Run sheet: activity ${action.id} marked ${action.done ? 'done' : 'not done'}`,
 };
 
 /** One human line per action, resolved against the plan as it was BEFORE the action. */

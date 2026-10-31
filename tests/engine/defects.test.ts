@@ -45,7 +45,18 @@ describe('D1: stored records are built from named fields only', () => {
     const vendor = next.vendors.find((v) => v.id === 'v9');
     expect(vendor).toBeDefined();
     expect(Object.keys(vendor ?? {}).sort()).toEqual(
-      ['categoryId', 'committedMinor', 'contactNote', 'id', 'name', 'schedule', 'status'].sort(),
+      [
+        'categoryId',
+        'committedMinor',
+        'contactNote',
+        'contactPerson',
+        'email',
+        'id',
+        'name',
+        'phone',
+        'schedule',
+        'status',
+      ].sort(),
     );
   });
 
@@ -84,7 +95,7 @@ describe('D1: stored records are built from named fields only', () => {
     const guest = next.guests.find((g) => g.id === 'g9');
     expect(guest).toBeDefined();
     expect(Object.keys(guest ?? {}).sort()).toEqual(
-      ['dietary', 'group', 'id', 'name', 'plusOnes', 'rsvp'].sort(),
+      ['contact', 'dietary', 'group', 'id', 'name', 'note', 'plusOnes', 'rsvp'].sort(),
     );
   });
 });

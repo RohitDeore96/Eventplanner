@@ -26,23 +26,50 @@ async function seed(page, { hindi = false } = {}) {
     budgetMinor: 800_000_00,
     guestTarget: 150,
     categories: [
-      { id: 'cat-venue', key: 'venue', name: 'Venue', plannedMinor: 240_000_00 },
-      { id: 'cat-catering', key: 'catering', name: 'Catering', plannedMinor: 320_000_00 },
-      { id: 'cat-decor', key: 'decor', name: 'Decor', plannedMinor: 120_000_00 },
-      { id: 'cat-photo', key: 'photo', name: 'Photography', plannedMinor: 80_000_00 },
-      { id: 'cat-contingency', key: 'contingency', name: 'Contingency', plannedMinor: 40_000_00 },
+      { id: 'cat-venue', key: 'venue', name: 'Venue', plannedMinor: 240_000_00, locked: false },
+      {
+        id: 'cat-catering',
+        key: 'catering',
+        name: 'Catering',
+        plannedMinor: 320_000_00,
+        locked: false,
+      },
+      { id: 'cat-decor', key: 'decor', name: 'Decor', plannedMinor: 120_000_00, locked: false },
+      {
+        id: 'cat-photo',
+        key: 'photo',
+        name: 'Photography',
+        plannedMinor: 80_000_00,
+        locked: false,
+      },
+      {
+        id: 'cat-contingency',
+        key: 'contingency',
+        name: 'Contingency',
+        plannedMinor: 40_000_00,
+        locked: true,
+      },
     ],
     vendors: [
       {
         id: 'v1',
         categoryId: 'cat-venue',
         name: 'Grand Hall Pune',
-        contactNote: '',
+        contactNote: 'Ask for the February rate',
+        contactPerson: 'Meenal Joshi',
+        phone: '+91 98220 11223',
+        email: 'events@grandhallpune.in',
         status: 'booked',
         committedMinor: 240_000_00,
         schedule: [
-          { id: 'i1', kind: 'advance', dueISO: '2026-11-10', amountMinor: 96_000_00 },
-          { id: 'i2', kind: 'final', dueISO: '2027-03-10', amountMinor: 144_000_00 },
+          {
+            id: 'i1',
+            kind: 'advance',
+            dueISO: '2026-11-10',
+            amountMinor: 96_000_00,
+            note: 'UTR ref 4471',
+          },
+          { id: 'i2', kind: 'final', dueISO: '2027-03-10', amountMinor: 144_000_00, note: '' },
         ],
       },
     ],
@@ -84,7 +111,51 @@ async function seed(page, { hindi = false } = {}) {
         dietary: ['vegetarian'],
         group: 'Family',
       },
-      { id: 'g2', name: 'Ravi', rsvp: 'pending', plusOnes: 0, dietary: [], group: 'Friends' },
+      {
+        id: 'g2',
+        name: 'Ravi',
+        rsvp: 'pending',
+        plusOnes: 0,
+        dietary: [],
+        group: 'Friends',
+        contact: '',
+        note: '',
+      },
+    ],
+    runSheet: [
+      {
+        id: 'r1',
+        title: 'Haldi at home',
+        dateISO: '2027-03-14',
+        startTime: '10:00',
+        endTime: '13:00',
+        ownerId: null,
+        location: 'Family home, courtyard',
+        note: 'Marigold decor; elders arrive by 09:30',
+        done: true,
+      },
+      {
+        id: 'r2',
+        title: 'Baraat arrival',
+        dateISO: '2027-03-15',
+        startTime: '19:00',
+        endTime: '20:00',
+        ownerId: null,
+        location: 'Main gate',
+        note: '',
+        done: false,
+      },
+      {
+        id: 'r3',
+        title: 'Dinner service',
+        dateISO: '2027-03-15',
+        startTime: '20:30',
+        endTime: '23:00',
+        ownerId: 'v1',
+        location: 'Lawn buffet',
+        note: 'Keep the jain counter separate',
+        done: false,
+      },
     ],
   };
   const planB = {
@@ -107,6 +178,36 @@ async function seed(page, { hindi = false } = {}) {
           savedAtISO: '2026-10-30T00:00:00.000Z',
           activeId: a.id,
           plans: [a, b],
+        }),
+      );
+      store.setItem(
+        'utsav.quotes.v1',
+        JSON.stringify({
+          schemaVersion: 2,
+          quotes: [
+            {
+              id: 'q1',
+              planId: a.id,
+              categoryId: 'cat-catering',
+              savedAtISO: '2026-10-30T09:00:00.000Z',
+              status: 'shortlisted',
+              validityDate: '2026-12-31',
+              note: 'Holds 2027 rates until year end',
+              fields: {
+                vendorName: 'Annapurna Caterers',
+                category: null,
+                totalPriceMinor: 32_000_00,
+                pricePerPlateMinor: null,
+                guestMinimum: 120,
+                overtimeFeePerHourMinor: null,
+                taxIncluded: false,
+                advancePercent: 25,
+                cancellationPolicy: '14 days notice',
+                inclusions: ['live counters', 'staff'],
+                exclusions: ['GST'],
+              },
+            },
+          ],
         }),
       );
       if (lang !== null) store.setItem('utsav.lang.v1', lang);
@@ -160,7 +261,26 @@ try {
   await shoot(page, 'hindi-light');
   await page.close();
 
-  // 6. Mobile All events (R8 on a phone).
+  // 6. Quotation compare with the saved lifecycle (M7).
+  page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await seed(page);
+  await page.goto(BASE);
+  await page.getByRole('tab', { name: 'Vendors' }).click();
+  const compareHeading = page.getByText('Compare saved quotations');
+  await compareHeading.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(250);
+  await shoot(page, 'quotes-light');
+  await page.close();
+
+  // 7. Event-day run sheet (M7).
+  page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await seed(page);
+  await page.goto(BASE);
+  await page.getByRole('tab', { name: 'Run sheet' }).click();
+  await shoot(page, 'runsheet-light');
+  await page.close();
+
+  // 8. Mobile All events (R8 on a phone).
   page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await seed(page);
   await page.goto(BASE);

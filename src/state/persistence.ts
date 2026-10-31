@@ -11,15 +11,16 @@ import { currencyExponent } from '../engine/money';
  * integrity, duplicate ids, supported currency, real calendar dates and dependency-graph
  * sanity) before it may reach the UI.
  *
- * Storage model (schemaVersion 2, R8 multi-event): ONE workspace record under
- * `utsav.plans.v1` holding up to MAX_EVENTS plans plus the active event's id. Version 1
- * (a single `plan`) and version 0 (no marker) migrate forward: the lone plan becomes the
- * active event of a fresh workspace. A saved event that fails validation is dropped on its
+ * Storage model (schemaVersion 3, R8 multi-event + Phase 2 archive): ONE workspace record
+ * under `utsav.plans.v1` holding up to MAX_EVENTS plans, the active event's id and the
+ * archived event ids. Versions 1 (a single `plan`), 0 (no marker) and 2 (no archive list)
+ * migrate forward: a lone plan becomes the active event of a fresh workspace; absent
+ * archives become an empty list. A saved event that fails validation is dropped on its
  * own — the rest of the workspace survives, and the count is reported so the UI can say so.
  * Corrupt data never crashes the app and never reaches React state.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 const STORAGE_KEY = 'utsav.plans.v1';
 const LEGACY_ACTIVE_KEY = 'utsav.activeId.v1';
 const MAX_STORE_BYTES = 400_000;
@@ -28,6 +29,7 @@ interface WorkspaceRecord {
   readonly schemaVersion: number;
   readonly savedAtISO: string;
   readonly activeId: string | null;
+  readonly archivedIds: readonly string[];
   readonly plans: readonly Plan[];
 }
 
@@ -49,6 +51,8 @@ export interface RecoveryInfo {
 export interface Workspace {
   readonly plans: readonly Plan[];
   readonly activeId: string | null;
+  /** Events set aside (archived) but never deleted; restore brings them back. */
+  readonly archivedIds: readonly string[];
   /** How many saved events failed validation and were left out (never silently). */
   readonly droppedInvalid: number;
   readonly recovery: RecoveryInfo | null;
@@ -70,6 +74,8 @@ const categorySchema = z
     key: z.string().min(1).max(100),
     name: z.string().min(1).max(120),
     plannedMinor: minor,
+    // Fields added in Phase 2 default for records written before them existed.
+    locked: z.boolean().default(false),
   })
   .strict();
 
@@ -79,6 +85,7 @@ const instalmentSchema = z
     kind: z.enum(['advance', 'instalment', 'milestone', 'final', 'balance', 'custom']),
     dueISO: isoDate,
     amountMinor: minor,
+    note: z.string().max(500).default(''),
   })
   .strict();
 
@@ -88,6 +95,9 @@ const vendorSchema = z
     categoryId: idField,
     name: z.string().min(1).max(120),
     contactNote: z.string().max(500),
+    contactPerson: z.string().max(120).default(''),
+    phone: z.string().max(40).default(''),
+    email: z.string().max(120).default(''),
     status: z.enum(['not_started', 'contacted', 'quoted', 'booked', 'cancelled']),
     committedMinor: minor.nullable(),
     schedule: z.array(instalmentSchema).max(12),
@@ -138,6 +148,22 @@ const guestSchema = z
     plusOnes: z.number().int().min(0).max(10),
     dietary: z.array(dietary).max(10),
     group: z.string().max(80),
+    contact: z.string().max(120).default(''),
+    note: z.string().max(500).default(''),
+  })
+  .strict();
+
+const runSheetEntrySchema = z
+  .object({
+    id: idField,
+    title: z.string().min(1).max(120),
+    dateISO: isoDate,
+    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+    ownerId: idField.nullable(),
+    location: z.string().max(120),
+    note: z.string().max(500),
+    done: z.boolean(),
   })
   .strict();
 
@@ -156,6 +182,7 @@ const deepPlanSchema = z
     expenses: z.array(expenseSchema).max(5_000),
     tasks: z.array(taskSchema).max(500),
     guests: z.array(guestSchema).max(5_000),
+    runSheet: z.array(runSheetEntrySchema).max(100).default([]),
   })
   .strict();
 
@@ -236,6 +263,7 @@ function idsAreUnique(plan: Plan): boolean {
     plan.expenses.map((e) => e.id),
     plan.tasks.map((t) => t.id),
     plan.guests.map((g) => g.id),
+    plan.runSheet.map((e) => e.id),
     instalmentIds,
   ].every(hasNoDuplicates);
 }
@@ -255,8 +283,24 @@ function referencesHold(plan: Plan): boolean {
     vendorReferencesHold(plan, index) &&
     expenseReferencesHold(plan, index) &&
     taskReferencesHold(plan, index) &&
+    runSheetReferencesHold(plan, index) &&
     !hasDependencyCycle(plan.tasks)
   );
+}
+
+/** Every run-sheet activity must be a real slot in time owned by a vendor that exists. */
+function runSheetReferencesHold(plan: Plan, index: PlanIndex): boolean {
+  return plan.runSheet.every(
+    (entry) =>
+      isCalendarDate(entry.dateISO) &&
+      (entry.ownerId === null || index.vendors.has(entry.ownerId)) &&
+      minutesOfStored(entry.startTime) <= minutesOfStored(entry.endTime),
+  );
+}
+
+function minutesOfStored(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
 }
 
 /** Kahn's check: a stored dependency cycle would send the timeline into an impossible order. */
@@ -319,10 +363,20 @@ function migrate(raw: Record<string, unknown>): Workspace {
   const storedActive = typeof raw.activeId === 'string' ? raw.activeId : null;
   const activeId =
     storedActive !== null && seenIds.has(storedActive) ? storedActive : (plans[0]?.id ?? null);
-  return { plans, activeId, droppedInvalid: dropped, recovery: null };
+  // Archive list (v3): only ids that actually exist may stay in it.
+  const archivedIds = Array.isArray(raw.archivedIds)
+    ? [...new Set(raw.archivedIds.filter((id) => typeof id === 'string' && seenIds.has(id)))]
+    : [];
+  return { plans, activeId, archivedIds, droppedInvalid: dropped, recovery: null };
 }
 
-const EMPTY_WORKSPACE: Workspace = { plans: [], activeId: null, droppedInvalid: 0, recovery: null };
+const EMPTY_WORKSPACE: Workspace = {
+  plans: [],
+  activeId: null,
+  archivedIds: [],
+  droppedInvalid: 0,
+  recovery: null,
+};
 
 /**
  * Loads the whole workspace (every saved event plus which one is active). A record that
@@ -356,10 +410,11 @@ export function loadWorkspace(storage: Storage = window.localStorage): Workspace
   }
 }
 
-/** Writes the workspace with the active event's id; the record stays under the byte cap. */
+/** Writes the workspace with the active event's id and the archive list; stays under the byte cap. */
 export function saveWorkspace(
   plans: readonly Plan[],
   activeId: string | null,
+  archivedIds: readonly string[] = [],
   storage: Storage = window.localStorage,
 ): StorageStatus {
   try {
@@ -370,6 +425,7 @@ export function saveWorkspace(
       schemaVersion: SCHEMA_VERSION,
       savedAtISO: new Date().toISOString(),
       activeId,
+      archivedIds: [...archivedIds],
       plans: [...plans],
     };
     const text = JSON.stringify(payload);
@@ -390,12 +446,17 @@ export function saveWorkspace(
  * ever called for the active plan (edit) or a brand-new one (create, demo), so the saved
  * plan is always what the app opens with.
  */
-export function savePlan(plan: Plan, storage: Storage = window.localStorage): StorageStatus {
+export function savePlan(
+  plan: Plan,
+  storage: Storage = window.localStorage,
+  archivedIds: readonly string[] = [],
+): StorageStatus {
   const current = loadWorkspace(storage);
   const plans = current.plans.some((p) => p.id === plan.id)
     ? current.plans.map((p) => (p.id === plan.id ? plan : p))
     : [...current.plans, plan];
-  return saveWorkspace(plans, plan.id, storage);
+  const archives = current.archivedIds.length > 0 ? current.archivedIds : archivedIds;
+  return saveWorkspace(plans, plan.id, archives, storage);
 }
 
 /** Backwards-compatible read: just the active plan (or null), recovery details included. */

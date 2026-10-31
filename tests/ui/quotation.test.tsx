@@ -108,6 +108,9 @@ describe('quotation comparison and acceptance (P2)', () => {
       categoryId,
       savedAtISO: '2026-10-30T00:00:00.000Z',
       fields: { ...fullFields, ...over },
+      status: 'review',
+      validityDate: null,
+      note: '',
     };
   }
 

@@ -349,7 +349,7 @@ describe('multi-event workspace (R8)', () => {
 
   it('round-trips several events with the active marker', () => {
     const storage = memoryStorage();
-    expect(saveWorkspace([plan, other], other.id, storage).ok).toBe(true);
+    expect(saveWorkspace([plan, other], other.id, [], storage).ok).toBe(true);
     const workspace = loadWorkspace(storage);
     expect(workspace.plans.map((p) => p.name)).toEqual([plan.name, other.name]);
     expect(workspace.activeId).toBe(other.id);
@@ -370,9 +370,9 @@ describe('multi-event workspace (R8)', () => {
     expect(workspace.activeId).toBe(plan.id);
     expect(workspace.droppedInvalid).toBe(0);
     // Saving forward writes the v2 shape.
-    expect(saveWorkspace(workspace.plans, workspace.activeId, storage).ok).toBe(true);
+    expect(saveWorkspace(workspace.plans, workspace.activeId, [], storage).ok).toBe(true);
     const raw = JSON.parse(storage.getItem('utsav.plans.v1') ?? '{}') as { schemaVersion: number };
-    expect(raw.schemaVersion).toBe(2);
+    expect(raw.schemaVersion).toBe(3);
   });
 
   it('keeps the surviving events when one saved event is invalid', () => {
@@ -395,7 +395,7 @@ describe('multi-event workspace (R8)', () => {
 
   it('savePlan upserts: editing keeps other events, a new id joins as active', () => {
     const storage = memoryStorage();
-    saveWorkspace([plan, other], plan.id, storage);
+    saveWorkspace([plan, other], plan.id, [], storage);
     // Edit the active event in place.
     const edited = { ...plan, name: 'Asha & Dev wedding (updated)' };
     savePlan(edited, storage);
@@ -417,16 +417,16 @@ describe('multi-event workspace (R8)', () => {
     const many = Array.from({ length: 13 }, (_, i) =>
       makePlan({ id: `ev-cap-${i}`, name: `Event ${i}` }),
     );
-    const status = saveWorkspace(many, many[0]?.id ?? null, storage);
+    const status = saveWorkspace(many, many[0]?.id ?? null, [], storage);
     expect(status.ok).toBe(false);
     expect(status.reason).toContain('12 events');
     // 12 fit exactly.
-    expect(saveWorkspace(many.slice(0, 12), 'ev-cap-0', storage).ok).toBe(true);
+    expect(saveWorkspace(many.slice(0, 12), 'ev-cap-0', [], storage).ok).toBe(true);
   });
 
   it('clearSavedPlan removes the whole workspace', () => {
     const storage = memoryStorage();
-    saveWorkspace([plan, other], plan.id, storage);
+    saveWorkspace([plan, other], plan.id, [], storage);
     clearSavedPlan(storage);
     expect(loadWorkspace(storage).plans).toHaveLength(0);
   });

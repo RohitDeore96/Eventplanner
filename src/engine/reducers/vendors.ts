@@ -1,6 +1,7 @@
 import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits.js';
 import { BOOKING_STATUSES, PAYMENT_KINDS } from '../enums.js';
 import { fail, ok, type Result } from '../result.js';
+import type { InstalmentInput } from '../actions.js';
 import type { BookingStatus, Instalment, Plan, Vendor } from '../types.js';
 import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate.js';
 
@@ -44,8 +45,45 @@ interface NewVendor {
   readonly categoryId: string;
   readonly name: string;
   readonly contactNote: string;
+  readonly contactPerson?: string;
+  readonly phone?: string;
+  readonly email?: string;
   readonly status: BookingStatus;
   readonly committedMinor: number | null;
+}
+
+/** Optional contact details: trimmed text with length caps; empty string when absent. */
+function checkContactField(value: unknown, field: string, label: string): Result<string> {
+  if (value === undefined || value === null) return ok('');
+  if (typeof value !== 'string') return fail('INVALID_TEXT', `${label} must be text.`, field);
+  const trimmed = value.trim();
+  return trimmed.length > 120
+    ? fail('TEXT_TOO_LONG', `${label} must be 120 characters or fewer.`, field)
+    : ok(trimmed);
+}
+
+function checkPhone(value: unknown): Result<string> {
+  if (value === undefined || value === null) return ok('');
+  if (typeof value !== 'string') return fail('INVALID_TEXT', 'Phone must be text.', 'phone');
+  const trimmed = value.trim();
+  if (trimmed.length > 40) {
+    return fail('TEXT_TOO_LONG', 'Phone must be 40 characters or fewer.', 'phone');
+  }
+  return ok(trimmed);
+}
+
+function checkEmail(value: unknown): Result<string> {
+  if (value === undefined || value === null) return ok('');
+  if (typeof value !== 'string') return fail('INVALID_TEXT', 'Email must be text.', 'email');
+  const trimmed = value.trim();
+  if (trimmed.length > 120) {
+    return fail('TEXT_TOO_LONG', 'Email must be 120 characters or fewer.', 'email');
+  }
+  // Only a light shape check: a full RFC parser rejects real-world addresses.
+  if (trimmed.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return fail('INVALID_EMAIL', 'That email address does not look right.', 'email');
+  }
+  return ok(trimmed);
 }
 
 export function addVendor(plan: Plan, input: NewVendor): Result<Plan> {
@@ -72,12 +110,21 @@ export function addVendor(plan: Plan, input: NewVendor): Result<Plan> {
   if (!statusInput.ok) return statusInput;
   const booking = checkBooking(statusInput.value.status, statusInput.value.committedMinor);
   if (!booking.ok) return booking;
+  const person = checkContactField(input.contactPerson, 'contactPerson', 'Contact person');
+  if (!person.ok) return person;
+  const phone = checkPhone(input.phone);
+  if (!phone.ok) return phone;
+  const email = checkEmail(input.email);
+  if (!email.ok) return email;
   // Built from named fields so action keys ("type") or extras never reach storage.
   const vendor: Vendor = {
     id: input.id,
     categoryId: input.categoryId,
     name: name.value,
     contactNote: note.value,
+    contactPerson: person.value,
+    phone: phone.value,
+    email: email.value,
     status: statusInput.value.status,
     committedMinor: statusInput.value.committedMinor,
     schedule: [],
@@ -89,6 +136,9 @@ interface VendorChanges {
   readonly categoryId?: string;
   readonly name?: string;
   readonly contactNote?: string;
+  readonly contactPerson?: string;
+  readonly phone?: string;
+  readonly email?: string;
   readonly status?: BookingStatus;
   readonly committedMinor?: number | null;
 }
@@ -109,6 +159,21 @@ function applyVendorTextChanges(
     const note = checkNote(changes.contactNote, 'contactNote');
     if (!note.ok) return note;
     next = { ...next, contactNote: note.value };
+  }
+  if (changes.contactPerson !== undefined) {
+    const person = checkContactField(changes.contactPerson, 'contactPerson', 'Contact person');
+    if (!person.ok) return person;
+    next = { ...next, contactPerson: person.value };
+  }
+  if (changes.phone !== undefined) {
+    const phone = checkPhone(changes.phone);
+    if (!phone.ok) return phone;
+    next = { ...next, phone: phone.value };
+  }
+  if (changes.email !== undefined) {
+    const email = checkEmail(changes.email);
+    if (!email.ok) return email;
+    next = { ...next, email: email.value };
   }
   if (changes.categoryId !== undefined && changes.categoryId !== current.categoryId) {
     if (!plan.categories.some((c) => c.id === changes.categoryId))
@@ -176,7 +241,11 @@ export function deleteVendor(plan: Plan, id: string): Result<Plan> {
   return ok({ ...plan, vendors: plan.vendors.filter((v) => v.id !== id) });
 }
 
-export function setSchedule(plan: Plan, id: string, schedule: readonly Instalment[]): Result<Plan> {
+export function setSchedule(
+  plan: Plan,
+  id: string,
+  schedule: readonly InstalmentInput[],
+): Result<Plan> {
   if (!plan.vendors.some((v) => v.id === id))
     return fail('VENDOR_NOT_FOUND', 'That vendor no longer exists.', 'id');
   const raw: unknown = schedule;
@@ -199,6 +268,7 @@ export function setSchedule(plan: Plan, id: string, schedule: readonly Instalmen
       checkEnum((item as { kind?: unknown }).kind, PAYMENT_KINDS, 'kind', 'Payment kind'),
       checkDate(item.dueISO, 'schedule'),
       checkAmount(item.amountMinor, 'schedule', 'Instalment'),
+      checkNote((item as { note?: unknown }).note ?? '', 'schedule'),
     ]);
     if (failure) return failure;
     if (item.amountMinor === 0)
@@ -220,5 +290,16 @@ export function setSchedule(plan: Plan, id: string, schedule: readonly Instalmen
       'A scheduled payment that is already marked paid cannot be removed.',
       'schedule',
     );
-  return ok({ ...plan, vendors: plan.vendors.map((v) => (v.id === id ? { ...v, schedule } : v)) });
+  // Rebuilt from named fields: a caller that omits `note` still stores a defined string.
+  const normalized: readonly Instalment[] = list.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    dueISO: item.dueISO,
+    amountMinor: item.amountMinor,
+    note: typeof item.note === 'string' ? item.note : '',
+  }));
+  return ok({
+    ...plan,
+    vendors: plan.vendors.map((v) => (v.id === id ? { ...v, schedule: normalized } : v)),
+  });
 }

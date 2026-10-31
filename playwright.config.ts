@@ -9,6 +9,9 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 45_000,
   fullyParallel: true,
+  // Two workers keep memory pressure low in CI and sandboxes: a browser launch failure
+  // is not a product defect, so the suite must not race a dozen Chromium instances.
+  workers: 2,
   retries: 0,
   reporter: [['list']],
   use: {

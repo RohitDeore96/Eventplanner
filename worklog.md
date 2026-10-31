@@ -111,3 +111,124 @@ offline-honesty journey cover the failure paths.
 - To enable live AI: set `GEMINI_API_KEY` (server-side env var in the Vercel project settings),
   optionally `GEMINI_MODEL`, then redeploy; `npm run smoke:ai` will then exercise the real
   provider and stop SKIPping.
+
+---
+
+## 2026-10-31 — Phase 2: complete product workflows
+
+Full record of the Phase 2 execution (the assignment's implementation map, milestones,
+acceptance checklist and adversarial audit). The acceptance table itself lives in
+`docs/SPEC.md` ("Phase 2 (product workflows) status") — every row cites implementation
+plus tests.
+
+### Starting point
+
+- `main` at `f6920bc` (the Phase 1 re-verification commit); working tree clean.
+- Phase 1 gate re-verified before any Phase 2 work: all 22 P1 criteria PASS, check suite
+  green, 42/42 browser journeys.
+
+### Implementation map (Milestone 0, condensed)
+
+The inspection found substantial engine support already present (vendor schedules,
+quotation extraction/comparison, guest CRUD, scenario engine, multi-event workspace) with
+specific workflow gaps: vendor contact fields and detail depth, expense linking in the UI,
+quotation lifecycle persistence, unsaved preferences, no locks/trade-offs, no run sheet,
+fixed scenario assumptions, no duplicate/archive. Phase 2 closed exactly those gaps.
+
+### What was built (per milestone)
+
+- **M1 Vendors**: contact person/phone/email (optional, validated), editable details,
+  search + status filter, instalment removal (paid instalments stay protected by the
+  engine), money summary from the engine's own aggregates, payment history per vendor.
+- **M2 Expenses**: add/edit forms with a vendor → instalment cascade (switching vendors
+  clears the instalment; the expense category follows the vendor), reassignment validated
+  by the SAME engine rule as creation, filters by category/vendor/linkage, search.
+- **M3 Quotations**: library v2 with a review → shortlist → accepted/rejected lifecycle,
+  validity date + note, manual correction of every extracted field before saving, and a
+  hard duplicate-acceptance guard that survives reloads. Acceptance still goes through the
+  engine (`acceptActions`), so undo and committed totals behave like every other change.
+- **M4 Guests**: optional contact + note fields, everything else already passed Phase 1
+  and the earlier workflow work.
+- **M5 Personalization**: per-event preferences persisted in a sidecar (`utsav.prefs.v1`,
+  validated, isolated by plan id); the ideas request now carries formality, budget tier,
+  must-haves, remaining budget and booked vendors — the response schema and the no-price
+  rule are unchanged.
+- **M6 Budget**: allocation editor with per-category locks (engine-enforced for moves,
+  allocation edits and scenarios), unallocated/over-allocated display, and a trade-off
+  planner that funds a category from unallocated money and unlocked slack — and refuses to
+  emit any action when a shortfall would break the budget.
+- **M7 Run sheet**: new event-day schedule (entries with times, owner vendor, place,
+  notes, done), overlap + same-vendor conflict detection shown for deliberate correction,
+  reorder, and a print stylesheet that puts ONLY the run sheet on paper with an event
+  header.
+- **M8 Scenarios**: fixed pressures keep working (now lock-aware: locked categories stay
+  untouched), plus custom assumptions (guest count and/or budget) with preview → apply as
+  one undo step → undo.
+- **M9 Multi-event**: workspace schema v3 (archive list); duplicate with a fully remapped
+  id set (vendors → copied categories, expenses → copied vendors/instalments, run sheet →
+  copied vendors), archive/restore, delete also clears the event's quotes and preferences.
+- **M10 Product**: Run sheet tab in the navigation (EN/हिन्दी/मराठी), sticky header so
+  header actions stay reachable on phones, wide tables scroll within their own box on
+  small screens.
+
+### Storage and migration
+
+- Plans: schemaVersion 3. v0/v1/v2 migrate forward; archive list defaults to empty; the
+  deep validator now also checks run-sheet entries (calendar dates, owners exist, sane
+  time ranges) and drops an invalid event individually.
+- Quotations: schemaVersion 2 (status/validity/note default on migrate).
+- Preferences: new sidecar, one record per event, corrupt data degrades to defaults.
+
+### Tests (Milestone 11)
+
+- Engine: `runsheet.test.ts`, `tradeoff.test.ts` (incl. locks + shortfall),
+  `duplicate.test.ts`, `expense-links.test.ts`, `phase2-branches.test.ts`, and new cases
+  in `scenario`/`persistence`/`state-stores` for the v2/v3 migrations and guards.
+- UI integration: `phase2.test.tsx`, `phase2-integration.test.tsx`,
+  `phase2-surface.test.tsx`, `phase2-final.test.tsx`, `deep-validation.test.ts` through
+  the real store (`tests/ui/harness.tsx`).
+- Browser: six new Playwright journeys — expenses linking (B), quotations (C), budget
+  trade-offs (E), run sheet incl. print emulation (F), scenario reject/apply (G), the full
+  event-library lifecycle (H). 54 journey runs in total, desktop + mobile.
+- Totals at the end of Phase 2: **626 unit/integration tests + 54 E2E runs**, all green;
+  format, lint, typecheck, architecture, unused-code, bundle budget (113.6/250 KB gz),
+  secret scan and coverage gates all pass.
+
+### Defects found and fixed while building
+
+| ID  | Defect                                                                                                                             | Severity | Fix                                                                                                             |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| E1  | Trade-off planner emitted budget-breaking actions when a shortfall existed                                                         | P1       | `tradeOffActions` returns nothing unless the plan fully fits; the UI shows the shortfall instead of Apply       |
+| E2  | Guest `contact` allowed 500 chars in the engine but storage caps it at 120 — a valid save would fail reload validation             | P1       | caps aligned (120), test pins it                                                                                |
+| E3  | Scenario maths bypassed nothing — after locks existed, a locked category made the stress test FAIL (simulation, not a transaction) | P1       | scenarios respect locks: locked allocations stay untouched; freed budget redistributes over unlocked categories |
+| E4  | Autosave wiped one-off notices (e.g. "Created copy…") immediately                                                                  | P2       | action notices live in their own state that autosave does not clear                                             |
+| E5  | Print stylesheet hid the whole app (the SPA mounts into `#root`, so `body > *:not(.layout)` matched everything)                    | P1       | cards hidden individually; print output is exactly the run sheet                                                |
+| E6  | Wide tables pushed action buttons past the phone viewport — clicks unreachable on mobile                                           | P1       | tables scroll within their own box under 720 px; header made sticky                                             |
+| E7  | `getByLabelText` and friends in tests revealed strict-mode ambiguities (duplicate labels)                                          | P2       | labels renamed where genuinely ambiguous ("Filter by status"), tests scoped                                     |
+
+### Adversarial audit results (§18)
+
+Every listed attack was exercised (unit, integration or browser journey as noted):
+editing a vendor after a payment (reducer keeps history; category change refused),
+deleting a vendor with expenses (refused with reason), accepting the same quotation twice
+(refused, status persists), changing a linked expense's vendor (revalidated; cross-vendor
+instalment impossible), editing amounts with instalments (settlement arithmetic stays in
+the engine), multiple dietary tags (counts correct), plus-one changes (headcount follows),
+over-allocating the budget (visible, never silent), applying financial scenarios (one undo
+step, paid records untouched), switching events during edits (autosave writes the leaving
+plan first), duplicating linked events (all references remapped), restoring archives
+(verbatim), refreshing after every operation (journeys reload throughout), malformed/
+outdated saved data (Phase 1 recovery paths re-verified), and every workflow on the mobile
+profile (54 journey runs include the Pixel 7 profile).
+
+### Known limitations (honest list)
+
+- Live AI provider behaviour remains unverified here: no `GEMINI_API_KEY` in this
+  environment. `npm run smoke:ai` SKIPs honestly; mocked route tests and the offline
+  journey cover the failure paths.
+- Quotation file upload (§7.1) is not implemented: the architecture processes pasted text
+  only, and adding file upload would mean a new attack surface this phase does not need.
+- Archived events are excluded from the working tabs but still count towards the 12-event
+  storage cap (deliberate: archiving is not deletion).
+- The run sheet print layout is verified via Playwright print-media emulation, not on
+  physical paper.

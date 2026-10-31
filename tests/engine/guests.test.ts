@@ -11,6 +11,8 @@ const guest = (id: string, rsvp: Rsvp, plusOnes = 0, dietary: Guest['dietary'] =
   plusOnes,
   dietary,
   group: '',
+  contact: '',
+  note: '',
 });
 
 describe('headcount', () => {

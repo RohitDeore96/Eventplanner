@@ -52,6 +52,34 @@ async function post<T extends { source?: string }>(
   }
 }
 
+/** Saved-preference context the ideas route understands; absent keys are simply omitted. */
+export interface IdeasContext {
+  readonly budgetMinor?: number;
+  readonly notes?: string;
+  readonly formality?: 'relaxed' | 'traditional' | 'formal';
+  readonly budgetTier?: 'value' | 'balanced' | 'premium';
+  readonly mustHaves?: string;
+  readonly remainingBudgetMinor?: number;
+  readonly bookedVendors?: number;
+}
+
+function ideasPayload(context?: IdeasContext): Record<string, unknown> {
+  if (context === undefined) return {};
+  const given: Record<string, unknown> = {};
+  if (context.budgetMinor !== undefined) given.budgetMinor = context.budgetMinor;
+  if (context.notes !== undefined && context.notes.length > 0) given.notes = context.notes;
+  if (context.formality !== undefined) given.formality = context.formality;
+  if (context.budgetTier !== undefined) given.budgetTier = context.budgetTier;
+  if (context.mustHaves !== undefined && context.mustHaves.length > 0) {
+    given.mustHaves = context.mustHaves;
+  }
+  if (context.remainingBudgetMinor !== undefined) {
+    given.remainingBudgetMinor = context.remainingBudgetMinor;
+  }
+  if (context.bookedVendors !== undefined) given.bookedVendors = context.bookedVendors;
+  return given;
+}
+
 export const aiClient = {
   parseIntake: (
     text: string,
@@ -62,14 +90,13 @@ export const aiClient = {
     occasion: string,
     vibe: string,
     guests: number,
-    context?: { readonly budgetMinor?: number; readonly notes?: string },
+    context?: IdeasContext,
   ): Promise<AiReply<Ideas & { source: string }>> =>
     post('/api/suggest-ideas', {
       occasion,
       vibe,
       guests,
-      ...(context?.budgetMinor !== undefined ? { budgetMinor: context.budgetMinor } : {}),
-      ...(context?.notes !== undefined && context.notes.length > 0 ? { notes: context.notes } : {}),
+      ...ideasPayload(context),
     }),
   review: (facts: string): Promise<AiReply<PlanReview & { source: string }>> =>
     post('/api/review-plan', { facts }),

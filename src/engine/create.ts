@@ -142,11 +142,13 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
       key: s.key,
       name: s.name,
       plannedMinor: amounts[index] ?? 0,
+      locked: false,
     })),
     vendors: [],
     expenses: [],
     tasks: milestones.value.tasks,
     guests: [],
+    runSheet: [],
   };
   return ok({ plan, notes: milestones.value.notes });
 }

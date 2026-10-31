@@ -26,7 +26,13 @@ export function addCategory(
   if (plan.categories.some((c) => sameName(c.name, name.value))) {
     return fail('DUPLICATE_CATEGORY', 'You already have a category with that name.', 'name');
   }
-  const category: Category = { id, key: `custom-${id}`, name: name.value, plannedMinor };
+  const category: Category = {
+    id,
+    key: `custom-${id}`,
+    name: name.value,
+    plannedMinor,
+    locked: false,
+  };
   return ok({ ...plan, categories: [...plan.categories, category] });
 }
 
@@ -35,6 +41,7 @@ export function updateCategory(
   id: string,
   name?: string,
   plannedMinor?: number,
+  locked?: boolean,
 ): Result<Plan> {
   const current = plan.categories.find((c) => c.id === id);
   if (!current) return fail('CATEGORY_NOT_FOUND', 'That category no longer exists.', 'id');
@@ -48,9 +55,19 @@ export function updateCategory(
     next = { ...next, name: checked.value };
   }
   if (plannedMinor !== undefined) {
+    if (current.locked) {
+      return fail(
+        'CATEGORY_LOCKED',
+        `${current.name} is locked — unlock it before changing its allocation.`,
+        'plannedMinor',
+      );
+    }
     const amount = checkAmount(plannedMinor, 'plannedMinor', 'Planned amount');
     if (!amount.ok) return amount;
     next = { ...next, plannedMinor };
+  }
+  if (locked !== undefined) {
+    next = { ...next, locked };
   }
   return ok({ ...plan, categories: plan.categories.map((c) => (c.id === id ? next : c)) });
 }
@@ -81,6 +98,14 @@ export function moveBudget(
   const to = plan.categories.find((c) => c.id === toId);
   if (!from || !to) return fail('CATEGORY_NOT_FOUND', 'One of those categories no longer exists.');
   if (fromId === toId) return fail('SAME_CATEGORY', 'Choose two different categories.', 'toId');
+  if (from.locked || to.locked) {
+    const lockedName = from.locked ? from.name : to.name;
+    return fail(
+      'CATEGORY_LOCKED',
+      `${lockedName} is locked — unlock it before moving its money.`,
+      'fromId',
+    );
+  }
   const amount = checkAmount(amountMinor, 'amountMinor', 'Amount to move');
   if (!amount.ok) return amount;
   if (amountMinor === 0)
@@ -174,7 +199,13 @@ export function addExpense(plan: Plan, e: NewExpense): Result<Plan> {
 export function updateExpense(
   plan: Plan,
   id: string,
-  changes: { dateISO?: string; amountMinor?: number; note?: string },
+  changes: {
+    dateISO?: string;
+    amountMinor?: number;
+    note?: string;
+    vendorId?: string | null;
+    instalmentId?: string | null;
+  },
 ): Result<Plan> {
   const current = plan.expenses.find((x) => x.id === id);
   if (!current) return fail('EXPENSE_NOT_FOUND', 'That expense no longer exists.', 'id');
@@ -195,6 +226,24 @@ export function updateExpense(
     const note = checkNote(changes.note, 'note');
     if (!note.ok) return note;
     next = { ...next, note: note.value };
+  }
+  if (changes.vendorId !== undefined || changes.instalmentId !== undefined) {
+    // Re-linking runs the SAME checks as creation, against the expense's next state —
+    // so an instalment can never end up pointing at another vendor's schedule.
+    const vendorRaw: unknown = changes.vendorId !== undefined ? changes.vendorId : next.vendorId;
+    const instalmentRaw: unknown =
+      changes.instalmentId !== undefined ? changes.instalmentId : next.instalmentId;
+    const links = checkExpenseLinks(plan, {
+      ...next,
+      vendorId: vendorRaw as string | null,
+      instalmentId: instalmentRaw as string | null,
+    });
+    if (!links.ok) return links;
+    next = {
+      ...next,
+      vendorId: vendorRaw as string | null,
+      instalmentId: instalmentRaw as string | null,
+    };
   }
   return ok({ ...plan, expenses: plan.expenses.map((x) => (x.id === id ? next : x)) });
 }

@@ -37,7 +37,9 @@ describe('Utsav app shell (jsdom)', () => {
         'true',
       );
     });
-    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(
+      screen.getByText('Budget categories with planned, committed, paid and remaining amounts'),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(/[$₹]|INR/).length).toBeGreaterThan(0);
     expect(localStorage.getItem('utsav.plans.v1')).not.toBeNull();
 

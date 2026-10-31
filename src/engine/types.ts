@@ -23,6 +23,8 @@ export interface Category {
   readonly key: string;
   readonly name: string;
   readonly plannedMinor: Minor;
+  /** Locked categories refuse budget moves and planned-amount edits (M6 trade-off safety). */
+  readonly locked: boolean;
 }
 
 export interface Instalment {
@@ -30,6 +32,8 @@ export interface Instalment {
   readonly kind: PaymentKind;
   readonly dueISO: ISODate;
   readonly amountMinor: Minor;
+  /** Optional payment reference or note (M5.2). Payment status/date stay DERIVED from expenses. */
+  readonly note: string;
 }
 
 export interface Vendor {
@@ -37,6 +41,10 @@ export interface Vendor {
   readonly categoryId: string;
   readonly name: string;
   readonly contactNote: string;
+  /** Optional contact details (M5.1). Empty string when not supplied. */
+  readonly contactPerson: string;
+  readonly phone: string;
+  readonly email: string;
   readonly status: BookingStatus;
   /** Agreed price. Only counts as committed while status is "booked". */
   readonly committedMinor: Minor | null;
@@ -71,6 +79,23 @@ export interface Guest {
   readonly plusOnes: number;
   readonly dietary: readonly DietaryTag[];
   readonly group: string;
+  /** Optional contact details and free-text notes (M8.1). Empty string when not supplied. */
+  readonly contact: string;
+  readonly note: string;
+}
+
+/** One event-day activity (M7 run sheet). Times are HH:MM 24-hour, local to the event day. */
+export interface RunSheetEntry {
+  readonly id: string;
+  readonly title: string;
+  readonly dateISO: ISODate;
+  readonly startTime: string;
+  readonly endTime: string;
+  /** Vendor responsible, when the activity belongs to one; null for the family itself. */
+  readonly ownerId: string | null;
+  readonly location: string;
+  readonly note: string;
+  readonly done: boolean;
 }
 
 export interface Plan {
@@ -89,4 +114,6 @@ export interface Plan {
   readonly expenses: readonly Expense[];
   readonly tasks: readonly Task[];
   readonly guests: readonly Guest[];
+  /** Event-day schedule (M7); distinct from planning tasks and payment due dates. */
+  readonly runSheet: readonly RunSheetEntry[];
 }
