@@ -68,6 +68,14 @@ const minor = z.number().int().min(0).max(MAX_AMOUNT_MINOR);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const idField = z.string().min(1).max(100);
 
+/** Real UTF-8 size of a string. `length` counts UTF-16 units, so multibyte content
+ * (Devanagari, emoji) would slip past a unit-based cap by up to 3× — the same standard
+ * the API layer applies with Buffer.byteLength for request bodies. */
+const utf8 = new TextEncoder();
+function byteLength(text: string): number {
+  return utf8.encode(text).length;
+}
+
 const categorySchema = z
   .object({
     id: idField,
@@ -387,7 +395,7 @@ export function loadWorkspace(storage: Storage = window.localStorage): Workspace
   try {
     const raw = storage.getItem(STORAGE_KEY);
     if (raw === null) return EMPTY_WORKSPACE;
-    if (raw.length > MAX_STORE_BYTES) {
+    if (byteLength(raw) > MAX_STORE_BYTES) {
       return { ...EMPTY_WORKSPACE, recovery: { reason: 'too_large', raw } };
     }
     let parsed: unknown;
@@ -429,7 +437,7 @@ export function saveWorkspace(
       plans: [...plans],
     };
     const text = JSON.stringify(payload);
-    if (text.length > MAX_STORE_BYTES) {
+    if (byteLength(text) > MAX_STORE_BYTES) {
       return { ok: false, reason: 'These events are too large to autosave in the browser.' };
     }
     storage.setItem(STORAGE_KEY, text);

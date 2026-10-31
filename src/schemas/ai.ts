@@ -20,7 +20,7 @@ const QUOTE_MAX_CHARS = 6000;
 const QUESTION_MAX_CHARS = 500;
 const INSTRUCTION_MAX_CHARS = 400;
 
-const intakeParseSchema = z.object({
+export const intakeParseSchema = z.object({
   name: z.string().max(80).nullable(),
   occasion: z.enum(['wedding', 'birthday', 'community', 'milestone']).nullable(),
   dateISO: z

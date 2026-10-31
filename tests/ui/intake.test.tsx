@@ -188,7 +188,10 @@ describe('intake prefill guards', () => {
     vi.unstubAllGlobals();
   });
 
-  it('ignores an occasion value outside the supported set instead of applying it', async () => {
+  it('rejects a reply whose occasion is outside the supported set, applying nothing', async () => {
+    // The client validates every reply against the same schema the server used
+    // (AI_REPLY_INVALID), so an out-of-set occasion can never reach the prefill at all —
+    // a stronger guarantee than the old per-field guard, and the form keeps its value.
     localStorage.clear();
     vi.stubGlobal(
       'fetch',
@@ -217,7 +220,7 @@ describe('intake prefill guards', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Fill form from description' }));
     await waitFor(() => {
-      expect(screen.getByText(/answered by: built-in/)).toBeInTheDocument();
+      expect(screen.getByText(/reader is unavailable/)).toBeInTheDocument();
     });
     // The invalid occasion never reached the select.
     expect(screen.getByLabelText('Occasion')).toHaveValue('wedding');

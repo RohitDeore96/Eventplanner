@@ -22,6 +22,13 @@ const MAX_QUOTES = 24;
 const MAX_PARSED_QUOTES = 200;
 const MAX_STORE_BYTES = 120_000;
 
+/** Real UTF-8 size of a string: `length` counts UTF-16 units, so Devanagari or emoji text
+ * would slip past a unit-based cap by up to 3× (same standard as the workspace store). */
+const utf8 = new TextEncoder();
+function byteLength(text: string): number {
+  return utf8.encode(text).length;
+}
+
 const QUOTE_STATUSES = ['review', 'shortlisted', 'accepted', 'rejected'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
@@ -73,7 +80,7 @@ function notify(): void {
 function loadAllQuotes(storage: Storage): SavedQuote[] {
   try {
     const raw = storage.getItem(STORAGE_KEY);
-    if (raw === null || raw.length > MAX_STORE_BYTES) return [];
+    if (raw === null || byteLength(raw) > MAX_STORE_BYTES) return [];
     const parsed: unknown = JSON.parse(raw);
     // v1 files parse against the v2 schema: the defaults fill the new fields.
     const file = quotesFileSchema.safeParse(parsed);
@@ -86,7 +93,7 @@ function loadAllQuotes(storage: Storage): SavedQuote[] {
 function writeAllQuotes(quotes: readonly SavedQuote[], storage: Storage): boolean {
   try {
     const text = JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes });
-    if (text.length > MAX_STORE_BYTES) return false;
+    if (byteLength(text) > MAX_STORE_BYTES) return false;
     storage.setItem(STORAGE_KEY, text);
     return true;
   } catch {

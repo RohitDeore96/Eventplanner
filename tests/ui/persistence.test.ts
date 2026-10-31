@@ -332,6 +332,24 @@ describe('persistence: recovery information for unusable stored data', () => {
     expect(state.recovery?.reason).toBe('too_large');
   });
 
+  it('measures the size cap in UTF-8 bytes, not UTF-16 units (multibyte regression)', () => {
+    // 140,000 Devanagari characters: 140,000 UTF-16 units — the old unit-based check
+    // waved this through — but 420,000 real UTF-8 bytes, over the 400,000-byte cap.
+    const multibyte = 'अ'.repeat(140_000);
+    expect(multibyte.length).toBeLessThanOrEqual(400_000);
+    const state = loadSavedState(memoryStorage({ 'utsav.plans.v1': multibyte }));
+    expect(state.recovery?.reason).toBe('too_large');
+  });
+
+  it('refuses to save a workspace whose JSON exceeds the cap in UTF-8 bytes', () => {
+    // The plan name is 150,000 UTF-16 units (under the old unit-based check) but its
+    // 3-byte characters make the JSON 450,000+ bytes — the save must refuse honestly.
+    const big: Plan = { ...makePlan(), name: 'अ'.repeat(150_000) };
+    const status = saveWorkspace([big], big.id, [], memoryStorage());
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('too large');
+  });
+
   it('valid plans load with no recovery notice', () => {
     const state = loadSavedState(memoryStorage());
     expect(state).toEqual({ plan: null, recovery: null });
