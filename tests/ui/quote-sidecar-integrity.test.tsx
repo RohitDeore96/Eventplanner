@@ -216,3 +216,89 @@ describe('accepted quotation and Undo/Redo move together', () => {
     expect(result.current.state.history.present.name).toBe('Asha & Dev wedding');
   });
 });
+
+/**
+ * Regression tests (targeted bug-fix audit): Undo and Redo must move the sidecar status
+ * only when the plan history transition actually succeeds. A redo whose step was cleared
+ * by a fresh change is a no-op — the store must not fish a reverted quotation out of the
+ * log and mark it accepted without restoring the vendor booking it stands for.
+ */
+describe('no-op Undo/Redo cannot move the sidecar (regression)', () => {
+  it('does not mark an old quotation accepted when Redo has nothing to redo', () => {
+    // 1. Accept a quotation (batch entry carries the quote reference).
+    const saved = saveQuote({
+      planId: plan.id,
+      categoryId: 'catering',
+      fields: fieldsFor('Sharma Caterers'),
+    });
+    if (saved === null) throw new Error('fixture failed');
+    expect(setQuoteStatus(saved.id, 'shortlisted')).toBe(true);
+    const { result } = renderHook(() => usePlanStore(TODAY, plan));
+    act(() => {
+      result.current.applyAll(
+        [{ type: 'event/update', changes: { name: 'Renamed' } }],
+        'Quotation accepted — Sharma Caterers booked',
+        { id: saved.id, previousStatus: 'shortlisted' },
+      );
+    });
+    act(() => {
+      setQuoteStatus(saved.id, 'accepted');
+    });
+    // 2. Undo the acceptance: plan reverted, sidecar back to shortlisted.
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.state.history.present.name).toBe('Asha & Dev wedding');
+    expect(loadQuotes(plan.id)[0]?.status).toBe('shortlisted');
+    // 3. A different event change lands — the redo step is gone for good.
+    act(() => {
+      result.current.apply({ type: 'event/update', changes: { name: 'Second change' } });
+    });
+    expect(result.current.state.history.future).toHaveLength(0);
+    // 4. Redo: nothing to redo, so neither the plan nor the sidecar may move.
+    act(() => {
+      result.current.redo();
+    });
+    expect(result.current.state.history.present.name).toBe('Second change');
+    expect(loadQuotes(plan.id)[0]?.status).toBe('shortlisted');
+    const acceptEntry = result.current.state.log.find((entry) => entry.quote !== undefined);
+    expect(acceptEntry?.reverted).toBe(true); // still struck: it was never re-applied
+  });
+
+  it('leaves the log untouched when Undo has nothing to undo (pure reducer)', () => {
+    const state = planReducer(
+      initPlanState(plan),
+      { kind: 'apply', action: { type: 'event/update', changes: { name: 'Renamed' } } },
+      TODAY,
+    );
+    const emptied = planReducer(state, { kind: 'undo' }, TODAY);
+    const noopUndo = planReducer(emptied, { kind: 'undo' }, TODAY); // the stack is empty now
+    // A no-op undo must not strike a log line the plan did not actually revert.
+    expect(noopUndo.log.filter((entry) => !entry.reverted).length).toBe(
+      emptied.log.filter((entry) => !entry.reverted).length,
+    );
+    expect(noopUndo.history.present).toBe(emptied.history.present);
+  });
+
+  it('leaves the log untouched when Redo has nothing to redo (pure reducer)', () => {
+    const state = planReducer(
+      initPlanState(plan),
+      { kind: 'apply', action: { type: 'event/update', changes: { name: 'Renamed' } } },
+      TODAY,
+    );
+    const undone = planReducer(state, { kind: 'undo' }, TODAY);
+    // A fresh change clears the redo step…
+    const changed = planReducer(
+      undone,
+      { kind: 'apply', action: { type: 'event/update', changes: { name: 'Again' } } },
+      TODAY,
+    );
+    expect(changed.history.future).toHaveLength(0);
+    // …so redo is a no-op and the undone entry must stay struck.
+    const noopRedo = planReducer(changed, { kind: 'redo' }, TODAY);
+    expect(noopRedo.log.filter((entry) => entry.reverted).length).toBe(
+      changed.log.filter((entry) => entry.reverted).length,
+    );
+    expect(noopRedo.history.present).toBe(changed.history.present);
+  });
+});

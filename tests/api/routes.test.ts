@@ -743,3 +743,53 @@ describe('API routes: with a mocked AI endpoint', () => {
     expect(body).toMatchObject({ summary: 'Add the mehndi afternoon', source: 'gemini-3.6-flash' });
   });
 });
+
+/**
+ * Regression tests (targeted bug-fix audit): the 8 KB body limit is a BYTE limit. The
+ * final validation must measure UTF-8 bytes — a multibyte body whose character count
+ * slides under the old string-length check must still be rejected with 413, while a
+ * multibyte body inside the limit keeps working end to end.
+ */
+describe('API routes: body-size is measured in UTF-8 bytes (regression)', () => {
+  it('rejects a multibyte string body whose UTF-8 bytes exceed the 8 KB limit with 413', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    // 2,200 emoji are 2,200 UTF-16 code units (under the old string-length check) but
+    // 8,800 UTF-8 bytes (over the real limit).
+    await handler(mockReq('🎉'.repeat(2200), { headers: { 'x-forwarded-for': '10.7.7.1' } }), res);
+    expect(res.json()).toMatchObject({ status: 413, body: { error: 'BODY_TOO_LARGE' } });
+  });
+
+  it('rejects a serialized object body whose UTF-8 bytes exceed the limit with 413', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(
+      mockReq({ text: '🎉'.repeat(2200) }, { headers: { 'x-forwarded-for': '10.7.7.2' } }),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 413, body: { error: 'BODY_TOO_LARGE' } });
+  });
+
+  it('keeps a multibyte body inside the byte limit working end to end', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(
+      mockReq(
+        { text: 'Shaadi in Pune, 200 guests, 8 lakh budget — 🎉 💐 stage decor' },
+        { headers: { 'x-forwarded-for': '10.7.7.3' } },
+      ),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 200, body: { source: 'built-in' } });
+  });
+
+  it('pins the byte boundary for pure ASCII: 8192 bytes pass, 8193 do not', async () => {
+    const handler = load('parse-intake');
+    const under = mockRes();
+    await handler(mockReq('a'.repeat(8192), { headers: { 'x-forwarded-for': '10.7.7.4' } }), under);
+    expect(under.json().status).toBe(400); // inside the limit: fails JSON parsing, not size
+    const over = mockRes();
+    await handler(mockReq('a'.repeat(8193), { headers: { 'x-forwarded-for': '10.7.7.5' } }), over);
+    expect(over.json()).toMatchObject({ status: 413, body: { error: 'BODY_TOO_LARGE' } });
+  });
+});

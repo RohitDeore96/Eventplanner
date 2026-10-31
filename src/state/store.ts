@@ -100,11 +100,17 @@ export function usePlanStore(today: string, initial: Plan | null): Store {
       dispatch({ kind: 'replace', plan });
     },
     undo: () => {
-      revertEntryQuote(state.log);
+      // The sidecar may only move when the plan transition actually succeeds: run the same
+      // pure reducer first and act only when the history moved. A no-op undo — like a redo
+      // whose step a fresh change cleared — must leave the quotation status alone, or a
+      // quote could end up "accepted" without the vendor booking it stands for.
+      const next = planReducer(state, { kind: 'undo' }, today);
+      if (next.history !== state.history) revertEntryQuote(state.log);
       dispatch({ kind: 'undo' });
     },
     redo: () => {
-      reapplyEntryQuote(state.log);
+      const next = planReducer(state, { kind: 'redo' }, today);
+      if (next.history !== state.history) reapplyEntryQuote(state.log);
       dispatch({ kind: 'redo' });
     },
   };

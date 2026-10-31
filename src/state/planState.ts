@@ -114,20 +114,22 @@ export function planReducer(state: PlanState, event: PlanEvent, today: string): 
     }
     case 'replace':
       return { history: initHistory(event.plan), log: [], lastError: null };
-    case 'undo':
-      return {
-        ...state,
-        history: undo(state.history),
-        log: markReverted(state.log),
-        lastError: null,
-      };
-    case 'redo':
-      return {
-        ...state,
-        history: redo(state.history),
-        log: markRedone(state.log),
-        lastError: null,
-      };
+    case 'undo': {
+      // `undo()` returns the same history when the stack is empty: a no-op transition must
+      // not strike a log line (or move a quotation sidecar) the plan never reverted.
+      const history = undo(state.history);
+      return history === state.history
+        ? state
+        : { ...state, history, log: markReverted(state.log), lastError: null };
+    }
+    case 'redo': {
+      // Symmetric: a redo whose step a fresh change cleared is a no-op and must leave the
+      // log exactly as it was, so the struck entry cannot look re-applied.
+      const history = redo(state.history);
+      return history === state.history
+        ? state
+        : { ...state, history, log: markRedone(state.log), lastError: null };
+    }
     case 'clearError':
       return { ...state, lastError: null };
   }

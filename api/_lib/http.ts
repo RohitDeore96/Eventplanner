@@ -210,7 +210,11 @@ export function createHandler<T>(config: RouteConfig<T>) {
       return;
     }
     const raw = await readRawBody(req);
-    if (raw === null || raw.length > BODY_LIMIT_BYTES) {
+    // The limit is a BYTE limit: `raw.length` would count UTF-16 code units, so a body of
+    // multibyte characters (emoji, Devanagari, CJK) could nearly quadruple its way past
+    // the cap. Buffer.byteLength measures the real UTF-8 size, for string bodies and for
+    // serialized object bodies alike (both arrive here as a string).
+    if (raw === null || Buffer.byteLength(raw, 'utf8') > BODY_LIMIT_BYTES) {
       sendError(res, 413, 'BODY_TOO_LARGE');
       return;
     }

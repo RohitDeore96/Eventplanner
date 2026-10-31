@@ -987,21 +987,34 @@ function QuotationCompare({
       );
       return;
     }
+    // The status write comes FIRST: if the library cannot be saved, the vendor must not
+    // be booked against an acceptance that never persisted — the saved 'accepted' badge
+    // is also the guard that blocks a second booking (M7.4).
+    if (!setQuoteStatus(quote.id, 'accepted')) {
+      setNotice(
+        'The quotation status could not be saved, so the vendor was not booked. Free up storage space and try again.',
+      );
+      onChanged();
+      return;
+    }
     const outcome = store.applyAll(
       actions,
       `Quotation accepted — ${quote.fields.vendorName ?? 'vendor'} booked`,
       { id: quote.id, previousStatus: quote.status },
     );
-    if (outcome.ok) {
-      // The accepted status lives with the quote so the guard above survives reloads;
-      // the batch entry carries the quote reference, so Undo reverts both sides at once.
-      setQuoteStatus(quote.id, 'accepted');
-      setNotice(
-        `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`,
-      );
-    } else {
+    if (!outcome.ok) {
+      // The engine refused the booking: put the status back so the quote is not left
+      // marked accepted without the booking it promised. If this write also fails, the
+      // notice below still reports the refused booking honestly.
+      setQuoteStatus(quote.id, quote.status);
       setNotice(outcome.message ?? 'The quotation could not be accepted.');
+      onChanged();
+      return;
     }
+    // The batch entry carries the quote reference, so Undo reverts both sides at once.
+    setNotice(
+      `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`,
+    );
     onChanged();
   }
 
