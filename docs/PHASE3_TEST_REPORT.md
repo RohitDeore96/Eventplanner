@@ -1,5 +1,9 @@
 # Phase 3 — Test report
 
+> **Phase 3 snapshot, 2026-10-31.** The counts below are the recorded Phase 3 run
+> (650 tests across 56 files, 115.0 KB gz, coverage 95.99/94.1/96.47/83.63) and are kept
+> as history. Current generated values live in [docs/METRICS.md](METRICS.md) and the README.
+
 All numbers below come from real runs on 2026-10-31 in this environment
 (Linux x64, Node v24.22.1, vitest 5.0.5, Playwright 1.64.1, Chromium headless shell 156),
 at commit `537cb89` (working tree of the Phase 3 documentation commit), then re-verified

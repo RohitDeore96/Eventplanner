@@ -91,6 +91,8 @@ points at something that runs or exists in the repository. Written 2026-10-31.
   (every threshold met),
   bundle 115.0/250 KB gz, repo 1.58/10 MB, runtime-dependency audit 0 vulnerabilities
   (one moderate dev-only advisory disclosed in the test report §7), secret scan clean.
+  _(Phase 3 snapshot, 2026-10-31 — current generated values: [METRICS.md](METRICS.md)
+  and the README.)_
 - Machine evidence: `e2e/evidence/e2e-results.json` (Playwright JSON, 77 expected).
 - New in Phase 3: 12 accessibility tests, 5 negative/adversarial tests, 1 tablet walk,
   24-scenario AI evaluation, machine-readable evidence files.

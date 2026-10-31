@@ -1,0 +1,10 @@
+Live AI smoke test record
+Date: 2026-10-31
+Result: not run: no key in this environment
+
+The live smoke test (`npm run smoke:ai`) requires a server-side AI provider key in the
+environment (GEMINI_API_KEY). No key was set in this environment on this date, and none
+was invented or requested. All AI-route behaviour was nevertheless exercised by the
+offline, deterministic route tests with a mocked model (see docs/evidence/ai/
+ai-eval-results.json); live-provider behaviour therefore remains not independently
+verified.

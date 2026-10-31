@@ -6,14 +6,14 @@ from **live** evaluation (needs a provider key; not recorded in the committed ev
 
 ## Evaluation at a glance
 
-| Item                    | Value                                                                                          |
-| ----------------------- | ---------------------------------------------------------------------------------------------- |
-| Evaluation type         | **Deterministic mocked fixtures.** Offline, runs in CI. **Not** a live-model run               |
-| Scenarios               | 24 across 8 categories                                                                         |
-| Checks                  | 74 (authoritative source: `docs/evidence/ai/ai-eval-results.json`, `totals.checks`)            |
-| Failed                  | 0 scenarios, 0 checks                                                                          |
-| Scorecard               | 5/5 on all eight dimensions, measuring the validation, safety, grounding and context contracts |
-| Live-model verification | **Not recorded.** No committed output from `npm run smoke:ai`; see the live-model section      |
+| Item                    | Value                                                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Evaluation type         | **Deterministic mocked fixtures.** Offline, runs in CI. **Not** a live-model run                                                                                              |
+| Scenarios               | 24 across 8 categories                                                                                                                                                        |
+| Checks                  | 74 (authoritative source: `docs/evidence/ai/ai-eval-results.json`, `totals.checks`)                                                                                           |
+| Failed                  | 0 scenarios, 0 checks                                                                                                                                                         |
+| Scorecard               | 5/5 on all eight dimensions, measuring the validation, safety, grounding and context contracts                                                                                |
+| Live-model verification | **Not run in this environment** (no key): record at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); live behaviour remains **not independently verified** |
 
 The 5/5 scorecard is a statement about Utsav's own validation layer under recorded fixtures.
 It is not a rating of a live model's fluency, accuracy or tone.
@@ -100,8 +100,10 @@ failed; there are no failure categories to report.
 ## Live-model evaluation (separate, honestly reported)
 
 - The opt-in smoke `npm run smoke:ai` verifies the real provider accepts every response
-  schema. **It was not run in the recorded audit environment** — no `GEMINI_API_KEY` was
-  configured there; it reports SKIP honestly when the key is absent.
+  schema. **It was not run in the recorded evidence environment** — no `GEMINI_API_KEY` was
+  configured there. The 2026-10-31 evidence pass wrote that outcome down as
+  `not run: no key in this environment` in
+  [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); nothing was faked.
 - Mocked route tests (`tests/api/routes.test.ts`) cover model-chain fallbacks with a
   scripted model; they are not live calls and are never described as such.
 - - The deployment owner reports a manual live check of the AI on 2026-10-31. No output,

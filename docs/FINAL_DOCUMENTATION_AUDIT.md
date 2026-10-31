@@ -52,6 +52,9 @@ Main inconsistencies found in the starting documentation:
 
 ## D. Evidence synchronisation
 
+> **Phase 3 snapshot, 2026-10-31.** The "Value" column records what these documents said
+> at the time of this audit. Current generated values: [METRICS.md](METRICS.md).
+
 | Metric                     | Value                                                                      | Authoritative source                                                                    | Documents checked                                |
 | -------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | Unit/integration tests     | 650 across 56 files                                                        | `docs/METRICS.md` (generated 2026-10-31)                                                | README, test report, final audit, evidence index |
