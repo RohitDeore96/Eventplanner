@@ -52,6 +52,22 @@ describe('scenario planning (X2)', () => {
     expect(venue?.plannedMinor).toBe(Math.round((beforeVenue?.plannedMinor ?? 0) * 1.25));
   });
 
+  it('locked categories keep their allocation when the budget scales (M10)', () => {
+    const venue = catId(plan, 'venue');
+    const venueBefore = plan.categories.find((c) => c.key === 'venue')?.plannedMinor ?? 0;
+    const locked = run(plan, { type: 'category/update', id: venue, locked: true });
+    const after = buildScenario(locked, 'budget-down-15', TODAY);
+    expect(after.ok).toBe(true);
+    if (!after.ok) return;
+    const venueAfter = after.value.categories.find((c) => c.key === 'venue');
+    expect(venueAfter?.locked).toBe(true);
+    expect(venueAfter?.plannedMinor).toBe(venueBefore);
+    // The unlocked categories still absorb the whole reduction.
+    const totals = budgetTotals(after.value);
+    expect(totals.budget).toBe(Math.round(plan.budgetMinor * 0.85));
+    expect(totals.planned).toBe(totals.budget);
+  });
+
   it('moving the date 14 days closer actually moves it (and rejects past dates)', () => {
     const after = buildScenario(plan, 'date-closer', TODAY);
     expect(after.ok).toBe(true);

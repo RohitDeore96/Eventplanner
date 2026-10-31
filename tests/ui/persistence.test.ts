@@ -431,3 +431,36 @@ describe('multi-event workspace (R8)', () => {
     expect(loadWorkspace(storage).plans).toHaveLength(0);
   });
 });
+
+describe('persistence: workspace hardening (Phase 3)', () => {
+  it('reports a workspace record written by a newer schema as newer_version', () => {
+    const storage = memoryStorage({
+      'utsav.plans.v1': JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, plans: [plan] }),
+    });
+    const ws = loadWorkspace(storage);
+    // Nothing is half-loaded from a future format; the reason is reported instead.
+    expect(ws.plans).toEqual([]);
+    expect(ws.activeId).toBeNull();
+    expect(ws.recovery?.reason).toBe('newer_version');
+  });
+
+  it('drops events beyond the cap when a store somehow holds more than MAX_EVENTS', () => {
+    // saveWorkspace refuses to write more than the cap, but a hand-edited or
+    // migrated store could still exceed it, so loading defends itself too.
+    const many = Array.from({ length: 14 }, (_, i) =>
+      makePlan({ id: `ev-cap-${i}`, name: `Event ${i}` }),
+    );
+    const raw = JSON.stringify({
+      schemaVersion: SCHEMA_VERSION,
+      savedAtISO: '2026-10-31T00:00:00.000Z',
+      activeId: 'ev-cap-13',
+      archivedIds: [],
+      plans: many,
+    });
+    const ws = loadWorkspace(memoryStorage({ 'utsav.plans.v1': raw }));
+    expect(ws.plans).toHaveLength(12);
+    expect(ws.droppedInvalid).toBe(2);
+    // The stored active id points at a dropped event, so the first survivor becomes active.
+    expect(ws.activeId).toBe('ev-cap-0');
+  });
+});

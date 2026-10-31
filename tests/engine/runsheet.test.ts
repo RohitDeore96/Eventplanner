@@ -52,6 +52,14 @@ describe('run sheet validation', () => {
     expect(errorCode(makePlan(), add({ dateISO: '2027-02-30' }))).toBe('INVALID_DATE');
     expect(errorCode(makePlan(), add({ title: '   ' }))).toBe('NAME_REQUIRED');
   });
+
+  it('rejects an activity id that is already in the run sheet', () => {
+    const plan = run(makePlan(), add());
+    expect(errorCode(plan, add({ id: 'r1', title: 'Sangeet' }))).toBe('DUPLICATE_ID');
+    // The original entry is untouched by the refused add.
+    expect(plan.runSheet).toHaveLength(1);
+    expect(plan.runSheet[0]?.title).toBe('Venue setup');
+  });
 });
 
 describe('run sheet operations', () => {

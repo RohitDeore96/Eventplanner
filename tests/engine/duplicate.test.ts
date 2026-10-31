@@ -101,4 +101,69 @@ describe('event duplication (M13.4)', () => {
     expect(duplicatePlan(plan, plan.id).ok).toBe(false);
     expect(duplicatePlan(plan, 'not valid!').ok).toBe(false);
   });
+
+  it('keeps optional references absent: cash expenses, ownerless activities, task dependencies', () => {
+    const base = makePlan();
+    const plan = run(
+      base,
+      {
+        type: 'expense/add',
+        id: 'x-cash',
+        categoryId: catId(base, 'venue'),
+        vendorId: null,
+        instalmentId: null,
+        dateISO: '2027-02-01',
+        amountMinor: 250_000,
+        note: 'cash decor top-up',
+      },
+      {
+        type: 'task/add',
+        id: 't1',
+        title: 'Print the invitation cards',
+        dueISO: '2026-12-01',
+        dependsOn: [],
+        assignee: null,
+      },
+      {
+        type: 'task/add',
+        id: 't2',
+        title: 'Post the invitation cards',
+        dueISO: '2026-12-15',
+        dependsOn: ['t1'],
+        assignee: null,
+      },
+      {
+        type: 'runsheet/add',
+        id: 'r-free',
+        title: 'Welcome the guests',
+        dateISO: '2027-03-15',
+        startTime: '18:00',
+        endTime: '18:30',
+        ownerId: null,
+        location: 'Lawn',
+        note: '',
+      },
+    );
+
+    const copy = duplicatePlan(plan, 'ev-copy-2');
+    expect(copy.ok).toBe(true);
+    if (!copy.ok) return;
+    const c = copy.value;
+
+    // A cash expense (no vendor, no instalment) stays vendor-free in the duplicate.
+    const cash = c.expenses.find((e) => e.note === 'cash decor top-up');
+    expect(cash).toBeDefined();
+    expect(cash?.vendorId).toBeNull();
+    expect(cash?.instalmentId).toBeNull();
+    expect(cash?.id).not.toBe('x-cash');
+    // Task dependencies point at the duplicate's own task ids.
+    const printTask = c.tasks.find((t) => t.title === 'Print the invitation cards');
+    const postTask = c.tasks.find((t) => t.title === 'Post the invitation cards');
+    expect(postTask?.dependsOn).toEqual([printTask?.id]);
+    // An ownerless run sheet entry stays ownerless, with a fresh id and its location.
+    const welcome = c.runSheet.find((e) => e.title === 'Welcome the guests');
+    expect(welcome?.ownerId).toBeNull();
+    expect(welcome?.id).not.toBe('r-free');
+    expect(welcome?.location).toBe('Lawn');
+  });
 });
