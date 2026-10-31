@@ -17,11 +17,15 @@
  *   route's own model chain (with its [ai] failover logs, visible via stdio) answers.
  * - The PASS line names the exact model that answered (the route's `source` field),
  *   so a recorded run can state which model served it.
- * - On Windows the API bridge is spawned through the shell (npx is npx.cmd there) and
- *   stopped with taskkill; elsewhere the command is spawned directly without a shell.
+ * - The API bridge is launched shell-free on every platform (node <tsx/cli>):
+ *   no DEP0190 shell+args warning, no npx.cmd/EINVAL trouble on Windows. Only a
+ *   bare checkout without tsx installed falls back to npx (see scripts/lib/bridge-launch.mjs).
+ * - A bridge that dies before all cases finish fails the run with the child's
+ *   exit reason — a dead bridge can never be reported as PASS.
  * - Exit code: 0 on PASS or SKIP, 1 on any FAIL, so a human or CI can gate on it.
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { resolveBridgeLaunch } from './lib/bridge-launch.mjs';
 
 const PORT = 8791;
 const BASE = `http://localhost:${PORT}`;
@@ -138,26 +142,44 @@ async function waitUntilReady(deadlineMs) {
 
 const isWin = process.platform === 'win32';
 
-// On Windows npx is npx.cmd, so the bridge goes through the shell; passing an args
-// array with shell:true would raise Node's DEP0190 warning, so there the command is
-// one string with no extra args. POSIX platforms spawn directly without a shell.
-const child = isWin
-  ? spawn('npx tsx scripts/dev-api.ts', {
+// Shell-free on every platform: node runs the tsx CLI entry directly (see
+// scripts/lib/bridge-launch.mjs for the resolution and its DEP0190 invariant).
+const launch = resolveBridgeLaunch();
+const child = launch.useShell
+  ? spawn(launch.command, {
       env: { ...process.env, API_PORT: String(PORT) },
       stdio: 'inherit',
       shell: true,
     })
-  : spawn('npx', ['tsx', 'scripts/dev-api.ts'], {
+  : spawn(launch.command, launch.args, {
       env: { ...process.env, API_PORT: String(PORT) },
       stdio: 'inherit',
     });
 
+// A spawn failure or an early bridge exit must surface as a FAIL, never as a
+// silent pass-through or a fake PASS. `stopping` excludes the cleanup kill.
 let failed = false;
+let childExitReason = null;
+let stopping = false;
+let allCasesDone = false;
+child.on('error', (error) => {
+  childExitReason = `could not start the API bridge: ${error.message}`;
+});
+child.on('exit', (code, signal) => {
+  if (stopping) return;
+  childExitReason = `the API bridge exited unexpectedly (code ${code}, signal ${signal})`;
+});
+
 try {
   await waitUntilReady(30_000);
   for (const [index, testCase] of CASES.entries()) {
     if (index > 0) {
       await new Promise((resolve) => globalThis.setTimeout(resolve, GAP_BETWEEN_CASES_MS));
+    }
+    if (childExitReason !== null) {
+      failed = true;
+      log(`FAIL ${testCase.name}: ${childExitReason}`);
+      break;
     }
     let verdict;
     let answeredBy = 'live model';
@@ -183,14 +205,28 @@ try {
       log(`FAIL ${testCase.name}: ${verdict}`);
     }
   }
+  allCasesDone = true;
 } catch (error) {
   failed = true;
   log(`FAIL setup: ${error.message}`);
 } finally {
+  stopping = true;
   if (isWin) {
     spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
   } else {
     child.kill('SIGTERM');
+  }
+}
+
+// The bridge dying before every case ran is a setup failure (it can never
+// produce a false PASS). If it dies after every case already passed, the verdict
+// stands and the late exit is only reported.
+if (childExitReason !== null) {
+  if (allCasesDone) {
+    log(`NOTE bridge: ${childExitReason} (all cases had already completed)`);
+  } else {
+    failed = true;
+    log(`FAIL bridge: ${childExitReason}`);
   }
 }
 
