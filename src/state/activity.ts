@@ -1,6 +1,7 @@
 import type { PlanAction } from '../engine/actions';
 import { formatMoney } from '../engine/money';
 import type { Plan } from '../engine/types';
+import type { QuoteStatus } from './quotes';
 
 /**
  * X9 activity log: one human-readable line per history entry — the same steps Undo walks
@@ -18,13 +19,31 @@ export interface ActivityEntry {
   readonly label: string;
   /** Set by Undo, cleared by Redo — the visual strike-through in the log. */
   readonly reverted: boolean;
+  /**
+   * Quotation side-effect carried by an accepted quotation's batch entry, so Undo can
+   * revert the sidecar status together with the plan and Redo can re-apply it. Entries
+   * without this field undo/redo exactly as before.
+   */
+  readonly quote?: { readonly id: string; readonly previousStatus: QuoteStatus };
 }
 
 let entryCounter = 0;
 
-export function makeEntry(label: string, kind: ActivityKind, atISO: string): ActivityEntry {
+export function makeEntry(
+  label: string,
+  kind: ActivityKind,
+  atISO: string,
+  quote?: ActivityEntry['quote'],
+): ActivityEntry {
   entryCounter += 1;
-  return { id: `a${entryCounter}`, atISO, kind, label, reverted: false };
+  return {
+    id: `a${entryCounter}`,
+    atISO,
+    kind,
+    label,
+    reverted: false,
+    ...(quote ? { quote } : {}),
+  };
 }
 
 /** Keeps the newest entries when the log outgrows its cap (mirrors the undo stack's cap). */

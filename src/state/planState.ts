@@ -19,6 +19,7 @@ import {
   markReverted,
   type ActivityEntry,
 } from './activity';
+import type { QuoteStatus } from './quotes';
 
 /**
  * The UI's single source of state: the engine's History wrapped for React. Every change —
@@ -39,7 +40,13 @@ export interface PlanState {
 
 export type PlanEvent =
   | { readonly kind: 'apply'; readonly action: PlanAction }
-  | { readonly kind: 'applyAll'; readonly actions: readonly PlanAction[]; readonly label?: string }
+  | {
+      readonly kind: 'applyAll';
+      readonly actions: readonly PlanAction[];
+      readonly label?: string;
+      /** Quotation side-effect folded into this batch's undo step (see ActivityEntry.quote). */
+      readonly quote?: { readonly id: string; readonly previousStatus: QuoteStatus };
+    }
   | { readonly kind: 'patch'; readonly patch: PlanPatch }
   | { readonly kind: 'replace'; readonly plan: Plan }
   | { readonly kind: 'undo' }
@@ -60,8 +67,13 @@ function failure(result: Result<unknown>): PlanState['lastError'] {
       : { code: result.error.code, message: result.error.message, field: result.error.field };
 }
 
-function withEntry(state: PlanState, label: string, kind: ActivityEntry['kind']): PlanState {
-  const entry = makeEntry(label, kind, new Date().toISOString());
+function withEntry(
+  state: PlanState,
+  label: string,
+  kind: ActivityEntry['kind'],
+  quote?: ActivityEntry['quote'],
+): PlanState {
+  const entry = makeEntry(label, kind, new Date().toISOString(), quote);
   return { ...state, log: capEntries([...state.log, entry], LOG_CAP) };
 }
 
@@ -88,6 +100,7 @@ export function planReducer(state: PlanState, event: PlanEvent, today: string): 
         { history: next.value, log: state.log, lastError: null },
         event.label ?? `Batch of ${event.actions.length} change(s)`,
         'batch',
+        event.quote,
       );
     }
     case 'patch': {

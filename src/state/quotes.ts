@@ -15,7 +15,11 @@ import { quoteFieldsSchema } from '../schemas/ai';
 
 const QUOTES_SCHEMA_VERSION = 2;
 const STORAGE_KEY = 'utsav.quotes.v1';
+/** Product cap: saving is refused (never a silent drop) once the library holds this many. */
 const MAX_QUOTES = 24;
+/** Parse-level bound only: a foreign or older writer may have stored more, and rejecting
+ * the whole file at load would destroy every record. The product cap is enforced at save. */
+const MAX_PARSED_QUOTES = 200;
 const MAX_STORE_BYTES = 120_000;
 
 const QUOTE_STATUSES = ['review', 'shortlisted', 'accepted', 'rejected'] as const;
@@ -44,9 +48,27 @@ export type SavedQuote = z.infer<typeof savedQuoteSchema>;
 const quotesFileSchema = z
   .object({
     schemaVersion: z.number().int().min(1).max(QUOTES_SCHEMA_VERSION),
-    quotes: z.array(savedQuoteSchema).max(MAX_QUOTES),
+    quotes: z.array(savedQuoteSchema).max(MAX_PARSED_QUOTES),
   })
   .strict();
+
+/*
+ * Sidecar write notification: the compare section re-reads the library when any write
+ * happens, including writes from outside this view (the header's Undo/Redo reverting or
+ * re-applying an accepted quotation). Subscribers are UI-only; no data is passed.
+ */
+const listeners = new Set<() => void>();
+
+export function onQuotesChanged(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
 
 function loadAllQuotes(storage: Storage): SavedQuote[] {
   try {
@@ -94,8 +116,13 @@ export function saveQuote(
     id: `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     savedAtISO: new Date().toISOString(),
   };
-  const next = [record, ...all].slice(0, MAX_QUOTES);
-  return writeAllQuotes(next, storage) ? record : null;
+  // The library is full: refuse honestly instead of silently discarding the oldest
+  // quotation (a silent drop looked like a successful save and lost user data).
+  if (all.length >= MAX_QUOTES) return null;
+  const next = [record, ...all];
+  const written = writeAllQuotes(next, storage);
+  if (written) notify();
+  return written ? record : null;
 }
 
 export function setQuoteStatus(
@@ -105,9 +132,12 @@ export function setQuoteStatus(
 ): boolean {
   const all = loadAllQuotes(storage);
   const next = all.map((quote) => (quote.id === id ? { ...quote, status } : quote));
-  return next.some((quote) => quote.id === id && quote.status === status)
-    ? writeAllQuotes(next, storage)
-    : false;
+  const changed = next.some((quote) => quote.id === id && quote.status === status);
+  if (changed && writeAllQuotes(next, storage)) {
+    notify();
+    return true;
+  }
+  return false;
 }
 
 export function updateQuote(
@@ -116,6 +146,7 @@ export function updateQuote(
   storage: Storage = window.localStorage,
 ): boolean {
   const all = loadAllQuotes(storage);
+  if (!all.some((quote) => quote.id === id)) return false; // unknown id: report, don't no-op
   const next = all.map((quote) =>
     quote.id === id
       ? {
@@ -125,7 +156,9 @@ export function updateQuote(
         }
       : quote,
   );
-  return writeAllQuotes(next, storage);
+  const written = writeAllQuotes(next, storage);
+  if (written) notify();
+  return written;
 }
 
 export function deleteQuote(id: string, storage: Storage = window.localStorage): void {
@@ -136,6 +169,7 @@ export function deleteQuote(id: string, storage: Storage = window.localStorage):
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );
+    notify();
   } catch {
     /* a failed removal leaves the library as it was */
   }
@@ -150,6 +184,7 @@ export function deleteQuotesFor(planId: string, storage: Storage = window.localS
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );
+    notify();
   } catch {
     /* nothing to clear is fine */
   }

@@ -3,6 +3,8 @@ import type { PlanAction } from '../engine/actions';
 import { createPlan } from '../engine/create';
 import type { Plan } from '../engine/types';
 import { initPlanState, planReducer, type PlanEvent, type PlanState } from './planState';
+import { setQuoteStatus, type QuoteStatus } from './quotes';
+import type { ActivityEntry } from './activity';
 
 /**
  * The UI's single source of state. Every change — manual or AI-proposed — goes through
@@ -23,14 +25,37 @@ export interface Store {
   readonly dispatch: (event: PlanEvent) => void;
   /** Applies the action and reports the outcome synchronously (React state updates async). */
   readonly apply: (action: PlanAction) => ApplyOutcome;
-  /** Applies a batch as ONE undo step; stops at the first rejection. */
-  readonly applyAll: (actions: readonly PlanAction[], label?: string) => ApplyOutcome;
+  /** Applies a batch as ONE undo step; stops at the first rejection. An accepted
+   * quotation passes its quote reference so Undo can revert the sidecar status too. */
+  readonly applyAll: (
+    actions: readonly PlanAction[],
+    label?: string,
+    quote?: { readonly id: string; readonly previousStatus: QuoteStatus },
+  ) => ApplyOutcome;
   readonly replace: (plan: Plan) => void;
   readonly undo: () => void;
   readonly redo: () => void;
 }
 
 export const PlanContext = createContext<Store | null>(null);
+
+/**
+ * Quotation sidecar coupling for Undo/Redo: an accepted quotation books the vendor in the
+ * plan AND marks the quote 'accepted' in the sidecar library. Both are reverted together —
+ * Undo finds the batch entry carrying the quote reference and restores the previous status;
+ * Redo re-applies 'accepted'. Without this, Undo un-booked the vendor while the accepted
+ * badge stayed, and that status guard then blocked the quote from ever being re-accepted.
+ * Best-effort by design: a quote deleted in the meantime simply cannot be reverted.
+ */
+function revertEntryQuote(log: readonly ActivityEntry[]): void {
+  const target = [...log].reverse().find((entry) => !entry.reverted);
+  if (target?.quote !== undefined) setQuoteStatus(target.quote.id, target.quote.previousStatus);
+}
+
+function reapplyEntryQuote(log: readonly ActivityEntry[]): void {
+  const target = [...log].reverse().find((entry) => entry.reverted);
+  if (target?.quote !== undefined) setQuoteStatus(target.quote.id, 'accepted');
+}
 
 export function usePlanStore(today: string, initial: Plan | null): Store {
   const [state, dispatch] = useReducer(
@@ -45,9 +70,20 @@ export function usePlanStore(today: string, initial: Plan | null): Store {
       ? { ok: true, message: null }
       : { ok: false, message: next.lastError.message, field: next.lastError.field ?? '' };
   }
-  function applyAll(actions: readonly PlanAction[], label?: string): ApplyOutcome {
+  function applyAll(
+    actions: readonly PlanAction[],
+    label?: string,
+    quote?: { readonly id: string; readonly previousStatus: QuoteStatus },
+  ): ApplyOutcome {
     const event: PlanEvent =
-      label === undefined ? { kind: 'applyAll', actions } : { kind: 'applyAll', actions, label };
+      label === undefined && quote === undefined
+        ? { kind: 'applyAll', actions }
+        : {
+            kind: 'applyAll',
+            actions,
+            ...(label !== undefined ? { label } : {}),
+            ...(quote !== undefined ? { quote } : {}),
+          };
     const next = planReducer(state, event, today);
     dispatch(event);
     return next.lastError === null
@@ -64,9 +100,11 @@ export function usePlanStore(today: string, initial: Plan | null): Store {
       dispatch({ kind: 'replace', plan });
     },
     undo: () => {
+      revertEntryQuote(state.log);
       dispatch({ kind: 'undo' });
     },
     redo: () => {
+      reapplyEntryQuote(state.log);
       dispatch({ kind: 'redo' });
     },
   };

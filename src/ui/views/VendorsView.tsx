@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { InstalmentInput, PlanAction } from '../../engine/actions';
 import { instalmentPayments, vendorPayments } from '../../engine/budget';
 import { currencyExponent, parseMajorAmount } from '../../engine/money';
@@ -11,6 +11,7 @@ import { usePlan } from '../../state/store';
 import {
   deleteQuote,
   loadQuotes,
+  onQuotesChanged,
   saveQuote,
   setQuoteStatus,
   updateQuote,
@@ -53,9 +54,12 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
   const [notice, setNotice] = useState<string | null>(null);
   // Saved quotations live outside the plan; this counter re-reads the library after changes.
   const [quotesVersion, setQuotesVersion] = useState(0);
-  const refreshQuotes = (): void => {
+  const refreshQuotes = useCallback((): void => {
     setQuotesVersion((version) => version + 1);
-  };
+  }, []);
+  // Writes from outside this view — the header's Undo/Redo reverting or re-applying an
+  // accepted quotation — must also refresh the library, or the badge goes stale.
+  useEffect(() => onQuotesChanged(refreshQuotes), [refreshQuotes]);
   // Vendor list search and booking-status filter (M5.1).
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
@@ -986,9 +990,11 @@ function QuotationCompare({
     const outcome = store.applyAll(
       actions,
       `Quotation accepted — ${quote.fields.vendorName ?? 'vendor'} booked`,
+      { id: quote.id, previousStatus: quote.status },
     );
     if (outcome.ok) {
-      // The accepted status lives with the quote so the guard above survives reloads.
+      // The accepted status lives with the quote so the guard above survives reloads;
+      // the batch entry carries the quote reference, so Undo reverts both sides at once.
       setQuoteStatus(quote.id, 'accepted');
       setNotice(
         `Accepted "${quote.fields.vendorName ?? 'quotation'}" — the vendor is booked at the effective price. Undo takes it back.`,
@@ -1263,16 +1269,22 @@ function QuoteCard({
         <select
           id={`s-${quote.id}`}
           value={quote.status}
+          disabled={quote.status === 'accepted'}
           onChange={(event) => {
             const value = event.target.value as SavedQuote['status'];
             if (value !== quote.status) onStatus(value);
           }}
         >
-          {(Object.keys(QUOTE_STATUS_LABELS) as readonly SavedQuote['status'][]).map((status) => (
-            <option key={status} value={status}>
-              {QUOTE_STATUS_LABELS[status]}
-            </option>
-          ))}
+          {(Object.keys(QUOTE_STATUS_LABELS) as readonly SavedQuote['status'][])
+            // 'accepted' is only reachable through the engine-gated Accept button (booking);
+            // a manual path here would lock the quote without a booking, and moving an
+            // accepted quote back would defeat the never-accepted-twice guard.
+            .filter((status) => quote.status === 'accepted' || status !== 'accepted')
+            .map((status) => (
+              <option key={status} value={status}>
+                {QUOTE_STATUS_LABELS[status]}
+              </option>
+            ))}
         </select>
         <button type="button" className="subtle" onClick={onRemove}>
           Remove
