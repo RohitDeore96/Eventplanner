@@ -2,9 +2,10 @@
 
 All numbers below come from real runs on 2026-10-31 in this environment
 (Linux x64, Node v24.22.1, vitest 5.0.5, Playwright 1.64.1, Chromium headless shell 156),
-at commit `537cb89` (working tree of the Phase 3 documentation commit). Raw
-machine-readable evidence: `e2e/evidence/e2e-results.json` (Playwright JSON report of a
-full run: 77 expected, 0 unexpected, 1 skipped-by-design).
+at commit `537cb89` (working tree of the Phase 3 documentation commit), then re-verified
+after the P3-9 fix below landed. Raw machine-readable evidence:
+`e2e/evidence/e2e-results.json` (Playwright JSON report of a full run: 77 expected,
+0 unexpected, 1 skipped-by-design).
 
 ## 1. Scope and layers
 
@@ -19,16 +20,16 @@ full run: 77 expected, 0 unexpected, 1 skipped-by-design).
 
 ## 2. Commands and results (exact)
 
-| Command                                                                                    | Result                                                                                     |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `npm run check` (format, lint --max-warnings 0, tsc, dep-cruiser, knip, vitest --coverage) | 55 files, **635 tests passed**, 0 failed, 0 skipped                                        |
-| Coverage (same run)                                                                        | statements 93.69%, branches 82.88%, functions 95.82%, lines 95.55%                         |
-| `npm run test:e2e`                                                                         | **77 passed**, 0 failed, 1 skipped (tablet spec under the mobile project by design), ~78 s |
-| `npm run build` + `node scripts/check-size.mjs`                                            | Bundle **115.0 KB gz / 250 KB budget**                                                     |
-| `node scripts/check-repo-size.mjs`                                                         | **1.58 MB / 10 MB limit**                                                                  |
-| `npm audit --omit=dev --audit-level=high`                                                  | **0 vulnerabilities**                                                                      |
-| `node scripts/secret-scan.mjs`                                                             | **clean**                                                                                  |
-| `npm run smoke:ai`                                                                         | Honest SKIP — no `GEMINI_API_KEY` in this environment (see limitations)                    |
+| Command                                                                                    | Result                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` (format, lint --max-warnings 0, tsc, dep-cruiser, knip, vitest --coverage) | 56 files, **650 tests passed**, 0 failed, 0 skipped                                                                                                                                                      |
+| Coverage (same run, all thresholds met)                                                    | statements 94.1%, branches 83.63%, functions 96.47%, lines 95.99%                                                                                                                                        |
+| `npm run test:e2e`                                                                         | **77 passed**, 0 failed, 1 skipped (tablet spec under the mobile project by design), ~78 s                                                                                                               |
+| `npm run build` + `node scripts/check-size.mjs`                                            | Bundle **115.0 KB gz / 250 KB budget**                                                                                                                                                                   |
+| `node scripts/check-repo-size.mjs`                                                         | **1.58 MB / 10 MB limit**                                                                                                                                                                                |
+| `npm audit --omit=dev --audit-level=high`                                                  | **0 vulnerabilities** (a moderate advisory affects the dev-only eslint/minimatch toolchain; it ships nothing to production and the only automated fix is a breaking toolchain downgrade — tracked in §7) |
+| `node scripts/secret-scan.mjs`                                                             | **clean**                                                                                                                                                                                                |
+| `npm run smoke:ai`                                                                         | Honest SKIP — no `GEMINI_API_KEY` in this environment (see limitations)                                                                                                                                  |
 
 ## 3. Browser journeys vs the phase-brief's mandatory set (§8.3)
 
@@ -61,16 +62,17 @@ full run: 77 expected, 0 unexpected, 1 skipped-by-design).
 
 ## 5. Defects discovered during Phase 3 (all fixed)
 
-| ID   | Defect                                                                                                                                  | Found by               | Fix                                                        |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------- |
-| P3-1 | CI trigger `branches: ain]` — pushes to `main` never started CI                                                                         | config inspection      | `branches: [main]`                                         |
-| P3-2 | Language label at 1.3:1 contrast on the maroon header                                                                                   | axe scan (serious)     | `.masthead .muted` uses `--on-maroon`                      |
-| P3-3 | `.visually-hidden` captions/labels widened the page by their static offsets inside wide tables (page-level horizontal scroll at 320 px) | reflow scan            | `position: fixed` for visually-hidden utility              |
-| P3-4 | Scrollable tables not keyboard-focusable (WCAG 2.1.1)                                                                                   | axe scan (serious)     | `tabIndex={0}` on all 13 data tables                       |
-| P3-5 | No `<h1>`                                                                                                                               | axe                    | brand name is the page h1                                  |
-| P3-6 | Tabs not arrow-key operable (APG)                                                                                                       | manual keyboard audit  | arrow/Home/End activation                                  |
-| P3-7 | Skip link did not move real focus                                                                                                       | keyboard journey       | `<main tabIndex={-1}>`                                     |
-| P3-8 | `planFacts()` omitted dietary aggregates — the assistant could not answer the caterer question from facts                               | AI evaluation scenario | dietary + RSVP totals added to the facts (aggregates only) |
+| ID   | Defect                                                                                                                                                                                                                            | Found by                                | Fix                                                                                                                                                                                                                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P3-1 | CI trigger `branches: ain]` — pushes to `main` never started CI                                                                                                                                                                   | config inspection                       | `branches: [main]`                                                                                                                                                                                                                                                                                    |
+| P3-2 | Language label at 1.3:1 contrast on the maroon header                                                                                                                                                                             | axe scan (serious)                      | `.masthead .muted` uses `--on-maroon`                                                                                                                                                                                                                                                                 |
+| P3-3 | `.visually-hidden` captions/labels widened the page by their static offsets inside wide tables (page-level horizontal scroll at 320 px)                                                                                           | reflow scan                             | `position: fixed` for visually-hidden utility                                                                                                                                                                                                                                                         |
+| P3-4 | Scrollable tables not keyboard-focusable (WCAG 2.1.1)                                                                                                                                                                             | axe scan (serious)                      | `tabIndex={0}` on all 13 data tables                                                                                                                                                                                                                                                                  |
+| P3-5 | No `<h1>`                                                                                                                                                                                                                         | axe                                     | brand name is the page h1                                                                                                                                                                                                                                                                             |
+| P3-6 | Tabs not arrow-key operable (APG)                                                                                                                                                                                                 | manual keyboard audit                   | arrow/Home/End activation                                                                                                                                                                                                                                                                             |
+| P3-7 | Skip link did not move real focus                                                                                                                                                                                                 | keyboard journey                        | `<main tabIndex={-1}>`                                                                                                                                                                                                                                                                                |
+| P3-8 | `planFacts()` omitted dietary aggregates — the assistant could not answer the caterer question from facts                                                                                                                         | AI evaluation scenario                  | dietary + RSVP totals added to the facts (aggregates only)                                                                                                                                                                                                                                            |
+| P3-9 | Coverage drift: the recorded Phase 3 run reported 93.69% statements / 82.88% branches — below the project's own 94%/83% gates — without flagging it; CI (freshly re-enabled for `main` by the P3-1 fix) would have failed on push | independent re-verification before push | 11 meaningful tests added (duplicate-id refusal, full-relationship duplication remaps, workspace cap/newer-version hardening, aiClient error/timeout/abort contract, idea-context payload rules, CSV expense rows, summary/raw downloads, locked-category scenario scaling); no threshold was lowered |
 
 ## 6. Continuous integration
 
@@ -89,3 +91,7 @@ kept out of CI and documented as an opt-in local step.
 - Print on physical paper — verified via Playwright print-media emulation only.
 - Production deployment re-verification (last checked 2026-10-30; no deploy from here
   without authorization).
+- One moderate npm advisory (`minimatch` < 11.0.1) sits in the dev-only eslint toolchain.
+  Runtime dependencies audit clean at every severity. `npm audit fix --force` would pin
+  typescript-eslint to a breaking older version, so this is disclosed rather than
+  force-fixed; it ships nothing to the production bundle.

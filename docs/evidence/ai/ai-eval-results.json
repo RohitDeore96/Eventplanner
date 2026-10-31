@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T10:26:11.858Z",
+  "generatedAt": "2026-10-31T11:03:50.757Z",
   "evaluationKind": "deterministic-mocked-fixtures (offline; NOT a live-model run)",
   "liveModelRun": false,
   "liveModelNote": "Live-provider behaviour is validated separately by npm run smoke:ai (opt-in, requires GEMINI_API_KEY). It was not run in this environment; no key is configured.",

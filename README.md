@@ -8,7 +8,7 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-635%20unit%20%C2%B7%2077%20browser-2f6b45)
+![Tests](https://img.shields.io/badge/tests-650%20unit%20%C2%B7%2077%20browser-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
 ![a11y](https://img.shields.io/badge/axe-0%20serious%20%C2%B7%20every%20view%20%C2%B7%20both%20themes-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
@@ -329,7 +329,7 @@ guarded, labelled and reversible.
   step, persisted across reloads.
 - **See it before you build it.** A one-click demo event — a full wedding with vendors,
   instalments, expenses, RSVPs and an overdue payment — populates every screen instantly.
-- **Proof over promises.** 635 automated unit/integration tests plus 77 real-browser
+- **Proof over promises.** 650 automated unit/integration tests plus 77 real-browser
   Playwright journey runs (21 journeys × desktop and mobile profiles, on the production
   build), enforced coverage gates, generated metrics, a strict CSP, and honest "not done
   yet" notes throughout the docs.
@@ -352,7 +352,7 @@ audit is [docs/PHASE3_FINAL_AUDIT.md](docs/PHASE3_FINAL_AUDIT.md).
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 635 automated tests + 77 real-browser journey runs
+### Testing: 650 automated tests + 77 real-browser journey runs
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet

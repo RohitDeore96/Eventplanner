@@ -86,9 +86,11 @@ points at something that runs or exists in the repository. Written 2026-10-31.
 
 ## F. Testing
 
-- Commands and exact counts: `PHASE3_TEST_REPORT.md` §2 — 635 unit/integration
-  (0 fail), 77 browser E2E (0 fail, 1 by-design skip), coverage 93.69/82.88/95.82/95.55%,
-  bundle 115.0/250 KB gz, repo 1.58/10 MB, audit 0 vulnerabilities, secret scan clean.
+- Commands and exact counts: `PHASE3_TEST_REPORT.md` §2 — 650 unit/integration
+  (0 fail), 77 browser E2E (0 fail, 1 by-design skip), coverage 94.1/83.63/96.47/95.99%
+  (every threshold met),
+  bundle 115.0/250 KB gz, repo 1.58/10 MB, runtime-dependency audit 0 vulnerabilities
+  (one moderate dev-only advisory disclosed in the test report §7), secret scan clean.
 - Machine evidence: `e2e/evidence/e2e-results.json` (Playwright JSON, 77 expected).
 - New in Phase 3: 12 accessibility tests, 5 negative/adversarial tests, 1 tablet walk,
   24-scenario AI evaluation, machine-readable evidence files.
@@ -107,7 +109,7 @@ or files.
 | Accessibility           |              3 |             4 | Phase 2: component-level axe + token contrast only, one shipped contrast defect, no keyboard spec → now view×theme axe clean, keyboard journeys, reflow, reduced motion, 6 defects fixed; capped at 4 because no screen-reader testing was possible                                       |
 | AI usefulness           |              3 |             4 | Phase 2: guarded routes + fallbacks, no evaluation dataset, context lacked dietary aggregates → now 24-scenario dataset with grounding/safety checks, dietary context, honest mocked/live separation; capped at 4 because live-model fluency could not be measured                        |
 | Functional completeness |              4 |             4 | Both states complete with integration evidence; Phase 3 added the summary export and closed the UX audit items; no open defects — stays 4 only for the disclosed file-upload gap and emulation-only print verification                                                                    |
-| Testing                 |              4 |             5 | Phase 2: 626 tests + 54 journeys but broken CI trigger, no negative/a11y/tablet E2E → now 635 + 77 with negative, accessibility, tablet layers, machine evidence files, CI fixed and every gate green                                                                                     |
+| Testing                 |              4 |             5 | Phase 2: 626 tests + 54 journeys but broken CI trigger, no negative/a11y/tablet E2E → now 650 + 77 with negative, accessibility, tablet layers, machine evidence files, CI fixed and every gate green (coverage-gate drift P3-9 caught and fixed by independent re-verification)          |
 
 **Three strongest aspects**
 
