@@ -1,0 +1,38 @@
+Deployed live AI check — /api/review-plan (plan review)
+URL: https://eventplanner-mocha.vercel.app/api/review-plan
+Run at: 2026-10-31T19:29:37Z (2026-11-01T00:59:37+05:30)
+HTTP status: 200
+
+Runner: the project's AI assistant, from its own development sandbox (not the
+owner's machine, not an independent third party). The request carried no Origin
+header (plain curl, non-browser tooling — the route's documented behaviour for
+header-less requests) and no key: the deployed function used its own server-side
+key. One call was made; no other AI route was exercised.
+
+Request (verbatim body):
+{"facts":"Event: Aarav & Ira engagement (milestone) on 2026-12-20.\nBudget: ₹500,000.00; planned ₹500,000.00; committed ₹180,000.00; paid ₹50,000.00; remaining budget ₹320,000.00.\nGuests: target 150; catering headcount 150 (target).\nCategories: Venue planned ₹150,000.00; Catering planned ₹150,000.00; Decor planned ₹60,000.00; Photography planned ₹50,000.00; Music planned ₹40,000.00; Contingency planned ₹50,000.00.\nTasks: 3/12 done; 0 overdue; 49 days to the event.\nWarnings: none.\nVendors: Lotus Florals (booked, agreed ₹90,000.00)."}
+
+Response (verbatim, also committed as deployed-review-plan.json):
+{"summary":"Planning is on track for Aarav & Ira's engagement on 2026-12-20, with 49 days to go. The total budget is ₹500,000.00, with ₹180,000.00 committed, ₹50,000.00 paid, and ₹320,000.00 remaining. Lotus Florals is booked for ₹90,000.00. Currently, 3 out of 12 tasks are done with no overdue tasks or warnings.","nextSteps":["Proceed with the remaining 9 planning tasks.","Finalize vendor bookings for Venue, Catering, Photography, and Music.","Track upcoming payments against the remaining ₹320,000.00 budget."],"source":"gemini-3.6-flash"}
+
+Why this counts as a live-model answer (the project's own standard):
+- HTTP 200 alone proves nothing; the `source` field is the evidence. It reads
+  "gemini-3.6-flash" — a real model (the chain's first, owner-selected entry),
+  not "built-in" and not "cache".
+- Every figure in the summary (₹500,000 budget, ₹180,000 committed, ₹50,000
+  paid, ₹320,000 remaining, ₹90,000 Lotus Florals, 3/12 tasks, 49 days,
+  2026-12-20) matches the facts exactly; nothing was invented. nextSteps has 3
+  items, within the schema's maximum.
+
+What this does and does not prove, honestly:
+- It closes "plan review has no live check" for the deployed site on this date,
+  joining parse-intake, suggest-ideas, extract-quote and propose-patch (all four
+  recorded 2026-10-31 by the owner from PowerShell, answered by
+  gemini-3.5-flash-lite after failover).
+- It does NOT provide independent reproduction: the same party that maintains
+  the repository executed this call, against the owner's deployed site. All five
+  verified routes remain owner-key evidence executed by the maintainer side; a
+  truly independent third party has still never re-run them.
+- The deployed commit at call time was the one shown Ready in Production in
+  04-vercel-deployment.png (b55f024); the five route handlers are unchanged
+  since. Ask-the-planner remains screenshot-only UI evidence.

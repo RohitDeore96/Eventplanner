@@ -108,13 +108,17 @@ failed; there are no failure categories to report.
   output is committed at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt),
   together with the same-day sandbox attempt that FAILED on the provider's location
   restriction; nothing was faked.
-- Deployed production check (same day): the four routes on
+- Deployed production check (2026-10-31): the four routes on
   https://eventplanner-mocha.vercel.app answered from the live provider — raw,
   source-labelled responses and screenshots are committed under [evidence/](evidence)
   with the transcript in [LIVE_VERIFICATION.md](LIVE_VERIFICATION.md). One extract-quote
   attempt first returned the built-in fallback and propose-patch had returned 504 twice
-  earlier before passing; both are recorded as they happened. `review-plan` (plan
-  review) was **not** exercised live.
+  earlier before passing; both are recorded as they happened. On 2026-11-01 the
+  remaining route, `review-plan` (plan review), was exercised against the deployed site
+  from the maintainer side and answered `source=gemini-3.6-flash` with the summary
+  grounded in the facts sent ([deployed-review-plan.json](evidence/deployed-review-plan.json),
+  [LIVE_VERIFICATION.md](LIVE_VERIFICATION.md)) — all five POST routes now have
+  deployed live-model evidence. Ask-the-planner has screenshot evidence only.
 - Mocked route tests (`tests/api/routes.test.ts`) cover model-chain fallbacks with a
   scripted model; they remain mocked and are never described as live. The recorded run
   above now additionally demonstrates that failover against the real provider.

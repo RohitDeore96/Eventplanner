@@ -128,9 +128,10 @@ or files.
 
 **Three remaining weaknesses**
 
-1. Live AI evidence is owner-executed: the local smoke and the same-day deployed-site
-   check both PASSED with committed records (2026-10-31), but no independent third party
-   has re-executed them, and plan review has no live check.
+1. Live AI evidence is owner/maintainer-executed: the local smoke and the same-day
+   deployed-site check both PASSED with committed records (2026-10-31), plan review was
+   added on 2026-11-01 (maintainer side, `source=gemini-3.6-flash`), but no independent
+   third party has re-executed any of them.
 2. No screen-reader interaction testing (environmental limitation).
 3. Original challenge statement not independently consultable; alignment rests on the
    briefs' own requirement lists.
@@ -144,8 +145,10 @@ or files.
   verified; on 2026-10-31 the live smoke PASSED from the deployment owner's machine
   in a supported region (chain failover to gemini-3.5-flash-lite observed; money contract
   held; verbatim output in `docs/evidence/ai/live-smoke-2026-10-31.txt`), and the same
-  day the deployed production site answered all four routes from the live provider with
-  committed, source-labelled responses (`docs/LIVE_VERIFICATION.md`). Owner-executed,
+  day the deployed production site answered four routes from the live provider with
+  committed, source-labelled responses; on 2026-11-01 plan review followed on the
+  deployed site (`source=gemini-3.6-flash`, maintainer side) — all five POST routes now
+  evidenced (`docs/LIVE_VERIFICATION.md`). Owner/maintainer-executed,
   not re-executed by an independent party — production behaviour can still differ with
   quota or model availability and degrades via the tested fallbacks.
 - Deployment ready: `vercel.json` reviewed (build, headers incl. strict CSP/HSTS,
@@ -162,9 +165,11 @@ or files.
 
 1. Live AI behaviour in production: evidenced by a committed verbatim live run
    (2026-10-31, owner machine in a supported region — the smoke PASSED with live chain
-   failover) and by the same-day deployed-site check (four routes answered from the live
-   provider, source-labelled responses in `docs/LIVE_VERIFICATION.md`; plan review
-   unverified), but not re-executed by an independent party; production can differ with
+   failover) and by the deployed-site checks (four routes answered from the live
+   provider on 2026-10-31, source-labelled responses in `docs/LIVE_VERIFICATION.md`;
+   plan review answered `source=gemini-3.6-flash` on 2026-11-01 from the maintainer
+   side), but not re-executed by an independent party; ask-the-planner has screenshot
+   evidence only; production can differ with
    quota or model availability and degrades via the tested fallbacks.
 2. Screen-reader interaction: untested (no SR available); structure verified by axe only.
 3. Original challenge statement: not independently available; alignment derived from the
@@ -180,6 +185,7 @@ or files.
 
 **Ready with disclosed limitations.** All critical criteria pass with reproducible
 evidence; the limitations above are environmental or deliberate, none hides a broken
-workflow. The live smoke and a deployed-site check are now on record (2026-10-31). The
-strongest next steps, in order: a live check of plan review on the deployed app, one
-NVDA/VoiceOver keyboard pass, and independent reproduction of the committed live runs.
+workflow. The live smoke and a deployed-site check are now on record (2026-10-31), and
+plan review joined them on 2026-11-01 (`source=gemini-3.6-flash`, maintainer side). The
+strongest next steps, in order: one NVDA/VoiceOver keyboard pass, a raw JSON capture for
+ask-the-planner, and independent reproduction of the committed live runs.
