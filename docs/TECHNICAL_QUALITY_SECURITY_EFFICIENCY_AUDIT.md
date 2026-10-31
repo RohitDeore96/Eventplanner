@@ -121,12 +121,13 @@ an export-only action). **No performance claims are made for this pass beyond "n
 regression and no bundle-relevant growth"** — the value delivered is correctness, not
 speed.
 
-Bundle (`npm run build` + `scripts/check-size.mjs`):
+Bundle (canonical gate `scripts/check-size.mjs`, Node zlib; `vite build` reports the same
+file as 119.40 KB with its own gzip settings — one file, one story):
 
-| metric            |    before |     after | delta                                                                      |
-| ----------------- | --------: | --------: | -------------------------------------------------------------------------- |
-| JavaScript (gzip) | 119.14 KB | 119.40 KB | +0.26 KB (+0.22%) — the runtime reply-schema imports for F3; budget 250 KB |
-| CSS (gzip)        |   2.56 KB |   2.56 KB | 0                                                                          |
+| metric                        |   before |    after | delta                                                            |
+| ----------------------------- | -------: | -------: | ---------------------------------------------------------------- |
+| JavaScript (gzip, check-size) | 115.3 KB | 115.5 KB | +0.2 KB — the runtime reply-schema imports for F3; budget 250 KB |
+| CSS (gzip)                    |  2.56 KB |  2.56 KB | 0                                                                |
 
 ## 8. Test and coverage results
 
@@ -143,7 +144,8 @@ timeout test path; the gate (83%) holds and no threshold was touched.
 
 ## 9. Bundle-size comparison
 
-See §7: 119.14 → 119.40 KB gzipped JavaScript (+0.26 KB), CSS unchanged. The increase is
+See §7: 115.3 → 115.5 KB gzipped JavaScript by the repo's own size gate (+0.2 KB; the
+vite build output shows the same +0.26 KB delta), CSS unchanged. The increase is
 the price of making the README's "validated … again on the client" claim true with the
 project's own single-source schemas instead of duplicating shapes; the alternative
 (weakening the README claim) was rejected by the audit brief.
@@ -169,7 +171,7 @@ Evidence-based self-assessment after this pass, on a 10 scale:
 | ------------ | ------ | -------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Code Quality | ×3     |      8.7 | strict TS (no `any`), 683 unit tests + property tests + 77 browser tests, arch/knip/mutation gates, coverage ≈ 96/94, four real lifecycle defects closed with regression tests |
 | Security     | ×2     |      8.4 | all documented server controls verified in code; client reply validation now real; honest remaining gaps: per-instance limits, no independent pentest                          |
-| Efficiency   | ×2     |      8.5 | engine sub-ms at realistic scale, bundle 119.4 KB gzip vs 250 KB budget, concurrency fixed, no pathological re-render found at this scale; no unmeasured claims                |
+| Efficiency   | ×2     |      8.5 | engine sub-ms at realistic scale, bundle 115.5 KB gzip vs 250 KB budget, concurrency fixed, no pathological re-render found at this scale; no unmeasured claims                |
 
 Weighted: `(3×8.7 + 2×8.4 + 2×8.5) / 7 = 59.9 / 7 ≈ 8.6 / 10` — **internal engineering
 estimate only**, not an official PromptWars score; the competition's own evaluators may
