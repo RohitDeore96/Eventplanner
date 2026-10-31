@@ -4,7 +4,7 @@
     "scripts/*.mjs",
     "tests/**/*.test.ts",
     "api/*.ts",
-    "tests/e2e/**/*.spec.ts"
+    "e2e/specs/**/*.spec.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}", "api/**/*.ts"],
   "ignoreDependencies": [],
