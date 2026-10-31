@@ -62,7 +62,7 @@ points at something that runs or exists in the repository. Written 2026-10-31.
 - Safety: proposals dry-run through the engine, require explicit approval, apply as one
   undoable step; AI cannot delete, touch paid records, or change currency (schema +
   engine scope).
-- Evaluation dataset: 24 scenarios / 73 checks across the eight required categories —
+- Evaluation dataset: 24 scenarios / 74 checks across the eight required categories —
   **all passing**; machine results in `docs/evidence/ai/ai-eval-results.json`; 5/5 on
   the eight scorecard dimensions (safety, groundedness, correctness, context awareness,
   actionability, personalization, relevance, clarity). This measures Utsav's
@@ -134,7 +134,10 @@ or files.
 - Latest production build: verified locally (build + preview + 77 E2E + bundle budget).
 - Required API configuration: `GEMINI_API_KEY` server-side only (documented in
   `.env.example`; the app degrades honestly without it — nothing else to configure).
-- Live AI requests: **not verified** (no key) — mocked paths and schemas verified.
+- Live AI requests: **not verified** in the recorded audit (no key) — mocked paths and schemas
+  verified. The owner later reported a manual live check on 2026-10-31; no log of it is
+  committed, so it is owner-reported and not independently verified. See
+  `FINAL_DOCUMENTATION_AUDIT.md`.
 - Deployment ready: `vercel.json` reviewed (build, headers incl. strict CSP/HSTS,
   function config); the six serverless routes are guarded and their compiled-ESM import
   bug was already fixed in Phase 1 (verified via local Vercel build then).

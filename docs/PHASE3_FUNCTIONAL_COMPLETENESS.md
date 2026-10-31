@@ -52,7 +52,7 @@ supported flow (SPEC decision table).
 - AI failure: honest "offline / service unavailable" notices, built-in fallbacks keep the
   features useful (Journey 8, Journey 10, negative malformed-response test).
 - Persistence failure: autosave stops with a spoken warning + "export JSON" guidance
-  (`tests/ui/persistence.test.tsx`, Journey 4).
+  (`tests/ui/persistence.test.ts`, Journey 4).
 - Corrupt/outdated storage: recovery card with "start fresh" + "download raw copy";
   per-event deep validation drops an invalid event alone with a notice (Journey 6).
 

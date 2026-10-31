@@ -1,5 +1,9 @@
 # Architecture
 
+This document describes the **current** architecture first. Anything about earlier storage
+shapes is collected under [Storage history](#storage-history-historical) and labelled as
+historical. Utsav is a **multi-event workspace**: it is not a single-plan application.
+
 ```
 config  <-  engine  <-  schemas  <-  api (Vercel functions)
                     <-  components (React)
@@ -10,7 +14,23 @@ config  <-  engine  <-  schemas  <-  api (Vercel functions)
 - `src/schemas` (zod contracts, including the patch-union schema), `src/lib` (typed API
   client), `src/state` (store, persistence), `src/ui` (views): all shipped.
 
+## Current storage model: multi-event workspace (schema v3)
+
+- One **workspace record** is stored in the browser under `utsav.plans.v1`
+  (`src/state/persistence.ts`, `SCHEMA_VERSION = 3`). It holds up to `MAX_EVENTS` (12) events,
+  the active event's id, and `archivedIds[]` (events set aside, never deleted).
+- Every event is a complete plan (budget, tasks, guests, vendors, expenses, run sheet) under
+  its own ids. Events are isolated: nothing in one event can reference another.
+- Loading is untrusted-input handling: size cap, JSON parse, `schemaVersion` migration, deep
+  zod validation of every nested record of every event, then domain checks. An event that
+  fails validation is dropped on its own and the rest of the workspace survives; unusable
+  data is never silently deleted (the app offers an exportable copy and a fresh start).
+- Sidecars keyed by event id: quotations (`src/state/quotes.ts`) and preferences
+  (`src/state/prefs.ts`, `utsav.prefs.v1`).
+
 ## Data flow
+
+In this flow "Plan" is the **active event** of the workspace.
 
 ```
 user edit ---------------------> PlanAction -+
@@ -19,7 +39,7 @@ AI text --> patch (validated) --> dry run ----+        ^
                   user accepts --------------> history (one undo step)
 ```
 
-## AI patch flow (engine side, implemented)
+## AI patch flow: engine side
 
 1. A patch is `{ summary, actions[] }` with at most 10 actions, each one of five allowed types.
 2. `dryRunPatch` applies the actions to a copy, then `comparePlans` computes exact deltas and new or resolved warnings.
@@ -31,7 +51,7 @@ response schema from the same zod union, validates the reply server-side, walks 
 chain with failover, and degrades to a deterministic 503 `AI_UNAVAILABLE` when no key is
 configured — the engine, not the model, remains the gate.
 
-## The AI patch flow (added M3)
+## AI patch flow: user-facing sequence
 
 1. The family types what they want changed in the Assistant tab.
 2. The client sends a compact facts summary (built from `summarize`) plus the instruction to
@@ -74,10 +94,10 @@ rejected (`502 AI_RESPONSE_INVALID`), never guessed.
   instalment-belongs-to-its-own-vendor checks → dependency-cycle check. Unusable data never
   reaches React state and is never deleted silently: `loadSavedState()` returns the reason
   plus the untouched raw text, and the app offers an exportable copy plus a fresh start.
-- **Legacy cleanup**: the storage model is one active plan under `utsav.plans.v1`; the
-  unused `utsav.activeId.v1` key from an abandoned design is scrubbed on save and clear.
+- **Legacy cleanup**: the workspace record lives under `utsav.plans.v1`; the unused
+  `utsav.activeId.v1` key from an abandoned design is scrubbed on save and clear.
 
-## Additions: cash-flow engine, activity log, i18n, workspace (2026-10)
+## Additions: cash-flow engine, activity log, i18n, multi-event workspace (2026-10)
 
 - `src/engine/cashflow.ts` — pure `cashflow(plan, today)`: scheduled instalments by due
   month with paid/still-to-pay per entry and an overdue list. Payments tab renders it.
@@ -85,12 +105,13 @@ rejected (`502 AI_RESPONSE_INVALID`), never guessed.
   BEFORE the change (so deleted records stay named); exhaustive handler map, compile-time
   checked against the action union.
 - `src/lib/i18n.ts` — chrome label dictionaries (en/hi/mr) with per-key English fallback.
-- `src/state/persistence.ts` — workspace record v2: `plans[]` + `activeId`, per-event deep
-  validation, migration from v1/v0, `MAX_EVENTS` cap, byte cap unchanged.
+- `src/state/persistence.ts` — the multi-event workspace record (`plans[]` + `activeId`, per-event
+  deep validation, `MAX_EVENTS` cap). It was introduced as v2 and has since moved to v3; see
+  the current model above and the storage history below.
 
 ## Additions: Phase 2 product workflows (2026-10-31)
 
-- **Storage v3** (`src/state/persistence.ts`): the workspace record gains
+- **Storage v3, the current version** (`src/state/persistence.ts`): the workspace record gains
   `archivedIds[]` (events set aside, never deleted). v0/v1/v2 migrate forward; the deep
   validator now also covers run-sheet entries (calendar dates, owners exist, sane time
   ranges) and drops an invalid event individually. `duplicatePlan()` (`src/engine/
@@ -118,3 +139,15 @@ duplicate.ts`) copies an event under a fresh id set and remaps every internal
 - **Preferences sidecar** (`src/state/prefs.ts`): one validated record per plan id
   (`utsav.prefs.v1`) — vibe, formality, budget tier, must-haves, priorities — sent to the
   ideas route with the remaining budget and booked-vendor count; no prices, ever.
+
+## Storage history (historical)
+
+These shapes are **no longer written**. They are read only so that older saves migrate
+forward safely.
+
+| Schema version | Shape                                          | Status                                                    |
+| -------------- | ---------------------------------------------- | --------------------------------------------------------- |
+| v0             | No version marker                              | Historical; migrates forward                              |
+| v1             | A single `plan` object (one event per browser) | Historical; becomes the active event of a fresh workspace |
+| v2             | Multi-event: `plans[]` + `activeId`            | Historical; gains an empty `archivedIds[]`                |
+| v3             | Multi-event plus `archivedIds[]`               | **Current**                                               |

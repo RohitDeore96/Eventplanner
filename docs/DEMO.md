@@ -29,6 +29,8 @@ event" on a dev machine).
 
 ## Honesty notes
 
+- A 3-minute version of this demo is the README's evaluator quick start; it starts with the
+  **Load demo event** button.
 - AI steps need a configured provider key. Without one, every AI surface says so plainly
   and the built-in fallbacks answer from the plan's own numbers — the demo still works
   end to end (this is exactly what Journey 10 tests).
