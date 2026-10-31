@@ -1,6 +1,6 @@
 # Metrics — generated from real runs
 
-Every number below comes from a command executed on 2026-10-30 by `node scripts/gen-metrics.mjs`.
+Every number below comes from a command executed on 2026-10-31 by `node scripts/gen-metrics.mjs`.
 Nothing here is typed by hand. CI regenerates and re-checks this file.
 
 | Check | Result |
@@ -8,9 +8,9 @@ Nothing here is typed by hand. CI regenerates and re-checks this file.
 | Typecheck | 0 errors |
 | Lint (typescript-eslint strictTypeChecked) | 0 findings |
 | Tests | 517 passed across 42 files |
-| Coverage | 95.7% lines, 94.48% statements, 96.07% functions, 84.55% branches |
+| Coverage | 95.81% lines, 94.56% statements, 96.37% functions, 84.67% branches |
 | Bundle | 102.5 KB gzipped JavaScript |
-| Repo size | 0.11 MB (limit 10 MB) |
+| Repo size | 1.58 MB (limit 10 MB) |
 | npm audit (runtime deps) | clean at high severity |
 
 Reproduce locally:

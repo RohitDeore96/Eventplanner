@@ -88,44 +88,45 @@ P0 = must work for a judge. P1 = needed for a top score. P2 = differentiator. St
 
 ### Phase 1 (correctness) status
 
-| ID    | Requirement             | Status | Evidence                                                                                                        |
-| ----- | ----------------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
-| P1-01 | Repository reinspection | PASS   | audited checkout `6cbf2e0` (branch `utsav-mission`); `git status` clean; defect register below                  |
-| P1-02 | Money unit contract     | PASS   | `*Minor` = smallest unit everywhere; model-facing `*Major` decimal strings converted once (`parseMajorAmount`)  |
-| P1-03 | INR budget intake       | PASS   | `8 lakh` → 80,000,000 pinned in `tests/api/intake-money.test.ts` + route tests                                  |
-| P1-04 | Indian amount parsing   | PASS   | lakh/lac/crore/k, `8,00,000`, `₹` symbols — unit tests + browser journeys 2                                     |
-| P1-05 | International currency  | PASS   | USD/EUR/GBP/AED/JPY/KWD supported; KWD 3-decimal tests + journey 3                                              |
-| P1-06 | Currency exponent       | PASS   | `currencyExponent()` is the only source; no hardcoded `/100` in money paths (grep + tests)                      |
-| P1-07 | Currency safety         | PASS   | `currencyChangeError()` lock; journey 5; reducer + form share the policy                                        |
-| P1-08 | Occasion prefill        | PASS   | milestone guard fixed; prefill drives the real form (unit tests + journey 1)                                    |
-| P1-09 | Autosave lifecycle      | PASS   | autosave follows the active plan (unit + journey 4)                                                             |
-| P1-10 | Restoration             | PASS   | journey 4 reload assertions                                                                                     |
-| P1-11 | Undo/redo persistence   | PASS   | journey 4 (undo survives reload); jsdom autosave test                                                           |
-| P1-12 | Deep validation         | PASS   | every nested record + dup ids, currency, calendar dates, cross-vendor instalments                               |
-| P1-13 | Migration               | PASS   | version-0 record migrated + saved forward (unit + journey 7)                                                    |
-| P1-14 | Corrupt storage         | PASS   | recovery notice + exportable copy + start fresh (unit + journey 6)                                              |
-| P1-15 | Financial invariants    | PASS   | fast-check stateful invariants + direct properties (move conserves, payments aggregate, paid records protected) |
-| P1-16 | AI patch schema         | PASS   | actual request payload asserted (anyOf union, major-unit fields only) in route tests                            |
-| P1-17 | AI failure safety       | PASS   | 503/502/504 paths; honest offline journey 8; `smoke:ai` SKIPs without a key                                     |
-| P1-18 | Browser E2E             | PASS   | 42 journey runs (21 journeys, desktop + mobile) pass on the production build                                    |
-| P1-19 | CI                      | PASS   | `e2e` job with Chromium + trace upload in `.github/workflows/ci.yml`                                            |
-| P1-20 | Security                | PASS   | CSP unchanged (no unsafe-eval/inline), secret scan clean, audit clean, key absent from client                   |
-| P1-21 | Vercel compatibility    | PASS   | `npm run build` → `dist`, SPA rewrite excludes `/api`, headers set; deployment unchanged                        |
-| P1-22 | Documentation           | PASS   | README/ARCHITECTURE/SECURITY/SPEC claims corrected; METRICS regenerated                                         |
+| ID    | Requirement             | Status | Evidence                                                                                                                                                 |
+| ----- | ----------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1-01 | Repository reinspection | PASS   | re-inspected 2026-10-31 at `fd4f7ae` (branch `main`); `git status` clean; full check suite re-run the same day (see `worklog.md`); defect register below |
+| P1-02 | Money unit contract     | PASS   | `*Minor` = smallest unit everywhere; model-facing `*Major` decimal strings converted once (`parseMajorAmount`)                                           |
+| P1-03 | INR budget intake       | PASS   | `8 lakh` → 80,000,000 pinned in `tests/api/intake-money.test.ts` + route tests                                                                           |
+| P1-04 | Indian amount parsing   | PASS   | lakh/lac/crore/k, `8,00,000`, `₹` symbols — unit tests + browser journeys 2                                                                              |
+| P1-05 | International currency  | PASS   | USD/EUR/GBP/AED/JPY/KWD supported; KWD 3-decimal tests + journey 3                                                                                       |
+| P1-06 | Currency exponent       | PASS   | `currencyExponent()` is the only source; no hardcoded `/100` in money paths (grep + tests)                                                               |
+| P1-07 | Currency safety         | PASS   | `currencyChangeError()` lock; journey 5; reducer + form share the policy                                                                                 |
+| P1-08 | Occasion prefill        | PASS   | milestone guard fixed; prefill drives the real form (unit tests + journey 1)                                                                             |
+| P1-09 | Autosave lifecycle      | PASS   | autosave follows the active plan (unit + journey 4)                                                                                                      |
+| P1-10 | Restoration             | PASS   | journey 4 reload assertions                                                                                                                              |
+| P1-11 | Undo/redo persistence   | PASS   | journey 4 (undo survives reload); jsdom autosave test                                                                                                    |
+| P1-12 | Deep validation         | PASS   | every nested record + dup ids, currency, calendar dates, cross-vendor instalments                                                                        |
+| P1-13 | Migration               | PASS   | version-0 record migrated + saved forward (unit + journey 7)                                                                                             |
+| P1-14 | Corrupt storage         | PASS   | recovery notice + exportable copy + start fresh (unit + journey 6)                                                                                       |
+| P1-15 | Financial invariants    | PASS   | fast-check stateful invariants + direct properties (move conserves, payments aggregate, paid records protected)                                          |
+| P1-16 | AI patch schema         | PASS   | actual request payload asserted (anyOf union, major-unit fields only) in route tests                                                                     |
+| P1-17 | AI failure safety       | PASS   | 503/502/504 paths; honest offline journey 8; `smoke:ai` SKIPs without a key                                                                              |
+| P1-18 | Browser E2E             | PASS   | 42 journey runs (21 journeys, desktop + mobile) pass on the production build                                                                             |
+| P1-19 | CI                      | PASS   | `e2e` job with Chromium + trace upload in `.github/workflows/ci.yml`                                                                                     |
+| P1-20 | Security                | PASS   | CSP unchanged (no unsafe-eval/inline), secret scan clean, audit clean, key absent from client                                                            |
+| P1-21 | Vercel compatibility    | PASS   | `npm run build` → `dist`, SPA rewrite excludes `/api`, headers set; deployment unchanged                                                                 |
+| P1-22 | Documentation           | PASS   | README/ARCHITECTURE/SECURITY/SPEC claims corrected; METRICS regenerated; repo-size gate fixed to parse raw `git count-objects` output (D10)              |
 
 Defect register (Phase 1 execution):
 
-| ID  | Defect                                                                                                       | Severity | Fix                                                                                    | Regression test                                               |
-| --- | ------------------------------------------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| D1  | extract-quote asked the model to compute minor units ("rupees x 100")                                        | P0       | model states major-unit decimal strings; route converts once with the request currency | route tests: INR 2,50,000 → 25,000,000; KWD 100.125 → 100,125 |
-| D2  | propose-patch asked the model for `amountMinor`/`plannedMinor`                                               | P1       | `amountMajor`/`plannedMajor` converted once; unconvertible decimals → 502              | route tests: 20,000 → 2,000,000; 502 path                     |
-| D3  | `asOccasion` dropped the fourth occasion                                                                     | P1       | guard includes `milestone`                                                             | intake UI test                                                |
-| D4  | KWD missing from currencies                                                                                  | P1       | added to request enum + setup picker                                                   | money tests + journey 3                                       |
-| D5  | deep validation missed duplicate ids, unsupported currency, non-calendar dates, cross-vendor instalment refs | P1       | `referencesHold` hardened                                                              | persistence tests                                             |
-| D6  | corrupt storage silently discarded (no notice, no copy)                                                      | P1       | `loadSavedState()` + recovery notice with exportable copy                              | persistence + UI tests + journey 6                            |
-| D7  | `utsav.activeId.v1` written but never read                                                                   | P2       | scrubbed on save/clear                                                                 | persistence tests                                             |
-| D8  | typed form rejected Indian comma grouping                                                                    | P1       | canonical `parseMajorAmount` accepts digit-bounded commas                              | money tests + journey 2                                       |
-| D9  | no live-AI verification procedure                                                                            | P2       | `scripts/live-ai-smoke.mjs` (env-gated, honest SKIP)                                   | SKIP path run                                                 |
+| ID  | Defect                                                                                                                                             | Severity | Fix                                                                                    | Regression test                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| D1  | extract-quote asked the model to compute minor units ("rupees x 100")                                                                              | P0       | model states major-unit decimal strings; route converts once with the request currency | route tests: INR 2,50,000 → 25,000,000; KWD 100.125 → 100,125       |
+| D2  | propose-patch asked the model for `amountMinor`/`plannedMinor`                                                                                     | P1       | `amountMajor`/`plannedMajor` converted once; unconvertible decimals → 502              | route tests: 20,000 → 2,000,000; 502 path                           |
+| D3  | `asOccasion` dropped the fourth occasion                                                                                                           | P1       | guard includes `milestone`                                                             | intake UI test                                                      |
+| D4  | KWD missing from currencies                                                                                                                        | P1       | added to request enum + setup picker                                                   | money tests + journey 3                                             |
+| D5  | deep validation missed duplicate ids, unsupported currency, non-calendar dates, cross-vendor instalment refs                                       | P1       | `referencesHold` hardened                                                              | persistence tests                                                   |
+| D6  | corrupt storage silently discarded (no notice, no copy)                                                                                            | P1       | `loadSavedState()` + recovery notice with exportable copy                              | persistence + UI tests + journey 6                                  |
+| D7  | `utsav.activeId.v1` written but never read                                                                                                         | P2       | scrubbed on save/clear                                                                 | persistence tests                                                   |
+| D8  | typed form rejected Indian comma grouping                                                                                                          | P1       | canonical `parseMajorAmount` accepts digit-bounded commas                              | money tests + journey 2                                             |
+| D9  | no live-AI verification procedure                                                                                                                  | P2       | `scripts/live-ai-smoke.mjs` (env-gated, honest SKIP)                                   | SKIP path run                                                       |
+| D10 | repo-size gate read humanized `git count-objects -vH`; newer git prints `1.58 MiB`, the `\d+` regex parsed it as 1 KiB and METRICS printed 0.00 MB | P2       | script uses raw `-v` output (KiB on every git version)                                 | script run reports 1.58 MB on the audited repo; METRICS regenerated |
 
 ## C. Differentiators
 
