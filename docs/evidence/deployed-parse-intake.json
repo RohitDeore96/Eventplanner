@@ -1,0 +1,9 @@
+﻿{
+    "name":  "Engagement ceremony",
+    "occasion":  "milestone",
+    "dateISO":  null,
+    "guests":  150,
+    "notes":  "Nagpur",
+    "budgetMinor":  50000000,
+    "source":  "gemini-3.5-flash-lite"
+}

@@ -1,0 +1,22 @@
+﻿{
+    "summary":  "Adding a band booking task and moving 8000 from venue to decor.",
+    "actions":  [
+                    {
+                        "type":  "task/add",
+                        "id":  "task-band-booking",
+                        "title":  "Book live band",
+                        "dueISO":  "2026-11-15",
+                        "dependsOn":  [
+
+                                      ],
+                        "assignee":  null
+                    },
+                    {
+                        "type":  "budget/move",
+                        "fromId":  "Venue",
+                        "toId":  "Decor",
+                        "amountMinor":  800000
+                    }
+                ],
+    "source":  "gemini-3.5-flash-lite"
+}

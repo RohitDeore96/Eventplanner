@@ -102,3 +102,18 @@ Residual caveats, stated rather than hidden:
 Status: CLOSED — live-provider behaviour is now evidenced by a committed, verbatim
 run log. The same-day sandbox FAIL above remains as the honest record of why this
 development environment itself could not run it.
+
+================================================================================
+POSTSCRIPT — deployed-site evidence pack (integrated the same day, 2026-10-31)
+================================================================================
+
+Follow-up, same date: the four routes were additionally exercised against the DEPLOYED
+production site (https://eventplanner-mocha.vercel.app) from the owner's PowerShell
+session. Successful responses carried source=gemini-3.5-flash-lite; one extract-quote
+attempt first returned the built-in fallback, and the failed attempts (INVALID_INPUT on
+suggest-ideas before the input was corrected, two earlier 504s on propose-patch, 429/503
+model failover) are recorded as they happened. Raw responses, screenshots and the
+transcript: docs/evidence/deployed-*.json, docs/evidence/deployed-run-summary.txt,
+docs/LIVE_VERIFICATION.md. /api/review-plan (plan review) has not been verified live.
+The transcript above is unchanged; this postscript only points to the deployed-site
+evidence pack.

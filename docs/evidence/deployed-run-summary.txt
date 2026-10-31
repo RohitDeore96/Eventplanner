@@ -1,0 +1,13 @@
+﻿Deployed live AI check
+URL: https://eventplanner-mocha.vercel.app
+Run at: 2026-10-31 23:13:47 +05:30
+Commit: 08441fde346af07788c73a3ab420518d6f148b08
+
+parse-intake attempt 1 : source=gemini-3.5-flash-lite budgetMinor=50000000 time=6s
+suggest-ideas attempt 1 : FAILED {"error":"INVALID_INPUT"} time=1s
+suggest-ideas attempt 2 : FAILED {"error":"INVALID_INPUT"} time=0s
+extract-quote attempt 1 : source=built-in totalPriceMinor= time=41s
+extract-quote attempt 2 : source=gemini-3.5-flash-lite totalPriceMinor=9000000 time=2s
+propose-patch attempt 1 : source=gemini-3.5-flash-lite time=1s
+suggest-ideas attempt 3 (corrected input, occasion=birthday) : source=gemini-3.5-flash-lite time=2s
+Note: suggest-ideas attempts 1-2 used occasion=anniversary, which the API rejects with INVALID_INPUT (test input error, not an app fault).

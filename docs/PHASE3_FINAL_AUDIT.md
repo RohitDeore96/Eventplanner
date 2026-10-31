@@ -128,7 +128,9 @@ or files.
 
 **Three remaining weaknesses**
 
-1. Live provider behaviour unverified (no API key in any working environment so far).
+1. Live AI evidence is owner-executed: the local smoke and the same-day deployed-site
+   check both PASSED with committed records (2026-10-31), but no independent third party
+   has re-executed them, and plan review has no live check.
 2. No screen-reader interaction testing (environmental limitation).
 3. Original challenge statement not independently consultable; alignment rests on the
    briefs' own requirement lists.
@@ -138,25 +140,31 @@ or files.
 - Latest production build: verified locally (build + preview + 77 E2E + bundle budget).
 - Required API configuration: `GEMINI_API_KEY` server-side only (documented in
   `.env.example`; the app degrades honestly without it — nothing else to configure).
-- Live AI requests: **verified by a recorded live run** — mocked paths and schemas
-  verified, and on 2026-10-31 the live smoke PASSED from the deployment owner's machine
+- Live AI requests: **verified by recorded live runs** — mocked paths and schemas
+  verified; on 2026-10-31 the live smoke PASSED from the deployment owner's machine
   in a supported region (chain failover to gemini-3.5-flash-lite observed; money contract
-  held); verbatim output in `docs/evidence/ai/live-smoke-2026-10-31.txt`. The run was
-  owner-executed, not re-executed by an independent party — production behaviour can
-  still differ with quota or model availability and degrades via the tested fallbacks.
+  held; verbatim output in `docs/evidence/ai/live-smoke-2026-10-31.txt`), and the same
+  day the deployed production site answered all four routes from the live provider with
+  committed, source-labelled responses (`docs/LIVE_VERIFICATION.md`). Owner-executed,
+  not re-executed by an independent party — production behaviour can still differ with
+  quota or model availability and degrades via the tested fallbacks.
 - Deployment ready: `vercel.json` reviewed (build, headers incl. strict CSP/HSTS,
   function config); the six serverless routes are guarded and their compiled-ESM import
   bug was already fixed in Phase 1 (verified via local Vercel build then).
 - Operational migration: none required; storage migrations are automatic and tested
   (v0/v1/v2 → v3).
-- Production deployment **not** re-tested from here (no deploy without authorization);
-  the last live check on record is 2026-10-30 (`docs/SPEC.md` R9).
+- Production deployment: not deployed from here (no deploy without authorization).
+  On 2026-10-31 the deployed site was checked from the owner's machine: the Vercel
+  Deployments page shows `b55f024` Ready in Production (`docs/evidence/04-vercel-deployment.png`)
+  and the deployed AI routes answered live-model requests (`docs/LIVE_VERIFICATION.md`).
 
 ## I. Final limitations
 
 1. Live AI behaviour in production: evidenced by a committed verbatim live run
    (2026-10-31, owner machine in a supported region — the smoke PASSED with live chain
-   failover), but not re-executed by an independent party; production can differ with
+   failover) and by the same-day deployed-site check (four routes answered from the live
+   provider, source-labelled responses in `docs/LIVE_VERIFICATION.md`; plan review
+   unverified), but not re-executed by an independent party; production can differ with
    quota or model availability and degrades via the tested fallbacks.
 2. Screen-reader interaction: untested (no SR available); structure verified by axe only.
 3. Original challenge statement: not independently available; alignment derived from the
@@ -172,6 +180,6 @@ or files.
 
 **Ready with disclosed limitations.** All critical criteria pass with reproducible
 evidence; the limitations above are environmental or deliberate, none hides a broken
-workflow. The strongest next steps, in order: run `npm run smoke:ai` with a key on the
-deployed app, one NVDA/VoiceOver keyboard pass, and a production URL check after the
-next deploy.
+workflow. The live smoke and a deployed-site check are now on record (2026-10-31). The
+strongest next steps, in order: a live check of plan review on the deployed app, one
+NVDA/VoiceOver keyboard pass, and independent reproduction of the committed live runs.

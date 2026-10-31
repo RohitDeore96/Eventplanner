@@ -1,0 +1,18 @@
+﻿{
+    "vendorName":  "Lotus Florals",
+    "category":  "Florals",
+    "totalPriceMinor":  9000000,
+    "pricePerPlateMinor":  null,
+    "guestMinimum":  null,
+    "overtimeFeePerHourMinor":  null,
+    "taxIncluded":  true,
+    "advancePercent":  20,
+    "cancellationPolicy":  null,
+    "inclusions":  [
+
+                   ],
+    "exclusions":  [
+
+                   ],
+    "source":  "gemini-3.5-flash-lite"
+}

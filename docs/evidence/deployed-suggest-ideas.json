@@ -1,0 +1,19 @@
+﻿{
+    "themes":  [
+                   "Sophisticated rooftop jazz lounge",
+                   "Urban chic sunset celebration"
+               ],
+    "activities":  [
+                       "Live jazz band performance",
+                       "Stargazing on the open terrace"
+                   ],
+    "foodStyle":  [
+                      "Gourmet finger foods and canapes",
+                      "Artisanal mocktail and cocktail bar"
+                  ],
+    "personalTouches":  [
+                            "Customized jazz vinyl record guestbook",
+                            "Mood lighting with fairy lights"
+                        ],
+    "source":  "gemini-3.5-flash-lite"
+}
