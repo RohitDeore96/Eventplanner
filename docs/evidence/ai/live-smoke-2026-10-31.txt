@@ -1,10 +1,45 @@
 Live AI smoke test record
 Date: 2026-10-31
-Result: not run: no key in this environment
+Command: GEMINI_API_KEY=... npm run smoke:ai
+Key handling: the key was supplied through the process environment only. It was never
+written to a file, log, URL or commit, and it is not reproduced anywhere below.
+Result: FAILED (exit code 1) — the provider refused every live call from this environment.
 
-The live smoke test (`npm run smoke:ai`) requires a server-side AI provider key in the
-environment (GEMINI_API_KEY). No key was set in this environment on this date, and none
-was invented or requested. All AI-route behaviour was nevertheless exercised by the
-offline, deterministic route tests with a mocked model (see docs/evidence/ai/
-ai-eval-results.json); live-provider behaviour therefore remains not independently
-verified.
+Raw output (verbatim):
+---
+FAIL parse-intake: fell back to built-in (the live model did not answer)
+FAIL suggest-ideas: fell back to built-in (the live model did not answer)
+FAIL extract-quote: fell back to built-in (the live model did not answer)
+FAIL propose-patch: HTTP 502 {"error":"AI_UPSTREAM"}
+Live smoke FAILED: the schemas or the money contract did not hold against the live provider.
+---
+
+Diagnosis (standalone provider diagnostics run after the smoke; recorded here so the
+failure is explainable, not to substitute for the project's own command):
+
+- Direct calls to generativelanguage.googleapis.com with the same key returned
+  HTTP 400 FAILED_PRECONDITION "User location is not supported for the API use."
+  for every model the smoke's chain attempts (gemini-3.6-flash, gemini-3.8-flash,
+  gemini-3.5-flash-lite) and for gemini-3.1-flash-lite as well.
+- gemini-2.5-flash-lite answered HTTP 404 "no longer available to new users",
+  which matches the model-chain comment in api/_lib/models.ts that the 2.5 models
+  are access-limited to pre-existing users.
+- Authentication itself succeeded (no API_KEY_INVALID error was returned), so the
+  blocker is the development environment's egress region, not the key and not the
+  project's code. Because every model is refused on location before any model is
+  evaluated, no GEMINI_MODEL override can close this item from this environment.
+
+What this run did verify, honestly:
+
+- The graceful-degradation path behaved exactly as designed against a refusing
+  provider: three routes answered from the built-in deterministic planner instead
+  of crashing, and one route surfaced typed 502 AI_UPSTREAM instead of pretending
+  success. The smoke correctly reported FAIL and exited non-zero.
+
+Status: live-model behaviour remains NOT independently verified, and this item
+cannot be closed from this environment. To close it, run the same command from a
+region the provider supports and record the verbatim pass/fail output (never the
+key) here, with the date and the model that answered.
+
+This record supersedes the earlier same-day note "not run: no key in this
+environment": the key became available later on 2026-10-31 and the run was made.

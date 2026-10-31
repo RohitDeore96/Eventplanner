@@ -13,7 +13,7 @@ from **live** evaluation (needs a provider key; not recorded in the committed ev
 | Checks                  | 74 (authoritative source: `docs/evidence/ai/ai-eval-results.json`, `totals.checks`)                                                                                           |
 | Failed                  | 0 scenarios, 0 checks                                                                                                                                                         |
 | Scorecard               | 5/5 on all eight dimensions, measuring the validation, safety, grounding and context contracts                                                                                |
-| Live-model verification | **Not run in this environment** (no key): record at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); live behaviour remains **not independently verified** |
+| Live-model verification | **Attempted 2026-10-31 with a real key; FAILED — provider refused every call from this environment (location restriction)**: record at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); live behaviour remains **not independently verified** |
 
 The 5/5 scorecard is a statement about Utsav's own validation layer under recorded fixtures.
 It is not a rating of a live model's fluency, accuracy or tone.
@@ -100,17 +100,21 @@ failed; there are no failure categories to report.
 ## Live-model evaluation (separate, honestly reported)
 
 - The opt-in smoke `npm run smoke:ai` verifies the real provider accepts every response
-  schema. **It was not run in the recorded evidence environment** — no `GEMINI_API_KEY` was
-  configured there. The 2026-10-31 evidence pass wrote that outcome down as
-  `not run: no key in this environment` in
+  schema. **It was run on 2026-10-31 with a real key and FAILED**: the provider refused
+  every live call from that environment with `FAILED_PRECONDITION: User location is not
+  supported` on every model in the chain, so the routes fell back to the built-in planner.
+  The verbatim output and diagnosis are in
   [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); nothing was faked.
+  The failure is environmental (the sandbox's egress region), not a code defect: the same
+  run incidentally proved the honest-degradation path works against a refusing provider.
 - Mocked route tests (`tests/api/routes.test.ts`) cover model-chain fallbacks with a
   scripted model; they are not live calls and are never described as such.
-- - The deployment owner reports a manual live check of the AI on 2026-10-31. No output,
-    log or screenshot from that check is committed, so it is recorded here as
-    **owner-reported and not independently verified**.
+- The deployment owner reports a manual live check of the AI on 2026-10-31. No output,
+  log or screenshot from that check is committed, so it is recorded here as
+  **owner-reported and not independently verified**.
 - Production AI behaviour is therefore not independently verified by the committed
   evidence; this is listed in the final audit's limitations rather than hidden.
-- To turn the owner report into evidence, run `GEMINI_API_KEY=... npm run smoke:ai` and
-  record the pass/fail output (never the key) in this file with the date and the model
-  that answered.
+- To close the item, run `GEMINI_API_KEY=... npm run smoke:ai` from a region the provider
+  supports and record the verbatim pass/fail output (never the key) in the live-smoke
+  record with the date and the model that answered. It cannot be closed from the
+  environment that produced the 2026-10-31 record.

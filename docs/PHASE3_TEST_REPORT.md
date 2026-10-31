@@ -90,7 +90,9 @@ kept out of CI and documented as an opt-in local step.
 
 ## 7. Remaining risks / not tested here
 
-- Live provider AI behaviour (no key) — mocked paths fully covered; live smoke SKIPs.
+- Live provider AI behaviour — mocked paths fully covered; the opt-in live smoke was
+  attempted on 2026-10-31 with a real key and the provider refused every call from this
+  environment (location restriction): see `docs/evidence/ai/live-smoke-2026-10-31.txt`.
 - Screen-reader interaction (no SR available) — see `ACCESSIBILITY_REPORT.md` §5.
 - Print on physical paper — verified via Playwright print-media emulation only.
 - Production deployment re-verification (last checked 2026-10-30; no deploy from here
