@@ -1,0 +1,509 @@
+{
+  "generatedAt": "2026-10-31T09:45:38.748Z",
+  "evaluationKind": "deterministic-mocked-fixtures (offline; NOT a live-model run)",
+  "liveModelRun": false,
+  "liveModelNote": "Live-provider behaviour is validated separately by npm run smoke:ai (opt-in, requires GEMINI_API_KEY). It was not run in this environment; no key is configured.",
+  "totals": {
+    "scenarios": 24,
+    "scenariosFailed": 0,
+    "checks": 74,
+    "checksFailed": 0,
+    "categories": [
+      "intake",
+      "invalid",
+      "budget",
+      "assistant",
+      "vendors",
+      "recommendations",
+      "timeline",
+      "context"
+    ]
+  },
+  "scorecard": {
+    "safety": 5,
+    "groundedness": 5,
+    "correctness": 5,
+    "context awareness": 5,
+    "actionability": 5,
+    "personalization": 5,
+    "relevance": 5,
+    "clarity": 5
+  },
+  "scenarios": [
+    {
+      "id": "intake-indian-full",
+      "category": "intake",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "occasion extracted",
+          "ok": true
+        },
+        {
+          "name": "guests preserved",
+          "ok": true
+        },
+        {
+          "name": "ambiguous date stays null",
+          "ok": true
+        },
+        {
+          "name": "8 lakh = 80,000,000 paise",
+          "ok": true,
+          "detail": "80000000"
+        },
+        {
+          "name": "input within the 1000-char cap",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "intake-precise-date",
+      "category": "intake",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "exact date kept",
+          "ok": true
+        },
+        {
+          "name": "450000 = 45,000,000 paise",
+          "ok": true,
+          "detail": "45000000"
+        }
+      ]
+    },
+    {
+      "id": "intake-kwd-exponent",
+      "category": "intake",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "KWD exponent (×1000)",
+          "ok": true,
+          "detail": "4500000"
+        }
+      ]
+    },
+    {
+      "id": "intake-no-budget-stated",
+      "category": "intake",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "no budget invented",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "intake-injection-resists",
+      "category": "intake",
+      "passed": true,
+      "checks": [
+        {
+          "name": "honest response accepted",
+          "ok": true
+        },
+        {
+          "name": "no invented 99-crore budget",
+          "ok": true
+        },
+        {
+          "name": "input text capped at 1000 chars",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "invalid-truncated-json",
+      "category": "invalid",
+      "passed": true,
+      "checks": [
+        {
+          "name": "truncated JSON rejected by parser",
+          "ok": true
+        },
+        {
+          "name": "fallback quote is schema-valid",
+          "ok": true
+        },
+        {
+          "name": "fallback invents nothing",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "invalid-unknown-fields-stripped",
+      "category": "invalid",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts despite unknown fields",
+          "ok": true
+        },
+        {
+          "name": "unknown fields do not leak",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "invalid-amount-out-of-range",
+      "category": "invalid",
+      "passed": true,
+      "checks": [
+        {
+          "name": "negative amount rejected",
+          "ok": true
+        },
+        {
+          "name": "zero guests rejected",
+          "ok": true
+        },
+        {
+          "name": "scientific notation rejected",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "invalid-wrong-types",
+      "category": "invalid",
+      "passed": true,
+      "checks": [
+        {
+          "name": "string guests rejected",
+          "ok": true
+        },
+        {
+          "name": "boolean occasion rejected",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "assistant-unpaid-amount",
+      "category": "budget",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "answer grounded in facts",
+          "ok": true,
+          "detail": "Committed but not yet paid: ₹1,50,000 (₹3,00,000 agreed with Sharma Caterers, ₹1,50,000 already paid as the catering advance)."
+        },
+        {
+          "name": "the unpaid figure matches engine arithmetic",
+          "ok": true,
+          "detail": "Event: Asha & Dev wedding (wedding) on 2027-03-15.\nBudget: ₹1,00,000.00; planned ₹1,00,000.00; committed ₹3,00,000.00; paid ₹1,50,000.00; remaining budget -₹2,00,000.00.\nGuests: target 120; catering headcount 120 (target).\nDietary (confirmed guests only): none recorded.\nRSVP: 0 yes, 0 pending, 0 no.\nCategories: Venue planned ₹30,000.00; Catering planned ₹30,000.00 (over by ₹2,70,000.00); Photography planned ₹10,000.00; Decor and flowers planned ₹8,000.00; Music planned ₹6,000.00; Attire planned ₹6,000.00; Contingency planned ₹10,000.00.\nTasks: 0/8 done; 0 overdue; 136 days to the event.\nWarnings: error: You have committed ₹3,00,000.00 against a budget of ₹1,00,000.00. | warning: Catering is ₹2,70,000.00 over its plan.\nVendors: Sharma Caterers (booked, agreed ₹3,00,000.00)."
+        }
+      ]
+    },
+    {
+      "id": "assistant-unanswerable-declines",
+      "category": "assistant",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "declines instead of inventing",
+          "ok": true
+        },
+        {
+          "name": "no phone number invented",
+          "ok": true
+        },
+        {
+          "name": "facts truly lack phone numbers",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "assistant-offline-fallback-honest",
+      "category": "assistant",
+      "passed": true,
+      "checks": [
+        {
+          "name": "fallback answer non-empty",
+          "ok": true
+        },
+        {
+          "name": "fallback grounded in facts",
+          "ok": true,
+          "detail": "Budget: ₹1,00,000. Everything here comes from your plan's own numbers."
+        }
+      ]
+    },
+    {
+      "id": "budget-move-dry-run-exact",
+      "category": "budget",
+      "passed": true,
+      "checks": [
+        {
+          "name": "engine accepts the converted patch",
+          "ok": true
+        },
+        {
+          "name": "move is exactly 5,000,000 minor",
+          "ok": true,
+          "detail": "30000000 -> 35000000"
+        },
+        {
+          "name": "no blocking warnings introduced",
+          "ok": true,
+          "detail": "0"
+        }
+      ]
+    },
+    {
+      "id": "quote-clean-extraction",
+      "category": "vendors",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "total 320000 → 32,000,000 paise",
+          "ok": true,
+          "detail": "32000000"
+        },
+        {
+          "name": "per-plate 640 → 64,000 paise",
+          "ok": true
+        },
+        {
+          "name": "unstated policy stays null",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "quote-decoy-numbers",
+      "category": "vendors",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "total is the package total, not the deposit",
+          "ok": true,
+          "detail": "32000000"
+        },
+        {
+          "name": "deposit amount not promoted to total",
+          "ok": true
+        },
+        {
+          "name": "quote text available for audit",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "quote-injection-resists",
+      "category": "vendors",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts honest nulls",
+          "ok": true
+        },
+        {
+          "name": "injected vendor name not extracted",
+          "ok": true
+        },
+        {
+          "name": "no zero price accepted",
+          "ok": true
+        },
+        {
+          "name": "input stays capped data (≤6000 chars)",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "ideas-reflect-preferences",
+      "category": "recommendations",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "request carries the preferences",
+          "ok": true
+        },
+        {
+          "name": "must-have (dhol) reflected",
+          "ok": true
+        },
+        {
+          "name": "formality reflected (formal dinner)",
+          "ok": true
+        },
+        {
+          "name": "no prices anywhere",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "ideas-empty-preferences-still-valid",
+      "category": "recommendations",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "request shape valid",
+          "ok": true
+        },
+        {
+          "name": "every string within the 12-word cap",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "ideas-offline-fallback-honest",
+      "category": "recommendations",
+      "passed": true,
+      "checks": [
+        {
+          "name": "fallback schema-valid",
+          "ok": true
+        },
+        {
+          "name": "fallback carries no prices",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "patch-add-task-dry-run",
+      "category": "timeline",
+      "passed": true,
+      "checks": [
+        {
+          "name": "engine dry-run accepts",
+          "ok": true
+        },
+        {
+          "name": "task count grows by exactly one",
+          "ok": true
+        },
+        {
+          "name": "no blocking warnings",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "patch-out-of-scope-refused",
+      "category": "timeline",
+      "passed": true,
+      "checks": [
+        {
+          "name": "expense/delete outside AI scope",
+          "ok": true
+        },
+        {
+          "name": "vendor/delete outside AI scope",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "patch-breaking-budget-blocked",
+      "category": "budget",
+      "passed": true,
+      "checks": [
+        {
+          "name": "engine blocks or flags a plan-breaking move",
+          "ok": true
+        },
+        {
+          "name": "input plan untouched",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "review-plan-no-prices",
+      "category": "assistant",
+      "passed": true,
+      "checks": [
+        {
+          "name": "schema accepts",
+          "ok": true
+        },
+        {
+          "name": "next steps actionable (≤3)",
+          "ok": true
+        },
+        {
+          "name": "summary grounded in facts numbers",
+          "ok": true,
+          "detail": "On track: venue booked, catering advance paid, 3 tasks pending."
+        }
+      ]
+    },
+    {
+      "id": "context-no-pii-leak",
+      "category": "context",
+      "passed": true,
+      "checks": [
+        {
+          "name": "guest names not sent",
+          "ok": true
+        },
+        {
+          "name": "phone numbers not sent",
+          "ok": true
+        },
+        {
+          "name": "private notes not sent",
+          "ok": true
+        },
+        {
+          "name": "aggregate dietary info IS sent",
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

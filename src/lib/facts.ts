@@ -13,6 +13,14 @@ export function planFacts(plan: Plan, today: string): string {
     `Event: ${plan.name} (${plan.occasion}) on ${plan.dateISO}.`,
     `Budget: ${money(summary.totals.budget)}; planned ${money(summary.totals.planned)}; committed ${money(summary.totals.committed)}; paid ${money(summary.totals.paid)}; remaining budget ${money(summary.totals.remaining)}.`,
     `Guests: target ${plan.guestTarget}; catering headcount ${summary.catering.headcount} (${summary.catering.basis}).`,
+    `Dietary (confirmed guests only): ${
+      Object.keys(summary.catering.dietary).length === 0
+        ? 'none recorded'
+        : Object.entries(summary.catering.dietary)
+            .map(([tag, count]) => `${tag} ${count}`)
+            .join(', ')
+    }.`,
+    `RSVP: ${plan.guests.filter((g) => g.rsvp === 'yes').length} yes, ${plan.guests.filter((g) => g.rsvp === 'pending').length} pending, ${plan.guests.filter((g) => g.rsvp === 'no').length} no.`,
     `Categories: ${summary.categories
       .map(
         (c) =>
