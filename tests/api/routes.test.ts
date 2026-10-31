@@ -150,6 +150,112 @@ describe('API routes: guards', () => {
     expect(last).toBe(429);
   });
 
+  it('allows a POST without Origin from non-browser tooling (no Sec-Fetch-Site)', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(
+      mockReq(
+        { text: 'Shaadi in Pune, 200 guests, 8 lakh budget' },
+        { headers: { origin: undefined } },
+      ),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 200, body: { source: 'built-in' } });
+  });
+
+  it('rejects a browser cross-site context that somehow arrives without an Origin', async () => {
+    const handler = load('parse-intake');
+    for (const site of ['cross-site', 'same-site']) {
+      const res = mockRes();
+      await handler(
+        mockReq({ text: 'x' }, { headers: { origin: undefined, 'sec-fetch-site': site } }),
+        res,
+      );
+      expect(res.json()).toMatchObject({ status: 403, body: { error: 'FORBIDDEN_ORIGIN' } });
+    }
+  });
+
+  it('allows a same-origin browser context without an Origin header', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(
+      mockReq({ text: 'x' }, { headers: { origin: undefined, 'sec-fetch-site': 'same-origin' } }),
+      res,
+    );
+    expect(res.json().status).toBe(200);
+  });
+
+  it('rejects an Origin that is not a valid URL', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(mockReq({ text: 'x' }, { headers: { origin: 'not-a-url' } }), res);
+    expect(res.json()).toMatchObject({ status: 403, body: { error: 'FORBIDDEN_ORIGIN' } });
+  });
+
+  it('rejects a protocol-downgraded origin behind the platform proxy', async () => {
+    const handler = load('parse-intake');
+    const res = mockRes();
+    await handler(
+      mockReq(
+        { text: 'x' },
+        { headers: { origin: 'http://utsav.example', 'x-forwarded-proto': 'https' } },
+      ),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 403, body: { error: 'FORBIDDEN_ORIGIN' } });
+  });
+
+  it('rate-limits by the platform IP even when the client spoofs x-forwarded-for', async () => {
+    const handler = load('suggest-ideas');
+    const payload = { occasion: 'wedding', vibe: 'pastel', guests: 120 };
+    for (let i = 0; i < 20; i += 1) {
+      const res = mockRes();
+      await handler(
+        mockReq(payload, {
+          headers: { 'x-vercel-forwarded-for': '203.0.113.7', 'x-forwarded-for': `9.9.${i}.1` },
+        }),
+        res,
+      );
+      expect(res.json().status).toBe(200);
+    }
+    const res = mockRes();
+    await handler(
+      mockReq(payload, {
+        headers: { 'x-vercel-forwarded-for': '203.0.113.7', 'x-forwarded-for': '9.9.99.9' },
+      }),
+      res,
+    );
+    // The rotating spoofed IPs never created fresh buckets: the platform IP was limited.
+    expect(res.json().status).toBe(429);
+  });
+
+  it('keeps the rate-limit bucket map bounded under an IP-rotation flood', async () => {
+    const handler = load('parse-intake');
+    for (let i = 0; i < 5200; i += 1) {
+      const res = mockRes();
+      await handler(
+        mockReq(undefined, {
+          headers: {
+            'x-vercel-forwarded-for': `198.51.100.${i % 256}.${Math.floor(i / 256) % 64}`,
+          },
+        }),
+        res,
+      );
+    }
+    // After the flood, a normal client is still tracked and still limited — pruning
+    // never disabled the limiter.
+    let last = 0;
+    for (let i = 0; i < 21; i += 1) {
+      const res = mockRes();
+      await handler(
+        mockReq({ text: 'x' }, { headers: { 'x-vercel-forwarded-for': '203.0.113.99' } }),
+        res,
+      );
+      last = res.json().status;
+    }
+    expect(last).toBe(429);
+  });
+
   it('falls back to the built-in planner when no key is set (AI-down path)', async () => {
     const handler = load('parse-intake');
     const res = mockRes();

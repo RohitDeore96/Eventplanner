@@ -11,6 +11,8 @@ import '../../src/schemas/zodRuntime.js';
 const BODY_LIMIT_BYTES = 8 * 1024;
 const RATE_LIMIT_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+/** Upper bound on tracked IPs per instance: memory stays bounded even under IP spoofing. */
+const MAX_IP_BUCKETS = 5_000;
 const AI_TIMEOUT_MS = 15_000;
 
 export type ApiRequest = IncomingMessage & { body?: unknown };
@@ -36,6 +38,15 @@ interface RateState {
 }
 
 function clientIp(req: ApiRequest): string {
+  // `x-vercel-forwarded-for` is injected by the platform from the real connection and
+  // cannot be written by the client; a client-supplied `x-forwarded-for` is prepended to
+  // the platform value on Vercel, so its leftmost entry is attacker-chosen. It is only
+  // read where no platform header exists (the local dev bridge), where spoofing is
+  // irrelevant; the socket address is the last resort.
+  const vercel = req.headers['x-vercel-forwarded-for'];
+  if (typeof vercel === 'string' && vercel.length > 0) {
+    return vercel.split(',')[0]?.trim() ?? 'unknown';
+  }
   const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length > 0) {
     return forwarded.split(',')[0]?.trim() ?? 'unknown';
@@ -55,6 +66,23 @@ function isRateLimited(ip: string, now: number): boolean {
   return false;
 }
 
+/**
+ * Keeps the bucket map bounded: an attacker rotating spoofed IPs must not grow instance
+ * memory without limit. Runs only when the map is full (amortised O(1) per request):
+ * first drop expired windows, then evict the oldest-inserted buckets until there is room.
+ */
+function pruneBuckets(now: number): void {
+  if (buckets.size < MAX_IP_BUCKETS) return;
+  for (const [ip, bucket] of buckets) {
+    if (bucket.hits.every((time) => now - time >= RATE_LIMIT_WINDOW_MS)) buckets.delete(ip);
+    if (buckets.size < MAX_IP_BUCKETS) return;
+  }
+  for (const ip of buckets.keys()) {
+    buckets.delete(ip);
+    if (buckets.size < MAX_IP_BUCKETS) return;
+  }
+}
+
 function sendJson(res: ApiResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -66,16 +94,40 @@ function sendError(res: ApiResponse, status: number, code: string): void {
   sendJson(res, status, { error: code });
 }
 
+/**
+ * Same-origin policy, tuned to how browsers actually behave:
+ * - Every browser attaches `Origin` to a POST (same-origin included), so a present Origin
+ *   must match the Host — and, when the platform reports the scheme, its protocol too.
+ * - A POST *without* Origin is not a browser cross-site request (browsers cannot suppress
+ *   it), so the deciding signal is `Sec-Fetch-Site`, which browsers always send and
+ *   scripts cannot forge: 'cross-site'/'same-site' without an Origin is rejected, while a
+ *   request with neither header is non-browser tooling (the local dev bridge, the owner's
+ *   live smoke test) and cannot be the victim of CSRF. CSRF-relevant browsers are fully
+ *   covered by the first rule; deterministic validation and rate limits stay the real
+ *   boundary for everything else.
+ */
 function sameOrigin(req: ApiRequest): boolean {
   const origin = req.headers.origin;
-  if (origin === undefined) return true; // same-origin fetches may omit Origin in some runtimes
+  if (origin === undefined) {
+    const fetchSite = req.headers['sec-fetch-site'];
+    return fetchSite !== 'cross-site' && fetchSite !== 'same-site';
+  }
   const host = req.headers.host;
   if (typeof host !== 'string') return false;
+  let parsed: URL;
   try {
-    return new URL(origin).host === host;
+    parsed = new URL(origin);
   } catch {
     return false;
   }
+  if (parsed.host !== host) return false;
+  // Behind the platform proxy the real scheme arrives in `x-forwarded-proto`; an origin
+  // that downgrades it (http:// on an https site) is not a legitimate browser request.
+  const proto = req.headers['x-forwarded-proto'];
+  if (typeof proto === 'string' && proto.length > 0) {
+    return parsed.protocol === `${proto.split(',')[0]?.trim() ?? 'https'}:`;
+  }
+  return true;
 }
 
 function readBody(req: ApiRequest): Promise<string | null> {
@@ -151,7 +203,9 @@ export function createHandler<T>(config: RouteConfig<T>) {
       sendError(res, 415, 'UNSUPPORTED_MEDIA_TYPE');
       return;
     }
-    if (isRateLimited(clientIp(req), Date.now())) {
+    const now = Date.now();
+    pruneBuckets(now);
+    if (isRateLimited(clientIp(req), now)) {
       sendError(res, 429, 'RATE_LIMITED');
       return;
     }
