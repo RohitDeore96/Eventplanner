@@ -232,3 +232,69 @@ profile (54 journey runs include the Pixel 7 profile).
   storage cap (deliberate: archiving is not deletion).
 - The run sheet print layout is verified via Playwright print-media emulation, not on
   physical paper.
+
+---
+
+## 2026-10-31 — Phase 3: competition readiness, accessibility evidence, AI usefulness, testing
+
+Prerequisite gate first: the full check suite (then 632 tests) and all 54 browser journeys
+were re-run green at `d117c0f` before any Phase 3 work, and every Phase 2 feature area was
+audited against the phase brief's prerequisite list (`docs/PHASE3_FUNCTIONAL_COMPLETENESS.md`).
+
+### What was built
+
+- **e2e working folder** (user request + brief): `e2e/specs/` (journeys + accessibility +
+  negative + responsive), `e2e/artifacts/` (machine output, gitignored, HTML report
+  sibling-safe), `e2e/evidence/` (committed, machine-generated evidence). `e2e/README.md`
+  documents the policy.
+- **CI trigger defect (P3-1)**: `branches: ain]` meant pushes to `main` never started CI.
+  Fixed; trace upload path moved to the new folder.
+- **Accessibility (M2)**: axe-core scans of every view in light and dark (wcag2a/2aa/21a/
+  21aa/22aa tags) — 0 serious/critical after fixes; dedicated keyboard-only journey; 320 px
+  reflow scan; reduced-motion check. Six real defects found and fixed: 1.3:1 header label
+  contrast, visually-hidden elements widening the page at 320 px, tables not keyboard-
+  focusable, missing `<h1>`, tabs without arrow keys, skip link not moving real focus.
+- **AI usefulness (M1)**: 24-scenario deterministic evaluation across the eight required
+  categories (73 checks, all passing; machine results in `docs/evidence/ai/ai-eval-results.json`);
+  `planFacts()` now carries aggregate dietary counts and RSVP totals (no PII) so the
+  assistant can answer the caterer question; mocked and live evaluation kept strictly
+  separate.
+- **Testing (M4)**: negative/adversarial journeys (over-allocation visibility, malformed AI
+  refused, rapid actions, navigation-away, RSVP/catering step-through), tablet walk with
+  reflow assertion; machine-readable full-run evidence (`e2e/evidence/e2e-results.json`,
+  77 expected / 0 unexpected).
+- **Competitive (M5)**: one-file event summary export — budget overview, category
+  planned/committed/paid/remaining, vendor schedules with PAID/partly/OVERDUE derived from
+  settled expenses, dietary aggregates (never individual guests), top tasks, run sheet,
+  warnings; header button in EN/HI/MR; built purely from `summarize()`.
+- **Docs (M0/M8/PART K)**: problem-alignment matrix, functional-completeness matrix,
+  accessibility report, AI evaluation report, test report, demo script, evidence index,
+  final audit; README badges/sections refreshed; SPEC Phase 3 table added.
+
+### Defects found and fixed while building
+
+| ID   | Defect                                                                  | Severity | Fix                                      |
+| ---- | ----------------------------------------------------------------------- | -------- | ---------------------------------------- |
+| P3-1 | CI `branches: ain]` — main pushes skipped CI                            | P1       | `branches: [main]`                       |
+| P3-2 | Language label 1.3:1 on maroon (axe serious)                            | P1       | `.masthead .muted` uses `--on-maroon`    |
+| P3-3 | `.visually-hidden` absolute offsets widened the page at 320 px (reflow) | P1       | `position: fixed`                        |
+| P3-4 | Scrollable tables not keyboard-focusable                                | P1       | `tabIndex={0}` on all 13 data tables     |
+| P3-5 | No `<h1>`                                                               | P2       | brand name is the page h1                |
+| P3-6 | Tabs not arrow-key operable                                             | P2       | APG arrow/Home/End activation            |
+| P3-7 | Skip link did not move real focus                                       | P2       | `<main tabIndex={-1}>`                   |
+| P3-8 | Assistant facts lacked dietary/RSVP aggregates                          | P2       | added to `planFacts()` (aggregates only) |
+
+### Verification at the end of Phase 3
+
+- `npm run check`: 55 files, **635 tests passed**; coverage 93.69% statements /
+  82.88% branches / 95.82% functions / 95.55% lines.
+- `npm run test:e2e`: **77 passed**, 1 by-design skip (tablet spec under the mobile
+  project), ~78 s — machine evidence in `e2e/evidence/e2e-results.json`.
+- Bundle **115.0/250 KB gz**; repo **1.58/10 MB**; `npm audit` 0; secret scan clean.
+- Live AI smoke: honest SKIP (no key in this environment) — disclosed everywhere it matters.
+
+### Known limitations (honest)
+
+- Production AI behaviour, screen-reader interaction, physical-paper print and a fresh
+  production-deployment check remain unverified here (no key, no SR, no deploy without
+  authorization) — full list in `docs/PHASE3_FINAL_AUDIT.md` §I.

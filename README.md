@@ -8,11 +8,11 @@ One plan for budget, timeline, guests, vendors and payments — where every chan
 everything else, instantly, in the browser. **The AI proposes; the engine disposes.**
 
 [![CI](https://github.com/RohitDeore96/Eventplanner/actions/workflows/ci.yml/badge.svg)](https://github.com/RohitDeore96/Eventplanner/actions)
-![Tests](https://img.shields.io/badge/tests-517%20unit%20%C2%B7%2042%20browser-2f6b45)
+![Tests](https://img.shields.io/badge/tests-635%20unit%20%C2%B7%2077%20browser-2f6b45)
 ![Coverage](https://img.shields.io/badge/coverage-95%25%20lines%20enforced-2f6b45)
-![a11y](https://img.shields.io/badge/axe-0%20violations%20%C2%B7%20light%20%26%20dark-2f6b45)
+![a11y](https://img.shields.io/badge/axe-0%20serious%20%C2%B7%20every%20view%20%C2%B7%20both%20themes-2f6b45)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict%20%2B%20noUncheckedIndexedAccess-3178c6)
-![Bundle](https://img.shields.io/badge/first%20load-~103%20KB%20gzipped-5e2750)
+![Bundle](https://img.shields.io/badge/first%20load-~115%20KB%20gzipped-5e2750)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **[🌐 Live app — verified](https://eventplanner-mocha.vercel.app/)** · MIT license · built for PromptWars Virtual, Challenge 5: Celebration & Event Planner
@@ -329,12 +329,18 @@ guarded, labelled and reversible.
   step, persisted across reloads.
 - **See it before you build it.** A one-click demo event — a full wedding with vendors,
   instalments, expenses, RSVPs and an overdue payment — populates every screen instantly.
-- **Proof over promises.** 517 automated unit/integration tests plus 42 real-browser
+- **Proof over promises.** 635 automated unit/integration tests plus 77 real-browser
   Playwright journey runs (21 journeys × desktop and mobile profiles, on the production
   build), enforced coverage gates, generated metrics, a strict CSP, and honest "not done
   yet" notes throughout the docs.
 
 ## ✅ Quality
+
+**For evaluators:** the evidence trail is indexed in
+[docs/PHASE3_EVIDENCE_INDEX.md](docs/PHASE3_EVIDENCE_INDEX.md) — problem-alignment matrix,
+functional-completeness matrix, accessibility report, 24-scenario AI evaluation, the full
+test report and a repeatable 15-minute demo ([docs/DEMO.md](docs/DEMO.md)). The final
+audit is [docs/PHASE3_FINAL_AUDIT.md](docs/PHASE3_FINAL_AUDIT.md).
 
 ### Code quality
 
@@ -346,7 +352,7 @@ guarded, labelled and reversible.
   fails on unused files and exports.
 - Every new dependency needs a one-line justification in [docs/DECISIONS.md](docs/DECISIONS.md).
 
-### Testing: 517 automated tests + 42 real-browser journey runs
+### Testing: 635 automated tests + 77 real-browser journey runs
 
 `npm run check` = format + lint + types + architecture + unused code + tests with enforced
 coverage thresholds (95% lines / 94% statements / 94% functions / 83% branches — a ratchet
@@ -376,13 +382,20 @@ the real provider against every response schema when a key is configured.
 - `docs/METRICS.md` is **generated from real runs** (`node scripts/gen-metrics.mjs`) —
   nothing there is typed by hand, and every check it reports is one of the gates CI runs.
 
-### ♿ Accessibility (WCAG 2.1 AA)
+### ♿ Accessibility (WCAG 2.2 AA as the engineering target)
 
 Skip link, landmarks, labelled inputs, error alerts wired to fields, visible focus rings,
 44 px touch targets, `aria-live` for statuses and AI results, status always **text + icon
 (never colour alone)**, tables with `th scope`, labelled progress bars, light/dark token
 contrast enforced by test, `prefers-reduced-motion` / `prefers-contrast` / forced-colours
-support. **Not yet tested with real screen readers** — stated honestly.
+support. Phase 3 added **browser-level evidence**: axe-core scans of every view in light
+AND dark themes (0 serious/critical), a dedicated keyboard-only journey (skip link, form
+completion, arrow-key tabs, no traps, visible focus, keyboard-operable destructive
+confirm), a 320 px reflow scan, and a reduced-motion check — all in
+[e2e/specs/accessibility.spec.ts](e2e/specs/accessibility.spec.ts), reported in
+[docs/ACCESSIBILITY_REPORT.md](docs/ACCESSIBILITY_REPORT.md) with machine-readable
+results and screenshots in `e2e/evidence/accessibility/`. **Not yet tested with real
+screen readers** — stated honestly.
 
 ## 🔒 Security
 
@@ -404,9 +417,10 @@ Residual risks and the full threat model: [SECURITY.md](SECURITY.md).
 - Accessibility is tested with axe in jsdom and token math — not yet with real screen readers.
 - The quote reader depends on what the pasted text says; unstated fields stay empty on purpose.
 - Share links are not built. Scenario comparison and the full stress test are in the UI
-  (Budget → What-if scenarios); printing a summary is on the roadmap.
-- The keyboard-only walk is covered at component level and inside the differentiators
-  journey (focus + Enter on mobile), but not yet as a dedicated keyboard-only Playwright run.
+  (Budget → What-if scenarios); a one-file event summary export (budget, vendor payment
+  states, dietary aggregates, run sheet, warnings) is in the header — "Event summary".
+- The keyboard-only walk is now a dedicated Playwright journey (accessibility.spec.ts);
+  what remains open is a pass with an actual screen reader (NVDA/VoiceOver).
 - Hindi/Marathi covers the app chrome (tabs, header controls, readiness, skip link);
   forms and per-view copy stay English for now — a missing label falls back to English,
   never to an empty string.

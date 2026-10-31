@@ -9,3 +9,6 @@ test-results/
 .vercel
 
 docs/evidence/
+e2e/evidence/
+docs/evidence/
+e2e/artifacts/
