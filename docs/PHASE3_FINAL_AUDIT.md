@@ -67,10 +67,11 @@ points at something that runs or exists in the repository. Written 2026-10-31.
   the eight scorecard dimensions (safety, groundedness, correctness, context awareness,
   actionability, personalization, relevance, clarity). This measures Utsav's
   validation/grounding layer, not a live model's fluency.
-- Mocked vs live: kept strictly separate. Live smoke exists (`npm run smoke:ai`) and
-  **was attempted on 2026-10-31 with a real key: the provider refused every call from this
-  environment (location restriction)**; nothing here describes mocked runs as
-  live. See `docs/evidence/ai/live-smoke-2026-10-31.txt`.
+- Mocked vs live: kept strictly separate. Live smoke exists (`npm run smoke:ai`);
+  on 2026-10-31 it **PASSED in a live run from the deployment owner's machine in a
+  supported region** (chain failover 429/503 → gemini-3.5-flash-lite, money contract
+  held); a same-day sandbox attempt FAILED on the provider's location restriction.
+  Nothing here describes mocked runs as live. See `docs/evidence/ai/live-smoke-2026-10-31.txt`.
 - Failure handling: typed notices, built-in fallbacks that answer from the plan's own
   numbers, model-chain fallbacks (tested), rate-limit/timeout paths (tested).
 
@@ -137,12 +138,12 @@ or files.
 - Latest production build: verified locally (build + preview + 77 E2E + bundle budget).
 - Required API configuration: `GEMINI_API_KEY` server-side only (documented in
   `.env.example`; the app degrades honestly without it — nothing else to configure).
-- Live AI requests: **not verified** — mocked paths and schemas
-  verified; the live smoke was attempted on 2026-10-31 with a real key and the provider
-  refused every call from that environment (location restriction), see
-  `docs/evidence/ai/live-smoke-2026-10-31.txt`. The owner also reported a manual live
-  check on 2026-10-31 with no committed log, so it is owner-reported and not
-  independently verified. See `FINAL_DOCUMENTATION_AUDIT.md`.
+- Live AI requests: **verified by a recorded live run** — mocked paths and schemas
+  verified, and on 2026-10-31 the live smoke PASSED from the deployment owner's machine
+  in a supported region (chain failover to gemini-3.5-flash-lite observed; money contract
+  held); verbatim output in `docs/evidence/ai/live-smoke-2026-10-31.txt`. The run was
+  owner-executed, not re-executed by an independent party — production behaviour can
+  still differ with quota or model availability and degrades via the tested fallbacks.
 - Deployment ready: `vercel.json` reviewed (build, headers incl. strict CSP/HSTS,
   function config); the six serverless routes are guarded and their compiled-ESM import
   bug was already fixed in Phase 1 (verified via local Vercel build then).
@@ -153,10 +154,10 @@ or files.
 
 ## I. Final limitations
 
-1. Live AI behaviour in production: unverified — the opt-in smoke was attempted on
-   2026-10-31 with a real key and the provider refused every call from that environment
-   (location restriction); it exists and documents exactly what to run from a supported
-   region.
+1. Live AI behaviour in production: evidenced by a committed verbatim live run
+   (2026-10-31, owner machine in a supported region — the smoke PASSED with live chain
+   failover), but not re-executed by an independent party; production can differ with
+   quota or model availability and degrades via the tested fallbacks.
 2. Screen-reader interaction: untested (no SR available); structure verified by axe only.
 3. Original challenge statement: not independently available; alignment derived from the
    project's own requirement records (disclosed at the top of the alignment document).

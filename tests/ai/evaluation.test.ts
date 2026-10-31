@@ -735,7 +735,7 @@ describe('AI usefulness evaluation (deterministic, mocked model fixtures)', () =
       evaluationKind: 'deterministic-mocked-fixtures (offline; NOT a live-model run)',
       liveModelRun: false,
       liveModelNote:
-        'Live-provider behaviour is validated separately by npm run smoke:ai (opt-in, requires GEMINI_API_KEY). It was not run in this environment; no key is configured.',
+        "This file records the mocked evaluation only. Live-provider behaviour was validated separately: npm run smoke:ai PASSED on 2026-10-31 from the deployment owner's machine in a supported region (answered by gemini-3.5-flash-lite after live chain failover); verbatim record: docs/evidence/ai/live-smoke-2026-10-31.txt.",
       totals: {
         scenarios: totalScenarios,
         scenariosFailed: failedScenarios,

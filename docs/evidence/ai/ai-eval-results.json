@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-31T15:08:50.199Z",
+  "generatedAt": "2026-10-31T16:43:39.531Z",
   "evaluationKind": "deterministic-mocked-fixtures (offline; NOT a live-model run)",
   "liveModelRun": false,
-  "liveModelNote": "Live-provider behaviour is validated separately by npm run smoke:ai (opt-in, requires GEMINI_API_KEY). It was not run in this environment; no key is configured.",
+  "liveModelNote": "This file records the mocked evaluation only. Live-provider behaviour was validated separately: npm run smoke:ai PASSED on 2026-10-31 from the deployment owner's machine in a supported region (answered by gemini-3.5-flash-lite after live chain failover); verbatim record: docs/evidence/ai/live-smoke-2026-10-31.txt.",
   "totals": {
     "scenarios": 24,
     "scenariosFailed": 0,

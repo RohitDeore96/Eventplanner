@@ -109,7 +109,7 @@ are reported exactly as produced — nothing was edited, rounded or invented.
 | 2   | `npm run test:e2e`                                                    | first attempt: 78 failed — the recycled sandbox had no Playwright browser executable (`chromium_headless_shell-1248` missing); recorded as an environment finding, not a product defect. After `npx playwright install chromium` (environment setup only, no repo file changed): **77 passed, 0 failed, 1 skipped by design** | console output only                                                                                                                 |
 | 3   | `npx playwright test --reporter=json > e2e/evidence/e2e-results.json` | pass (exit 0): `stats` = 77 expected, 0 unexpected, 1 skipped, 0 flaky                                                                                                                                                                                                                                                        | [e2e-results.json](../e2e/evidence/e2e-results.json)                                                                                |
 | 4   | `node scripts/gen-metrics.mjs`                                        | pass (exit 0): regenerated from the runs above                                                                                                                                                                                                                                                                                | [METRICS.md](METRICS.md)                                                                                                            |
-| 5   | Live AI smoke (`npm run smoke:ai`)                                    | **FAILED (environment, not faked): run attempted with a real key; the provider refused every live call from this egress region (400 FAILED_PRECONDITION, location restriction); routes fell back to built-in as designed**                                                                                        | [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt)                                                                  |
+| 5   | Live AI smoke (`npm run smoke:ai`)                                    | **PASSED — deployment owner's machine, supported region (2026-10-31): all four routes answered live, chain failover 429/503 → gemini-3.5-flash-lite observed, money contract held; a same-day sandbox attempt FAILED on the provider's location restriction — both verbatim, not faked**                                      | [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt)                                                                  |
 
 Documentation synced in this pass: README and [METRICS.md](METRICS.md) now carry the
 2026-10-31 generated values (674 tests / 58 files, 96.26/94.37/96.61/83.77 coverage,
@@ -117,14 +117,15 @@ Documentation synced in this pass: README and [METRICS.md](METRICS.md) now carry
 [PHASE3_FINAL_AUDIT.md](PHASE3_FINAL_AUDIT.md) and
 [FINAL_DOCUMENTATION_AUDIT.md](FINAL_DOCUMENTATION_AUDIT.md) carry a
 "Phase 3 snapshot, 2026-10-31" label next to their historical counts; the README
-limitations row and [AI_EVALUATION.md](AI_EVALUATION.md) cite the live-smoke record, and
-live AI behaviour stays **not independently verified**.
+limitations row and [AI_EVALUATION.md](AI_EVALUATION.md) cite the live-smoke record. The
+sandbox's location restriction stopped applying once the same command was run on the
+owner's machine in a supported region: the live smoke **PASSED** the same day and the
+item is closed (row 5 above).
 
 ### OPEN items (cannot be done in this environment — none are marked done)
 
 | Item                         | What is needed to close it                                                                                         |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Live AI smoke                | Run `npm run smoke:ai` with a server-side key from a region the provider supports; record verbatim output. Attempted 2026-10-31 from this environment: provider refused every call (location restriction) — see [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt) |
 | Screen-reader test           | A human operator running NVDA or VoiceOver against the real UI on a desktop OS; results recorded as a dated report |
 | CI run link                  | A push to GitHub so Actions executes; then the URL of the green run for `ci.yml`, quoted here                      |
 | Production check             | A deployed URL (e.g. Vercel preview/production) with the live endpoints exercised and the responses recorded       |

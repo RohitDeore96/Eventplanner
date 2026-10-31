@@ -2,18 +2,19 @@
 
 What the AI features promise, how that is measured, and what the measurements say.
 Everything here distinguishes **mocked** evaluation (deterministic, offline, runs in CI)
-from **live** evaluation (needs a provider key; not recorded in the committed evidence).
+from **live** evaluation (needs a provider key; recorded for 2026-10-31 in
+[live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt)).
 
 ## Evaluation at a glance
 
-| Item                    | Value                                                                                                                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Evaluation type         | **Deterministic mocked fixtures.** Offline, runs in CI. **Not** a live-model run                                                                                              |
-| Scenarios               | 24 across 8 categories                                                                                                                                                        |
-| Checks                  | 74 (authoritative source: `docs/evidence/ai/ai-eval-results.json`, `totals.checks`)                                                                                           |
-| Failed                  | 0 scenarios, 0 checks                                                                                                                                                         |
-| Scorecard               | 5/5 on all eight dimensions, measuring the validation, safety, grounding and context contracts                                                                                |
-| Live-model verification | **Attempted 2026-10-31 with a real key; FAILED — provider refused every call from this environment (location restriction)**: record at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); live behaviour remains **not independently verified** |
+| Item                    | Value                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Evaluation type         | **Deterministic mocked fixtures.** Offline, runs in CI. **Not** a live-model run                                                                                                                                                                                                                                                            |
+| Scenarios               | 24 across 8 categories                                                                                                                                                                                                                                                                                                                      |
+| Checks                  | 74 (authoritative source: `docs/evidence/ai/ai-eval-results.json`, `totals.checks`)                                                                                                                                                                                                                                                         |
+| Failed                  | 0 scenarios, 0 checks                                                                                                                                                                                                                                                                                                                       |
+| Scorecard               | 5/5 on all eight dimensions, measuring the validation, safety, grounding and context contracts                                                                                                                                                                                                                                              |
+| Live-model verification | **PASSED 2026-10-31 — live run from the deployment owner's machine in a supported region (answered by `gemini-3.5-flash-lite` after live chain failover)**: record at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); a same-day sandbox attempt FAILED on the provider's location restriction — both recorded verbatim |
 
 The 5/5 scorecard is a statement about Utsav's own validation layer under recorded fixtures.
 It is not a rating of a live model's fluency, accuracy or tone.
@@ -97,24 +98,22 @@ actionability, personalization, relevance, clarity). This measures Utsav's valid
 conversion and grounding layer — deliberately _not_ a live model's fluency. No scenario
 failed; there are no failure categories to report.
 
-## Live-model evaluation (separate, honestly reported)
+## Live-model evaluation (recorded, honestly scoped)
 
 - The opt-in smoke `npm run smoke:ai` verifies the real provider accepts every response
-  schema. **It was run on 2026-10-31 with a real key and FAILED**: the provider refused
-  every live call from that environment with `FAILED_PRECONDITION: User location is not
-  supported` on every model in the chain, so the routes fell back to the built-in planner.
-  The verbatim output and diagnosis are in
-  [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt); nothing was faked.
-  The failure is environmental (the sandbox's egress region), not a code defect: the same
-  run incidentally proved the honest-degradation path works against a refusing provider.
+  schema. **It PASSED on 2026-10-31** in a live run from the deployment owner's machine
+  in a supported region: all four routes answered 200 from the live model — after a
+  genuinely observed chain failover (gemini-3.6-flash → 429, gemini-3.8-flash → 503,
+  gemini-3.5-flash-lite answered every case) — and every money check held. The verbatim
+  output is committed at [live-smoke-2026-10-31.txt](evidence/ai/live-smoke-2026-10-31.txt),
+  together with the same-day sandbox attempt that FAILED on the provider's location
+  restriction; nothing was faked.
 - Mocked route tests (`tests/api/routes.test.ts`) cover model-chain fallbacks with a
-  scripted model; they are not live calls and are never described as such.
-- The deployment owner reports a manual live check of the AI on 2026-10-31. No output,
-  log or screenshot from that check is committed, so it is recorded here as
-  **owner-reported and not independently verified**.
-- Production AI behaviour is therefore not independently verified by the committed
-  evidence; this is listed in the final audit's limitations rather than hidden.
-- To close the item, run `GEMINI_API_KEY=... npm run smoke:ai` from a region the provider
-  supports and record the verbatim pass/fail output (never the key) in the live-smoke
-  record with the date and the model that answered. It cannot be closed from the
-  environment that produced the 2026-10-31 record.
+  scripted model; they remain mocked and are never described as live. The recorded run
+  above now additionally demonstrates that failover against the real provider.
+- The live run was executed by the deployment owner, not an independent party; the
+  output is committed verbatim and unedited. The earlier unlogged manual check is
+  superseded by this record.
+- Production runtime can still differ (quota, region, model availability); in those
+  cases the route behaves as tested: graceful built-in fallback or typed 504/502,
+  never a wrong answer.

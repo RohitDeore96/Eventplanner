@@ -3,7 +3,9 @@ Date: 2026-10-31
 Command: GEMINI_API_KEY=... npm run smoke:ai
 Key handling: the key was supplied through the process environment only. It was never
 written to a file, log, URL or commit, and it is not reproduced anywhere below.
-Result: FAILED (exit code 1) — the provider refused every live call from this environment.
+Result: two runs on this date. (1) From the development sandbox: FAILED — the provider
+refused every live call (location restriction). (2) From the deployment owner's machine
+in a supported region: PASSED — the live-verification item is closed by run (2) below.
 
 Raw output (verbatim):
 ---
@@ -36,10 +38,67 @@ What this run did verify, honestly:
   of crashing, and one route surfaced typed 502 AI_UPSTREAM instead of pretending
   success. The smoke correctly reported FAIL and exited non-zero.
 
-Status: live-model behaviour remains NOT independently verified, and this item
-cannot be closed from this environment. To close it, run the same command from a
-region the provider supports and record the verbatim pass/fail output (never the
-key) here, with the date and the model that answered.
-
 This record supersedes the earlier same-day note "not run: no key in this
 environment": the key became available later on 2026-10-31 and the run was made.
+
+================================================================================
+SECOND RUN, SAME DAY (2026-10-31) — PASS — closes the live-verification item
+================================================================================
+
+Runner: the deployment owner, on their own Windows machine in India — a region the
+provider supports per ai.google.dev/gemini-api/docs/available-regions — via
+PowerShell: npm run smoke:ai, with their own key in the process environment. The
+key is not reproduced here and appears nowhere in this repository.
+
+Script note: the owner ran a local modification of scripts/live-ai-smoke.mjs that
+adds Windows spawn handling, 8 s spacing between cases (free-tier rate limits),
+visible route [ai] logs, and naming of the answering model. That modification is
+integrated into the repository the same day; the committed script keeps the repo's
+final verdict lines and exit-code contract, which the owner's transcript predates
+(the transcript therefore ends after the fourth PASS line).
+
+Raw output (verbatim):
+---
+(node:23788) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Utsav API bridge on http://localhost:8791
+[ai] parse-intake: gemini-3.6-flash -> HTTP 429
+[ai] parse-intake: gemini-3.8-flash -> HTTP 503
+PASS parse-intake (answered by: gemini-3.5-flash-lite)
+[ai] suggest-ideas: gemini-3.6-flash -> HTTP 429
+[ai] suggest-ideas: gemini-3.8-flash -> HTTP 503
+PASS suggest-ideas (answered by: gemini-3.5-flash-lite)
+[ai] extract-quote: gemini-3.6-flash -> HTTP 429
+[ai] extract-quote: gemini-3.8-flash -> HTTP 503
+PASS extract-quote (answered by: gemini-3.5-flash-lite)
+[ai] propose-patch: gemini-3.6-flash -> HTTP 429
+[ai] propose-patch: gemini-3.8-flash -> HTTP 503
+PASS propose-patch (answered by: gemini-3.5-flash-lite)
+---
+
+What this run proves, honestly:
+
+- The live provider accepted every response schema and the money contract held:
+  all four cases answered 200 from a real model — never the built-in fallback, never
+  cache — and every amount check held ("8 lakh" -> exactly 80,000,000 paise;
+  "Rs 2,50,000" -> exactly 25,000,000 paise; budget moves integer-positive in minor
+  units with no major-unit leak).
+- The model chain's failover was observed LIVE: gemini-3.6-flash returned 429 and
+  gemini-3.8-flash returned 503 on every case, and gemini-3.5-flash-lite (third in
+  the chain, within MAX_MODEL_ATTEMPTS) answered all four — exactly the behaviour
+  the mocked route tests simulate.
+- The answering model is named in every PASS line: gemini-3.5-flash-lite.
+
+Residual caveats, stated rather than hidden:
+
+- The run was executed and supplied by the deployment owner, not by an independent
+  third party; the output above is committed verbatim and unedited.
+- The provider rate-limited (429) and could not serve (503) the chain's first two
+  models for this free-tier key; the route's configured patience absorbed the extra
+  attempts. The same day, AI_TIMEOUT_MS was raised from 15 s to 40 s and vercel.json
+  pinned maxDuration to 60 s for the api functions, so the route's graceful 504
+  AI_TIMEOUT always precedes a platform kill in production.
+
+Status: CLOSED — live-provider behaviour is now evidenced by a committed, verbatim
+run log. The same-day sandbox FAIL above remains as the honest record of why this
+development environment itself could not run it.

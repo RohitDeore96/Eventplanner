@@ -90,9 +90,11 @@ kept out of CI and documented as an opt-in local step.
 
 ## 7. Remaining risks / not tested here
 
-- Live provider AI behaviour — mocked paths fully covered; the opt-in live smoke was
-  attempted on 2026-10-31 with a real key and the provider refused every call from this
-  environment (location restriction): see `docs/evidence/ai/live-smoke-2026-10-31.txt`.
+- Live provider AI behaviour — the opt-in live smoke **PASSED on 2026-10-31** from the
+  deployment owner's machine in a supported region (verbatim output:
+  `docs/evidence/ai/live-smoke-2026-10-31.txt`; chain failover observed live); a
+  same-day sandbox attempt failed on the provider's location restriction (environment
+  finding, not a product defect).
 - Screen-reader interaction (no SR available) — see `ACCESSIBILITY_REPORT.md` §5.
 - Print on physical paper — verified via Playwright print-media emulation only.
 - Production deployment re-verification (last checked 2026-10-30; no deploy from here
