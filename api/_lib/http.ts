@@ -13,7 +13,14 @@ const RATE_LIMIT_REQUESTS = 20;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 /** Upper bound on tracked IPs per instance: memory stays bounded even under IP spoofing. */
 const MAX_IP_BUCKETS = 5_000;
-const AI_TIMEOUT_MS = 15_000;
+/**
+ * Patience for one live model answer (chain attempts included). Keep this within the
+ * deployment's Vercel function duration: vercel.json pins maxDuration 60 for the api
+ * functions, so the route's own graceful 504 AI_TIMEOUT always fires before the
+ * platform would kill the function. Live chain failover (e.g. a 429/503 model pair
+ * before a lite model answers) needs this headroom on free-tier keys.
+ */
+const AI_TIMEOUT_MS = 40_000;
 
 export type ApiRequest = IncomingMessage & { body?: unknown };
 export type ApiResponse = ServerResponse;

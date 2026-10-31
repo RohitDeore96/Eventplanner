@@ -559,7 +559,9 @@ describe('API routes: with a mocked AI endpoint', () => {
         mockReq({ instruction: 'add tasks', facts: 'Budget: ok', today: '2026-10-30' }),
         res,
       );
-      await vi.advanceTimersByTimeAsync(15_000);
+      // Fire whatever AI_TIMEOUT_MS the route currently uses — this test asserts the
+      // abort→504 mapping, not the constant's value, so it survives timeout tuning.
+      await vi.runAllTimersAsync();
       await pending;
       expect(res.json()).toMatchObject({ status: 504, body: { error: 'AI_TIMEOUT' } });
     } finally {
