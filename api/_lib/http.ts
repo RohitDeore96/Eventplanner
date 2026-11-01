@@ -2,11 +2,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
 import '../../src/schemas/zodRuntime.js';
 import { clientIp, isRateLimited, pruneBuckets } from './rateLimit.js';
+import { isJsonContentType } from './mediaType.js';
 
 /**
  * Route plumbing shared by every endpoint: method allow-list, content-type, same-origin,
  * body-size cap, schema validation, per-IP rate limit (rateLimit.ts), timeout and safe
- * errors. Handlers stay thin: guard, validate, run, validate, respond.
+ * errors. Handlers stay thin: guard, validate, run, validate, respond. Run failures are
+ * mapped through the typed `ApiError` / `runErrorResponse` seam below, so external
+ * response shapes never depend on message strings surviving a refactor.
  */
 
 const BODY_LIMIT_BYTES = 8 * 1024;
@@ -43,6 +46,50 @@ function sendJson(res: ApiResponse, status: number, body: unknown): void {
 
 function sendError(res: ApiResponse, status: number, code: string): void {
   sendJson(res, status, { error: code });
+}
+
+/**
+ * A typed internal failure: a layer throws this instead of encoding the outcome in a
+ * bare message string, and the guard maps it straight to its safe external response.
+ * Adopted at the guard seam first; the AI layer's plain-Error codes keep working through
+ * `runErrorResponse`'s legacy branch, so adoption can proceed one throw site at a time.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  constructor(status: number, code: string, cause?: unknown) {
+    super(code, cause === undefined ? undefined : { cause });
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/**
+ * Maps a thrown run failure to the response the client may see. Pure and unit-tested.
+ * A typed `ApiError` passes through; plain-Error message codes from the AI layer keep
+ * their exact legacy status/code; anything unknown stays a bare 500 INTERNAL_ERROR.
+ * No message text, stack, provider detail or user data ever reaches the client.
+ */
+export function runErrorResponse(error: unknown): { status: number; code: string } {
+  if (error instanceof ApiError) return { status: error.status, code: error.code };
+  const message = error instanceof Error ? error.message : '';
+  const legacyCodes: readonly (readonly [string, number, string])[] = [
+    ['AI_DAILY_CAP', 429, 'AI_DAILY_CAP'],
+    ['AI_UNAVAILABLE', 503, 'AI_UNAVAILABLE'],
+    ['AI_RESPONSE_INVALID', 502, 'AI_RESPONSE_INVALID'],
+  ];
+  for (const [marker, status, code] of legacyCodes) {
+    if (message === marker) return { status, code };
+  }
+  if (message.startsWith('AI_HTTP_')) return { status: 502, code: 'AI_UPSTREAM' };
+  return { status: 500, code: 'INTERNAL_ERROR' };
+}
+
+/** Maps typed failures from the AI layer to safe status codes. Never leaks user text. */
+function sendRunError(res: ApiResponse, error: unknown): void {
+  const { status, code } = runErrorResponse(error);
+  sendError(res, status, code);
 }
 
 /**
@@ -113,32 +160,6 @@ function readRawBody(req: ApiRequest): Promise<string | null> {
     : Promise.resolve(typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
 }
 
-/** Maps typed failures from the AI layer to safe status codes. Never leaks user text. */
-function sendRunError(res: ApiResponse, error: unknown): void {
-  const message = error instanceof Error ? error.message : '';
-  const status =
-    message === 'AI_DAILY_CAP'
-      ? 429
-      : message === 'AI_UNAVAILABLE'
-        ? 503
-        : message === 'AI_RESPONSE_INVALID'
-          ? 502
-          : message.startsWith('AI_HTTP_')
-            ? 502
-            : 500;
-  const code =
-    status === 429
-      ? 'AI_DAILY_CAP'
-      : status === 503
-        ? 'AI_UNAVAILABLE'
-        : status === 502
-          ? message.startsWith('AI_HTTP_')
-            ? 'AI_UPSTREAM'
-            : 'AI_RESPONSE_INVALID'
-          : 'INTERNAL_ERROR';
-  sendError(res, status, code);
-}
-
 export function createHandler<T>(config: RouteConfig<T>) {
   return async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
     if (req.method !== 'POST') {
@@ -150,7 +171,7 @@ export function createHandler<T>(config: RouteConfig<T>) {
       return;
     }
     const contentType = req.headers['content-type'];
-    if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
+    if (!isJsonContentType(contentType)) {
       sendError(res, 415, 'UNSUPPORTED_MEDIA_TYPE');
       return;
     }

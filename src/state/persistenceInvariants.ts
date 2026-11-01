@@ -1,5 +1,5 @@
 import type { Plan } from '../engine/types';
-import { MAX_YEAR, MIN_YEAR } from '../config/limits';
+import { MAX_EVENTS, MAX_YEAR, MIN_YEAR } from '../config/limits';
 import { currencyExponent } from '../engine/money';
 import { deepPlanSchema } from './persistenceSchemas';
 
@@ -154,9 +154,58 @@ function hasDependencyCycle(tasks: readonly Plan['tasks'][number][]): boolean {
 }
 
 /** Deep-validates one plan; null when the record cannot be trusted. */
-export function validatePlan(raw: unknown): Plan | null {
+function validatePlan(raw: unknown): Plan | null {
   const parsed = deepPlanSchema.safeParse(raw);
   if (!parsed.success) return null;
   const plan = parsed.data as Plan;
   return referencesHold(plan) ? plan : null;
+}
+
+/**
+ * Migrates a stored workspace record to the current shape, running every event through
+ * the full gate above. v2 keeps an array; v1 kept one `plan`; v0 (no marker) had the
+ * same single-plan shape. A saved event that fails validation is dropped on its own —
+ * the rest survive, and the count is reported so the UI can say so. Only ids that
+ * actually exist may stay active or archived. The return type is the workspace shape
+ * persistence.ts wraps; migration never invents data.
+ */
+export function migrate(raw: Record<string, unknown>): {
+  plans: Plan[];
+  activeId: string | null;
+  archivedIds: string[];
+  droppedInvalid: number;
+  recovery: null;
+} {
+  const candidates: readonly unknown[] = Array.isArray(raw.plans)
+    ? (raw.plans as readonly unknown[])
+    : raw.plan !== undefined
+      ? [raw.plan]
+      : [];
+  let dropped = 0;
+  const plans: Plan[] = [];
+  const seenIds = new Set<string>();
+  for (const candidate of candidates) {
+    if (plans.length >= MAX_EVENTS) {
+      dropped += 1;
+      continue;
+    }
+    const plan = validatePlan(candidate);
+    if (plan === null || seenIds.has(plan.id)) {
+      dropped += 1;
+      continue;
+    }
+    seenIds.add(plan.id);
+    plans.push(plan);
+  }
+  const storedActive = typeof raw.activeId === 'string' ? raw.activeId : null;
+  const activeId =
+    storedActive !== null && seenIds.has(storedActive) ? storedActive : (plans[0]?.id ?? null);
+  // Archive list (v3): only ids that actually exist may stay in it.
+  const storedArchives: readonly unknown[] = Array.isArray(raw.archivedIds) ? raw.archivedIds : [];
+  const archivedIds: string[] = [
+    ...new Set(
+      storedArchives.filter((id): id is string => typeof id === 'string' && seenIds.has(id)),
+    ),
+  ];
+  return { plans, activeId, archivedIds, droppedInvalid: dropped, recovery: null };
 }

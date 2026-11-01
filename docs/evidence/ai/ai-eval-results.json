@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T07:14:10.147Z",
+  "generatedAt": "2026-11-01T16:09:02.886Z",
   "evaluationKind": "deterministic-mocked-fixtures (offline; NOT a live-model run)",
   "liveModelRun": false,
   "liveModelNote": "This file records the mocked evaluation only. Live-provider behaviour was validated separately: npm run smoke:ai PASSED on 2026-10-31 from the deployment owner's machine in a supported region (answered by gemini-3.5-flash-lite after live chain failover); verbatim record: docs/evidence/ai/live-smoke-2026-10-31.txt.",

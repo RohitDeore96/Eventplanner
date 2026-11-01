@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   clearSavedPlan,
   loadSavedPlan,
@@ -362,6 +362,74 @@ describe('persistence: recovery information for unusable stored data', () => {
   });
 });
 
+describe('persistence: storage access failures (stage-2 reliability)', () => {
+  /** A Storage that cannot even be read — private mode, blocked storage, corrupted profile. */
+  function inaccessible(): Storage {
+    return {
+      getItem: () => {
+        throw new Error('SecurityError');
+      },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+  }
+
+  it('reports inaccessible storage as unavailable, never as an empty workspace', () => {
+    const workspace = loadWorkspace(inaccessible());
+    expect(workspace.plans).toEqual([]);
+    expect(workspace.recovery).toMatchObject({ reason: 'unavailable', raw: '' });
+    const state = loadSavedState(inaccessible());
+    expect(state.plan).toBeNull();
+    expect(state.recovery?.reason).toBe('unavailable');
+  });
+
+  it('keeps truly empty storage distinct from inaccessible storage', () => {
+    const empty = loadWorkspace(memoryStorage());
+    expect(empty).toMatchObject({ plans: [], activeId: null, droppedInvalid: 0 });
+    expect(empty.recovery).toBeNull();
+  });
+
+  it('reports unsupported non-record JSON (bare values and lists) as unreadable', () => {
+    for (const raw of ['42', '"just a string"', 'true', 'null', '[1,2,3]']) {
+      const state = loadSavedState(memoryStorage({ 'utsav.plans.v1': raw }));
+      expect(state.plan).toBeNull();
+      expect(state.recovery).toMatchObject({ reason: 'unreadable', raw });
+    }
+  });
+
+  it('reports failed migrations and oversized data distinctly, raw text kept', () => {
+    const future = memoryStorage({
+      'utsav.plans.v1': JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, plans: [] }),
+    });
+    expect(loadWorkspace(future).recovery?.reason).toBe('newer_version');
+    const huge = memoryStorage({ 'utsav.plans.v1': 'x'.repeat(400_001) });
+    expect(loadWorkspace(huge).recovery?.reason).toBe('too_large');
+  });
+
+  it('never lets a save escape as an exception when storage refuses writes', () => {
+    const noWrites: Storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+    const status = saveWorkspace([plan], plan.id, [], noWrites);
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('refused');
+    // savePlan reads first (unavailable -> no saved events) then still reports honestly.
+    const upsert = savePlan(plan, noWrites);
+    expect(upsert.ok).toBe(false);
+    expect(upsert.reason).toContain('refused');
+  });
+});
+
 describe('multi-event workspace (R8)', () => {
   const other = makePlan({ id: 'ev2', name: 'Diwali party', budgetMinor: 50_000_000 });
 
@@ -480,5 +548,174 @@ describe('persistence: workspace hardening (Phase 3)', () => {
     expect(ws.droppedInvalid).toBe(2);
     // The stored active id points at a dropped event, so the first survivor becomes active.
     expect(ws.activeId).toBe('ev-cap-0');
+  });
+});
+
+/**
+ * Stage-2 defect A: `savePlan` used to upsert blindly — a workspace the app could not
+ * read (inaccessible storage, malformed JSON, oversized or newer data) was silently
+ * REPLACED by the new plan, destroying whatever was stored. Now the save refuses with a
+ * reason distinct from a write refusal, the stored bytes stay untouched, and a fresh
+ * workspace requires a deliberate recovery action.
+ */
+describe('persistence: savePlan never overwrites a workspace it could not read', () => {
+  /** A browser state some sandboxes produce: reads throw, writes "succeed". */
+  function unreadableButWritable(): { storage: Storage; written: Map<string, string> } {
+    const written = new Map<string, string>();
+    const storage = {
+      getItem: () => {
+        throw new Error('SecurityError');
+      },
+      setItem: (key: string, value: string) => {
+        written.set(key, value);
+      },
+      removeItem: (key: string) => {
+        written.delete(key);
+      },
+      clear: () => {
+        written.clear();
+      },
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+    return { storage, written };
+  }
+
+  it('refuses when getItem throws while setItem would succeed — nothing is written', () => {
+    const { storage, written } = unreadableButWritable();
+    const status = savePlan(plan, storage);
+    expect(status.ok).toBe(false);
+    // A READ refusal, worded distinctly from the write-refusal message.
+    expect(status.reason).toContain('could not read');
+    expect(status.reason).not.toContain('refused to save');
+    // The destructive write never happened.
+    expect([...written.keys()]).toEqual([]);
+  });
+
+  it.each([
+    ['malformed JSON', '{not json', 'unreadable'],
+    ['a bare non-record value', '42', 'unreadable'],
+    ['oversized data', 'x'.repeat(400_001), 'too_large'],
+    [
+      'a newer schema version',
+      JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, plans: [] }),
+      'newer_version',
+    ],
+  ])('refuses over %s and keeps the stored bytes intact', (_label, raw, reason) => {
+    const storage = memoryStorage({ 'utsav.plans.v1': raw });
+    const status = savePlan(plan, storage);
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('could not read');
+    // The untouched raw text is still exactly what was stored.
+    expect(storage.getItem('utsav.plans.v1')).toBe(raw);
+    expect(loadWorkspace(storage).recovery).toMatchObject({ reason, raw });
+  });
+
+  it('empty storage stays a normal fresh start: the save simply works', () => {
+    const storage = memoryStorage();
+    expect(loadWorkspace(storage).recovery).toBeNull();
+    expect(savePlan(plan, storage).ok).toBe(true);
+    expect(loadSavedPlan(storage)).toEqual(plan);
+  });
+
+  it('an existing valid workspace still upserts (edit) and autosave still works', () => {
+    const storage = memoryStorage();
+    expect(savePlan(plan, storage).ok).toBe(true);
+    // The normal autosave path (saveWorkspace) keeps writing after an upsert.
+    const edited = { ...plan, name: 'Renamed after edit' };
+    expect(savePlan(edited, storage).ok).toBe(true);
+    expect(saveWorkspace([edited], edited.id, [], storage).ok).toBe(true);
+    expect(loadWorkspace(storage).plans).toHaveLength(1);
+  });
+
+  it('the explicit reset path (clearSavedPlan) re-enables fresh workspaces', () => {
+    const storage = memoryStorage({ 'utsav.plans.v1': '{corrupt' });
+    expect(savePlan(plan, storage).ok).toBe(false); // refused while unreadable
+    expect(clearSavedPlan(storage)).toBe(true); // deliberate user action
+    expect(loadWorkspace(storage).recovery).toBeNull();
+    expect(savePlan(plan, storage).ok).toBe(true);
+  });
+
+  it('a failed save preserves the previously stored workspace', () => {
+    const storage = memoryStorage();
+    expect(savePlan(plan, storage).ok).toBe(true);
+    const before = storage.getItem('utsav.plans.v1');
+    // Delegates every method to the working store except the write, which refuses.
+    const refusing = {
+      getItem: (key: string) => storage.getItem(key),
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: (key: string) => {
+        storage.removeItem(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+      key: (index: number) => storage.key(index),
+    } as unknown as Storage;
+    const status = saveWorkspace([plan], plan.id, [], refusing);
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('refused to save');
+    expect(storage.getItem('utsav.plans.v1')).toBe(before);
+  });
+
+  it('clearSavedPlan reports a refusal instead of letting the UI claim success', () => {
+    const refusing = {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => {
+        throw new Error('blocked');
+      },
+      clear: () => undefined,
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+    expect(clearSavedPlan(refusing)).toBe(false);
+  });
+});
+
+/**
+ * Stage-2 defect B: the explicit "continue for this session" path. The session store is
+ * module state by design (it must outlive any single component), so these tests get a
+ * fresh module graph via dynamic import — the statically imported module above is shared
+ * with every other test here and must never see the session flag.
+ */
+describe('persistence: deliberate session-continue recovery (stage-2)', () => {
+  async function freshModules(): Promise<{
+    persistence: typeof import('../../src/state/persistence');
+    session: typeof import('../../src/state/sessionStore');
+  }> {
+    vi.resetModules();
+    const persistence = await import('../../src/state/persistence');
+    const session = await import('../../src/state/sessionStore');
+    return { persistence, session };
+  }
+
+  it('continuing swaps the default store to volatile memory and back-seats nothing', async () => {
+    const { persistence: p, session } = await freshModules();
+    // No real window here: before the choice, a default access honestly reports
+    // `unavailable` — exactly the state the recovery notice is showing.
+    expect(p.loadWorkspace().recovery?.reason).toBe('unavailable');
+    session.continueSessionWithoutStorage();
+    expect(session.isSessionOnlyStorage()).toBe(true);
+    const workspace = p.loadWorkspace();
+    expect(workspace.recovery).toBeNull();
+    expect(workspace.plans).toEqual([]);
+    // A brand-new event saves into the session store and reads back — the family can
+    // keep planning; nothing depends on the blocked storage.
+    expect(p.savePlan(plan).ok).toBe(true);
+    expect(p.loadSavedPlan()).toEqual(plan);
+  });
+
+  it('a fresh module graph (a reload) ends the session honestly', async () => {
+    const first = await freshModules();
+    first.session.continueSessionWithoutStorage();
+    expect(first.session.isSessionOnlyStorage()).toBe(true);
+    // Reloading re-evaluates the module: the volatile store and the flag are gone,
+    // so the app lands on the truthful recovery card again.
+    const second = await freshModules();
+    expect(second.session.isSessionOnlyStorage()).toBe(false);
+    expect(second.persistence.loadWorkspace().recovery?.reason).toBe('unavailable');
   });
 });

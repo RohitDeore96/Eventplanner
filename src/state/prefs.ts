@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import '../schemas/zodRuntime.js';
+import { effectiveStorage } from './sessionStore';
 
 /**
  * Per-event personalization preferences (M9), kept beside (not inside) the plan: they are
  * the family's input to the AI features, not plan facts — like quotations. One record per
  * plan id, so events never see each other's preferences (M13.2 isolation). Everything read
  * from storage is re-validated; a bad record degrades to defaults, never to a crash.
+ *
+ * The default store is resolved through the shared `effectiveStorage()` resolver, so
+ * session-only mode (the recovery notice's "continue for this session") routes every read
+ * and write to the volatile store: after that choice the real localStorage is never even
+ * accessed here, and nothing outlives the tab.
  */
 
 const PREFS_SCHEMA_VERSION = 1;
@@ -55,9 +61,11 @@ const prefsFileSchema = z
   })
   .strict();
 
-function loadAll(storage: Storage): PrefsRecord[] {
+function loadAll(storage: Storage | undefined): PrefsRecord[] {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    // Resolved inside the try: the accessor itself can throw (private mode), and in
+    // session-only mode this must reach the volatile store, never the real one.
+    const raw = effectiveStorage(storage).getItem(STORAGE_KEY);
     if (raw === null || raw.length > MAX_STORE_BYTES) return [];
     const parsed: unknown = JSON.parse(raw);
     const file = prefsFileSchema.safeParse(parsed);
@@ -67,21 +75,18 @@ function loadAll(storage: Storage): PrefsRecord[] {
   }
 }
 
-function writeAll(records: readonly PrefsRecord[], storage: Storage): boolean {
+function writeAll(records: readonly PrefsRecord[], storage: Storage | undefined): boolean {
   try {
     const text = JSON.stringify({ schemaVersion: PREFS_SCHEMA_VERSION, prefs: records });
     if (text.length > MAX_STORE_BYTES) return false;
-    storage.setItem(STORAGE_KEY, text);
+    effectiveStorage(storage).setItem(STORAGE_KEY, text);
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadPreferences(
-  planId: string,
-  storage: Storage = window.localStorage,
-): EventPreferences {
+export function loadPreferences(planId: string, storage?: Storage): EventPreferences {
   const found = loadAll(storage).find((record) => record.planId === planId);
   if (found === undefined) return EMPTY_PREFERENCES;
   const { planId: _planId, ...rest } = found;
@@ -91,17 +96,17 @@ export function loadPreferences(
 export function savePreferences(
   planId: string,
   preferences: EventPreferences,
-  storage: Storage = window.localStorage,
+  storage?: Storage,
 ): boolean {
   const all = loadAll(storage).filter((record) => record.planId !== planId);
   const next = [...all, { planId, ...preferences }].slice(-MAX_RECORDS);
   return writeAll(next, storage);
 }
 
-export function deletePreferences(planId: string, storage: Storage = window.localStorage): void {
+export function deletePreferences(planId: string, storage?: Storage): void {
   try {
     const all = loadAll(storage).filter((record) => record.planId !== planId);
-    storage.setItem(
+    effectiveStorage(storage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: PREFS_SCHEMA_VERSION, prefs: all }),
     );

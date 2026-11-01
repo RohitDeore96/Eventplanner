@@ -10,12 +10,23 @@ import { deleteQuotesFor } from '../../state/quotes';
 import { PlanContext, usePlanStore } from '../../state/store';
 import { ErrorBoundary } from './ErrorBoundary';
 import { RecoveryNotice } from './RecoveryNotice';
+import { SessionNotice } from './SessionNotice';
 import { Masthead } from './Masthead';
 import { TabList } from './TabList';
 import type { TabId } from './tabs';
 import { ViewSwitch } from './ViewSwitch';
 
-export function Shell({ workspace }: { workspace: Workspace }) {
+export function Shell({
+  workspace,
+  sessionOnly = false,
+  onSessionContinue,
+}: {
+  workspace: Workspace;
+  /** True after the family chose to continue without storage for this session. */
+  sessionOnly?: boolean;
+  /** The recovery notice's explicit "continue for this session" action. */
+  onSessionContinue: () => void;
+}) {
   const seed = workspace.plans.find((p) => p.id === workspace.activeId) ?? null;
   const store = usePlanStore(localToday(), seed);
   const [events, setEvents] = useState<readonly Plan[]>(workspace.plans);
@@ -172,7 +183,10 @@ export function Shell({ workspace }: { workspace: Workspace }) {
         actionNotice={actionNotice}
       />
       <div className="layout">
-        {workspace.recovery !== null && <RecoveryNotice recovery={workspace.recovery} />}
+        {workspace.recovery !== null && (
+          <RecoveryNotice recovery={workspace.recovery} onSessionContinue={onSessionContinue} />
+        )}
+        <SessionNotice show={sessionOnly} />
         {droppedNotice !== null && (
           <p className="alert" role="status">
             <strong>
