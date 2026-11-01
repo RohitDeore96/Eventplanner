@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { InstalmentInput, PlanAction } from '../../../engine/actions';
+import type { PlanAction } from '../../../engine/actions';
 import { instalmentPayments, vendorPayments } from '../../../engine/budget';
 import { parseMajorAmount } from '../../../engine/money';
-import type { BookingStatus, Instalment, PaymentKind, Plan, Vendor } from '../../../engine/types';
-import { PAYMENT_KINDS } from '../../../engine/enums';
+import type { BookingStatus, Plan, Vendor } from '../../../engine/types';
 import type { QuoteFields } from '../../../schemas/ai';
 import { money } from '../../../lib/format';
 import { aiClient } from '../../../lib/aiClient';
@@ -25,6 +24,8 @@ import {
   riskFlags,
 } from '../../../lib/quoteCompare';
 import { text } from '../form';
+import { AddInstalmentForm } from './AddInstalmentForm';
+import { InstalmentRow } from './InstalmentRow';
 import { KIND_LABELS, STATUS_OPTIONS, displayMajor } from './shared';
 
 /** Per-category vendor checklist: which vendor types to book, with booking status. */
@@ -426,212 +427,6 @@ function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): React.Rea
         </p>
       )}
     </div>
-  );
-}
-
-function InstalmentRow({
-  plan,
-  vendor,
-  instalment,
-  paid,
-  onRemove,
-}: {
-  plan: Plan;
-  vendor: Vendor;
-  instalment: Instalment;
-  paid: number;
-  onRemove: (id: string) => void;
-}): React.ReactNode {
-  const store = usePlan();
-  const [notice, setNotice] = useState<string | null>(null);
-  const today = new Date().toLocaleDateString('sv-SE');
-  const outstanding = Math.max(0, instalment.amountMinor - paid);
-  const settled = paid >= instalment.amountMinor;
-  const overdue = !settled && instalment.dueISO < today;
-  const status = settled
-    ? 'Paid in full'
-    : paid > 0
-      ? `Partly paid — balance due ${money(outstanding, plan)}`
-      : overdue
-        ? 'Overdue'
-        : 'Not paid yet';
-
-  function recordPayment(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const amountMinor = parseMajorAmount(text(data, 'amount'), plan.currency);
-    const outcome = store.apply({
-      type: 'expense/add',
-      id: `x-${Date.now().toString(36)}`,
-      categoryId: vendor.categoryId,
-      vendorId: vendor.id,
-      instalmentId: instalment.id,
-      dateISO: text(data, 'date'),
-      amountMinor: amountMinor ?? -1,
-      note: `${KIND_LABELS[instalment.kind]} to ${vendor.name}`,
-    });
-    setNotice(
-      outcome.ok
-        ? `Recorded ${money(amountMinor ?? 0, plan)} against this payment.`
-        : (outcome.message ?? 'The payment was not recorded.'),
-    );
-  }
-
-  return (
-    <tr>
-      <th scope="row">{KIND_LABELS[instalment.kind]}</th>
-      <td>{instalment.dueISO}</td>
-      <td>{money(instalment.amountMinor, plan)}</td>
-      <td>{money(paid, plan)}</td>
-      <td>
-        <span className={`badge ${settled ? 'success' : ''}`}>
-          <span aria-hidden="true">{settled ? '✓' : overdue ? '!' : '•'}</span> {status}
-        </span>
-      </td>
-      <td>
-        {settled ? (
-          <span className="muted">Settled</span>
-        ) : (
-          <>
-            {/* key re-mounts the form when the outstanding balance changes, so the
-               pre-filled amount is never a stale number from a previous render. */}
-            <form key={outstanding} className="row" onSubmit={recordPayment}>
-              <label className="visually-hidden" htmlFor={`${instalment.id}-amount`}>
-                Amount paid now
-              </label>
-              <input
-                id={`${instalment.id}-amount`}
-                name="amount"
-                inputMode="decimal"
-                defaultValue={displayMajor(outstanding, plan)}
-                size={8}
-              />
-              <label className="visually-hidden" htmlFor={`${instalment.id}-date`}>
-                Payment date
-              </label>
-              <input
-                id={`${instalment.id}-date`}
-                name="date"
-                type="date"
-                defaultValue={today}
-                size={10}
-              />
-              <button type="submit" className="subtle">
-                Record payment
-              </button>
-              {notice !== null && (
-                <span className="muted" role="status">
-                  {notice}
-                </span>
-              )}
-            </form>
-            <form
-              className="row"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onRemove(instalment.id);
-              }}
-            >
-              <button type="submit" className="subtle">
-                Remove from schedule
-              </button>
-              <span className="muted">Unpaid instalments can be removed; paid ones cannot.</span>
-            </form>
-          </>
-        )}
-      </td>
-    </tr>
-  );
-}
-
-function AddInstalmentForm({
-  plan,
-  vendor,
-  onAdd,
-}: {
-  plan: Plan;
-  vendor: Vendor;
-  onAdd: (instalment: InstalmentInput) => void;
-}): React.ReactNode {
-  // Controlled inputs: the values survive re-renders predictably and clear exactly on add.
-  const [kind, setKind] = useState<PaymentKind>('advance');
-  const [due, setDue] = useState('');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  return (
-    <form
-      className="row"
-      aria-label={`Add a scheduled payment for ${vendor.name}`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        const amountMinor = parseMajorAmount(amount.trim(), plan.currency);
-        if (amountMinor === null || due.length === 0) return;
-        onAdd({
-          id: `i-${Date.now().toString(36)}`,
-          kind,
-          dueISO: due,
-          amountMinor,
-          note: note.trim(),
-        });
-        setKind('advance');
-        setDue('');
-        setAmount('');
-        setNote('');
-      }}
-    >
-      <div>
-        <label htmlFor={`${vendor.id}-kind`}>Add payment</label>
-        <select
-          id={`${vendor.id}-kind`}
-          value={kind}
-          onChange={(event) => {
-            setKind(event.target.value as PaymentKind);
-          }}
-        >
-          {PAYMENT_KINDS.map((option) => (
-            <option key={option} value={option}>
-              {KIND_LABELS[option]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-due`}>Due date</label>
-        <input
-          id={`${vendor.id}-due`}
-          type="date"
-          required
-          value={due}
-          onChange={(event) => {
-            setDue(event.target.value);
-          }}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-amount`}>Amount</label>
-        <input
-          id={`${vendor.id}-amount`}
-          inputMode="decimal"
-          required
-          value={amount}
-          onChange={(event) => {
-            setAmount(event.target.value);
-          }}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-sched-note`}>Reference (optional)</label>
-        <input
-          id={`${vendor.id}-sched-note`}
-          value={note}
-          maxLength={500}
-          onChange={(event) => {
-            setNote(event.target.value);
-          }}
-        />
-      </div>
-      <button type="submit">Add to schedule</button>
-    </form>
   );
 }
 
