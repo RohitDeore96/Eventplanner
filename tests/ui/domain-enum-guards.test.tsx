@@ -144,6 +144,34 @@ describe('tampered form values never reach the plan (Finding 1)', () => {
     expect(screen.getByText('Status updated.')).toBeInTheDocument();
   });
 
+  it('vendor status filter: a tampered option value falls back to All and keeps the list visible', () => {
+    const seed = run(makePlan(), {
+      type: 'vendor/add',
+      id: 'v1',
+      categoryId: makePlan().categories[0]?.id ?? 'c1',
+      name: 'Sharma Caterers',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 1_000_000,
+    });
+    render(<Harness seed={seed}>{(plan) => <VendorsView plan={plan} />}</Harness>);
+    const select = screen.getByLabelText<HTMLSelectElement>('Filter by status');
+    expect(screen.getByText('Sharma Caterers')).toBeInTheDocument(); // full list before the tamper
+    // jsdom coerces a select value that matches no <option> to '', so a plain change with a
+    // foreign string would never deliver it to the handler. A temporary option makes the
+    // tampered value real, the way a hostile DOM state could produce it.
+    const bogus = document.createElement('option');
+    bogus.value = 'bogus';
+    select.add(bogus);
+    fireEvent.change(select, { target: { value: 'bogus' } });
+    select.remove(bogus.index);
+    // The foreign value never entered the filter state: the select is back on All ...
+    expect(select.value).toBe('all');
+    expect(screen.queryByText('No vendors match this search or filter.')).toBeNull();
+    // ... and the full vendor list is still visible.
+    expect(screen.getByText('Sharma Caterers')).toBeInTheDocument();
+  });
+
   it('setup occasion select: an invalid option cannot enter the event state', () => {
     render(
       <Harness seed={makePlan()}>{(plan) => <SetupView plan={plan} onCreated={noop} />}</Harness>,

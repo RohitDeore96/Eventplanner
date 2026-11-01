@@ -168,7 +168,18 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
                 id="v-status-filter"
                 value={statusFilter}
                 onChange={(event) => {
-                  setStatusFilter(event.target.value as 'all' | BookingStatus);
+                  // Same closed set as this select's own options ('all' plus the canonical
+                  // booking statuses). A tampered or synthetic change event can deliver any
+                  // string, so prove the value like every other user-controlled input instead
+                  // of asserting it; a foreign value falls back to 'all' and never reaches
+                  // the filter state.
+                  const filter = checkEnum<'all' | BookingStatus>(
+                    event.target.value,
+                    ['all', ...BOOKING_STATUSES],
+                    'status',
+                    'Status filter',
+                  );
+                  setStatusFilter(filter.ok ? filter.value : 'all');
                 }}
               >
                 <option value="all">All statuses</option>
