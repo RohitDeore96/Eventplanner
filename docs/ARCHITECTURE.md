@@ -25,6 +25,14 @@ config  <-  engine  <-  schemas  <-  api (Vercel functions)
   zod validation of every nested record of every event, then domain checks. An event that
   fails validation is dropped on its own and the rest of the workspace survives; unusable
   data is never silently deleted (the app offers an exportable copy and a fresh start).
+- Empty storage, inaccessible storage (blocked/private mode), malformed, oversized,
+  unsupported and newer-version data are six distinct load outcomes — inaccessible storage
+  is never disguised as an empty workspace. The same honesty rules saves: `savePlan()`
+  refuses while the stored workspace is unreadable, so a new plan can never overwrite data
+  the app could not inspect. A fresh workspace requires a deliberate action: start fresh
+  (a clear that reports whether the browser allowed it) or continue for this session
+  (`src/state/sessionStore.ts`: an in-memory store that dies with the tab, with a visible
+  status line while it is active).
 - Sidecars keyed by event id: quotations (`src/state/quotes.ts`) and preferences
   (`src/state/prefs.ts`, `utsav.prefs.v1`).
 
@@ -88,12 +96,16 @@ rejected (`502 AI_RESPONSE_INVALID`), never guessed.
   locks the currency once vendor agreements or payments exist; otherwise a currency change
   requires re-entering the budget fresh in the new currency. Amounts are never converted —
   no exchange rate is ever invented.
-- **Deep persistence validation** (`src/state/persistence.ts`): storage is untrusted. Load
-  path = size cap → JSON parse → `schemaVersion` migration → deep zod schema for every
-  nested record → duplicate-id, supported-currency, real-calendar-date, and
-  instalment-belongs-to-its-own-vendor checks → dependency-cycle check. Unusable data never
-  reaches React state and is never deleted silently: `loadSavedState()` returns the reason
-  plus the untouched raw text, and the app offers an exportable copy plus a fresh start.
+- **Deep persistence validation** (`src/state/persistence.ts` + `persistenceInvariants.ts` +
+  `persistenceSchemas.ts`): storage is untrusted. Load path = size cap → JSON parse →
+  `schemaVersion` migration → deep zod schema for every nested record → duplicate-id,
+  supported-currency, real-calendar-date, and instalment-belongs-to-its-own-vendor checks →
+  dependency-cycle check. Unusable data never reaches React state and is never deleted
+  silently: `loadSavedState()` returns the reason plus the untouched raw text, and the app
+  offers an exportable copy plus a fresh start — or, when the browser itself refuses
+  storage access, a session-only continuation. Saves refuse to overwrite a workspace they
+  could not read (`savePlan()`), and `clearSavedPlan()` reports whether the browser actually
+  allowed the clear.
 - **Legacy cleanup**: the workspace record lives under `utsav.plans.v1`; the unused
   `utsav.activeId.v1` key from an abandoned design is scrubbed on save and clear.
 
