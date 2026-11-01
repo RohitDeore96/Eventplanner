@@ -1,6 +1,7 @@
 import type { Plan } from '../engine/types';
 import { MAX_EVENTS } from '../config/limits';
-import { validatePlan } from './persistenceInvariants';
+import { migrate } from './persistenceInvariants';
+import { effectiveStorage } from './sessionStore';
 
 /**
  * Local-first persistence: plans live in the browser. Everything loaded from storage is
@@ -25,6 +26,13 @@ import { validatePlan } from './persistenceInvariants';
  * for records that fail their gates), OVERSIZED data (`too_large`) and FAILED MIGRATIONS
  * (`newer_version`). Every storage access runs inside the try, so a browser that throws
  * on `window.localStorage` itself surfaces the recovery path instead of crashing the app.
+ *
+ * The same honesty rules the saves: `savePlan` refuses — with a reason distinct from a
+ * write refusal — while the stored workspace is unreadable, so new work can never
+ * overwrite data the app could not inspect. A fresh workspace requires a deliberate
+ * recovery action: `clearSavedPlan()` (Start fresh; reports whether the browser allowed
+ * it) or `continueSessionWithoutStorage()` (run on a volatile in-memory store that dies
+ * with the tab — changes last only for the current session, as the UI then says).
  */
 
 export const SCHEMA_VERSION = 3;
@@ -82,40 +90,6 @@ function byteLength(text: string): number {
   return utf8.encode(text).length;
 }
 
-/** Migrations run oldest -> newest, ending at the v2 workspace shape. */
-function migrate(raw: Record<string, unknown>): Workspace {
-  // v2 keeps an array; v1 kept one `plan`; v0 (no marker) had the same single-plan shape.
-  const candidates: readonly unknown[] = Array.isArray(raw.plans)
-    ? (raw.plans as readonly unknown[])
-    : raw.plan !== undefined
-      ? [raw.plan]
-      : [];
-  let dropped = 0;
-  const plans: Plan[] = [];
-  const seenIds = new Set<string>();
-  for (const candidate of candidates) {
-    if (plans.length >= MAX_EVENTS) {
-      dropped += 1;
-      continue;
-    }
-    const plan = validatePlan(candidate);
-    if (plan === null || seenIds.has(plan.id)) {
-      dropped += 1;
-      continue;
-    }
-    seenIds.add(plan.id);
-    plans.push(plan);
-  }
-  const storedActive = typeof raw.activeId === 'string' ? raw.activeId : null;
-  const activeId =
-    storedActive !== null && seenIds.has(storedActive) ? storedActive : (plans[0]?.id ?? null);
-  // Archive list (v3): only ids that actually exist may stay in it.
-  const archivedIds = Array.isArray(raw.archivedIds)
-    ? [...new Set(raw.archivedIds.filter((id) => typeof id === 'string' && seenIds.has(id)))]
-    : [];
-  return { plans, activeId, archivedIds, droppedInvalid: dropped, recovery: null };
-}
-
 const EMPTY_WORKSPACE: Workspace = {
   plans: [],
   activeId: null,
@@ -141,7 +115,7 @@ export function loadWorkspace(storage?: Storage): Workspace {
     // Resolved here, inside the try: `window.localStorage` itself can throw (private
     // mode, sandboxed frame, storage disabled), and that must surface as recovery,
     // not as an exception escaping the loader and crashing the app on mount.
-    const raw = (storage ?? window.localStorage).getItem(STORAGE_KEY);
+    const raw = effectiveStorage(storage).getItem(STORAGE_KEY);
     if (raw === null) return EMPTY_WORKSPACE;
     if (byteLength(raw) > MAX_STORE_BYTES) return unusable('too_large', raw);
     let parsed: unknown;
@@ -176,7 +150,7 @@ export function saveWorkspace(
   storage?: Storage,
 ): StorageStatus {
   try {
-    const store = storage ?? window.localStorage;
+    const store = effectiveStorage(storage);
     if (plans.length > MAX_EVENTS) {
       return { ok: false, reason: `Utsav keeps up to ${MAX_EVENTS} events in one browser.` };
     }
@@ -204,6 +178,13 @@ export function saveWorkspace(
  * Backwards-compatible save: upserts ONE plan and makes it the active event. It is only
  * ever called for the active plan (edit) or a brand-new one (create, demo), so the saved
  * plan is always what the app opens with.
+ *
+ * Stage-2 rule: if the CURRENT stored workspace could not be read at all (inaccessible
+ * storage, malformed JSON, oversized or newer-version data), the save refuses with its
+ * own distinguishable reason — a save must never overwrite data the app could not
+ * inspect. A fresh workspace becomes possible only after a deliberate recovery action:
+ * "Start fresh" clears the store, or "continue for this session" switches saves to the
+ * volatile session store. Normal saves on healthy or empty storage are untouched.
  */
 export function savePlan(
   plan: Plan,
@@ -211,6 +192,13 @@ export function savePlan(
   archivedIds: readonly string[] = [],
 ): StorageStatus {
   const current = loadWorkspace(storage);
+  if (current.recovery !== null) {
+    return {
+      ok: false,
+      reason:
+        'Utsav could not read the saved events in this browser, so nothing was changed. Use the recovery options to keep a copy or start fresh.',
+    };
+  }
   const plans = current.plans.some((p) => p.id === plan.id)
     ? current.plans.map((p) => (p.id === plan.id ? plan : p))
     : [...current.plans, plan];
@@ -233,12 +221,19 @@ export function loadSavedPlan(storage?: Storage): Plan | null {
   return loadSavedState(storage).plan;
 }
 
-export function clearSavedPlan(storage?: Storage): void {
+/**
+ * Removes every trace of the saved workspace. Reports whether the browser actually
+ * allowed it: the recovery UI may only claim a fresh start (and reload) when this
+ * returned true — a storage that refuses removal must lead to the explicit
+ * session-continue path, never to a reload into the same notice or a false claim.
+ */
+export function clearSavedPlan(storage?: Storage): boolean {
   try {
-    const store = storage ?? window.localStorage;
+    const store = effectiveStorage(storage);
     store.removeItem(STORAGE_KEY);
     store.removeItem(LEGACY_ACTIVE_KEY);
+    return true;
   } catch {
-    /* nothing to clear is fine */
+    return false;
   }
 }
