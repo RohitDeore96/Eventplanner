@@ -12,7 +12,7 @@ import { deepPlanSchema } from './persistenceSchemas';
  */
 
 /** A stored YYYY-MM-DD string must be a real calendar day inside the engine's year range. */
-export function isCalendarDate(value: string): boolean {
+function isCalendarDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (match === null) return false;
   const year = Number(match[1]);
@@ -129,7 +129,7 @@ function minutesOfStored(time: string): number {
 }
 
 /** Kahn's check: a stored dependency cycle would send the timeline into an impossible order. */
-export function hasDependencyCycle(tasks: readonly Plan['tasks'][number][]): boolean {
+function hasDependencyCycle(tasks: readonly Plan['tasks'][number][]): boolean {
   const indegree = new Map<string, number>();
   const dependents = new Map<string, string[]>();
   for (const task of tasks) {

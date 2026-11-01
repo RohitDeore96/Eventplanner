@@ -1,5 +1,10 @@
 import type { RunSheetEntry } from './types.js';
-import { minutesOf } from './runsheet.js';
+
+/** Minutes since midnight for a validated HH:MM string. */
+export function minutesOf(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
 
 /**
  * Read models over the stored run sheet: overlap conflicts (shown for deliberate

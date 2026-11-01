@@ -11,11 +11,11 @@ import { MAX_AMOUNT_MINOR } from '../config/limits';
  * records written before they existed still load.
  */
 
-export const minor = z.number().int().min(0).max(MAX_AMOUNT_MINOR);
-export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-export const idField = z.string().min(1).max(100);
+const minor = z.number().int().min(0).max(MAX_AMOUNT_MINOR);
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const idField = z.string().min(1).max(100);
 
-export const categorySchema = z
+const categorySchema = z
   .object({
     id: idField,
     key: z.string().min(1).max(100),
@@ -26,7 +26,7 @@ export const categorySchema = z
   })
   .strict();
 
-export const instalmentSchema = z
+const instalmentSchema = z
   .object({
     id: idField,
     kind: z.enum(['advance', 'instalment', 'milestone', 'final', 'balance', 'custom']),
@@ -36,7 +36,7 @@ export const instalmentSchema = z
   })
   .strict();
 
-export const vendorSchema = z
+const vendorSchema = z
   .object({
     id: idField,
     categoryId: idField,
@@ -51,7 +51,7 @@ export const vendorSchema = z
   })
   .strict();
 
-export const expenseSchema = z
+const expenseSchema = z
   .object({
     id: idField,
     categoryId: idField,
@@ -63,7 +63,7 @@ export const expenseSchema = z
   })
   .strict();
 
-export const taskSchema = z
+const taskSchema = z
   .object({
     id: idField,
     title: z.string().min(1).max(120),
@@ -74,7 +74,7 @@ export const taskSchema = z
   })
   .strict();
 
-export const dietary = z.enum([
+const dietary = z.enum([
   'vegetarian',
   'vegan',
   'halal',
@@ -87,7 +87,7 @@ export const dietary = z.enum([
   'other',
 ]);
 
-export const guestSchema = z
+const guestSchema = z
   .object({
     id: idField,
     name: z.string().min(1).max(120),
@@ -100,7 +100,7 @@ export const guestSchema = z
   })
   .strict();
 
-export const runSheetEntrySchema = z
+const runSheetEntrySchema = z
   .object({
     id: idField,
     title: z.string().min(1).max(120),

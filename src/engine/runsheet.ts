@@ -1,15 +1,11 @@
 import { fail, ok, type Result } from './result.js';
 import type { Plan, RunSheetEntry } from './types.js';
 import { checkDate, checkId, checkName, checkNote } from './validate.js';
+import { minutesOf } from './runsheetSchedule.js';
 
 // The read models (conflicts, order, span) are shared with the run-sheet view; keep the
 // established import path stable.
-export {
-  runSheetConflicts,
-  orderedRunSheet,
-  runSheetSpan,
-  type RunSheetConflict,
-} from './runsheetSchedule.js';
+export { minutesOf, runSheetConflicts, orderedRunSheet, runSheetSpan } from './runsheetSchedule.js';
 
 /**
  * Event-day run sheet (M7): one ordered list of activities with times, owners and places.
@@ -27,12 +23,6 @@ function checkTime(value: unknown, field: string, label: string): Result<string>
   return typeof value === 'string' && TIME_PATTERN.test(value)
     ? ok(value)
     : fail('INVALID_TIME', `${label} must be a time as HH:MM (24-hour), for example 09:30.`, field);
-}
-
-/** Minutes since midnight; only valid after checkTime. */
-export function minutesOf(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
 }
 
 function checkShortText(value: unknown, field: string, label: string): Result<string> {
