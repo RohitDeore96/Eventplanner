@@ -11,12 +11,155 @@ import {
   stressTest,
   stressTestActions,
   STRESS_SPEC,
+  type PlanComparison,
   type ScenarioId,
   type StressReport,
 } from '../../engine/scenario';
 import type { Plan } from '../../engine/types';
 import { localToday, money } from '../../lib/format';
 import { usePlan } from '../../state/store';
+
+/** One signed money delta, e.g. "+₹5,000" / "−₹500". */
+function deltaLabel(value: number, plan: Plan): string {
+  return `${value >= 0 ? '+' : '−'}${money(Math.abs(value), plan)}`;
+}
+
+/** Task/warning delta lines shared by the built-in and custom scenario previews. */
+function comparisonChangeLines(comparison: PlanComparison): string[] {
+  const lines: string[] = [];
+  if (comparison.tasksRescheduled.length > 0) {
+    lines.push(`${comparison.tasksRescheduled.length} task(s) rescheduled`);
+  }
+  if (comparison.newWarnings.length > 0) {
+    lines.push(`${comparison.newWarnings.length} new warning(s) would appear`);
+  }
+  if (comparison.resolvedWarnings.length > 0) {
+    lines.push(`${comparison.resolvedWarnings.length} warning(s) would clear`);
+  }
+  return lines;
+}
+
+/** The preview lines for a built-in scenario; identical wording to the inline original. */
+function scenarioPreviewLines(plan: Plan, comparison: PlanComparison): string[] {
+  const lines: string[] = [];
+  if (comparison.budgetDelta !== 0)
+    lines.push(`Budget: ${deltaLabel(comparison.budgetDelta, plan)}`);
+  if (comparison.committedDelta !== 0) {
+    lines.push(`Committed: ${deltaLabel(comparison.committedDelta, plan)}`);
+  }
+  // Cash still to pay = committed − paid, so its delta is the difference of the two deltas.
+  const cashDelta = comparison.committedDelta - comparison.paidDelta;
+  if (cashDelta !== 0) lines.push(`Cash still to pay: ${deltaLabel(cashDelta, plan)}`);
+  if (comparison.guestTargetDelta !== 0) {
+    lines.push(
+      `Guest target: ${comparison.guestTargetDelta > 0 ? '+' : ''}${comparison.guestTargetDelta}`,
+    );
+  }
+  const categoryChanges = comparison.categories.filter((c) => c.plannedBefore !== c.plannedAfter);
+  for (const change of categoryChanges.slice(0, 6)) {
+    lines.push(
+      `${change.name}: ${money(change.plannedBefore, plan)} → ${money(change.plannedAfter, plan)}`,
+    );
+  }
+  lines.push(...comparisonChangeLines(comparison));
+  if (lines.length === 0)
+    lines.push('No measurable change — this scenario does not apply to the plan as it stands.');
+  return lines;
+}
+
+/** The preview lines for the family's own guest/budget assumptions. */
+function customPreviewLines(
+  plan: Plan,
+  comparison: PlanComparison,
+  guestTargetAfter: number,
+): string[] {
+  const lines: string[] = [];
+  if (comparison.budgetDelta !== 0)
+    lines.push(`Budget: ${deltaLabel(comparison.budgetDelta, plan)}`);
+  if (comparison.guestTargetDelta !== 0) {
+    lines.push(
+      `Guest target: ${plan.guestTarget} → ${guestTargetAfter} (${comparison.guestTargetDelta > 0 ? '+' : ''}${comparison.guestTargetDelta})`,
+    );
+  }
+  if (comparison.committedDelta !== 0)
+    lines.push(`Committed: ${deltaLabel(comparison.committedDelta, plan)}`);
+  lines.push(...comparisonChangeLines(comparison));
+  return lines;
+}
+
+/** The guest input: undefined when left blank, null when invalid, else the whole count. */
+function parseGuestsInput(guestsText: string): number | null | undefined {
+  const raw = guestsText.trim();
+  if (raw.length === 0) return undefined;
+  const value: unknown = Number(raw);
+  return Number.isInteger(value) && (value as number) >= 1 ? (value as number) : null;
+}
+
+/** The budget input: undefined when left blank, null when unparsable, else minor units. */
+function parseBudgetInput(plan: Plan, budgetText: string): number | null | undefined {
+  const raw = budgetText.trim();
+  if (raw.length === 0) return undefined;
+  return parseMajorAmount(raw, plan.currency);
+}
+
+/** Builds the engine actions for the family's own guest/budget assumptions; null when invalid. */
+function customScenarioActions(
+  plan: Plan,
+  guestsText: string,
+  budgetText: string,
+): PlanAction[] | null {
+  const guests = parseGuestsInput(guestsText);
+  const budget = parseBudgetInput(plan, budgetText);
+  if (guests === null || budget === null) return null;
+  if (guests === undefined && budget === undefined) return [];
+  const changes: { guestTarget?: number; budgetMinor?: number } = {};
+  if (guests !== undefined) changes.guestTarget = guests;
+  if (budget !== undefined) changes.budgetMinor = budget;
+  if (changes.guestTarget === plan.guestTarget && changes.budgetMinor === plan.budgetMinor) {
+    return [];
+  }
+  return [{ type: 'event/update', changes }];
+}
+
+/** Runs actions on a COPY for preview; the real plan is only touched by Apply. */
+function reducePlanCopy(plan: Plan, actions: readonly PlanAction[], today: string): Result<Plan> {
+  let current = plan;
+  for (const action of actions) {
+    const next = reducePlan(current, action, { today });
+    if (!next.ok) return next;
+    current = next.value;
+  }
+  return ok(current);
+}
+
+/** The simulated stress report; nothing here is applied to the plan. */
+function StressReportView({ plan, stress }: { plan: Plan; stress: StressReport }): React.ReactNode {
+  return (
+    <div aria-live="polite">
+      <h3>
+        {stress.survives ? 'The plan survives' : 'The plan breaks'}{' '}
+        <span className="muted">(simulated — not applied)</span>
+      </h3>
+      <ul>
+        <li>
+          Guests: {plan.guestTarget} → {stress.guestTargetAfter}
+        </li>
+        <li>
+          Budget: {money(plan.budgetMinor, plan)} → {money(stress.budgetAfter, plan)}
+        </li>
+        <li>Committed after the shocks: {money(stress.committedAfter, plan)}</li>
+        {stress.overBudgetBy > 0 && <li>Over budget by: {money(stress.overBudgetBy, plan)}</li>}
+        {stress.errorCount > 0 && <li>{stress.errorCount} error-level warning(s) would appear</li>}
+        {stress.comparison.newWarnings.length > 0 && (
+          <li>{stress.comparison.newWarnings.length} new warning(s) in total</li>
+        )}
+        {stress.comparison.resolvedWarnings.length > 0 && (
+          <li>{stress.comparison.resolvedWarnings.length} warning(s) would clear</li>
+        )}
+      </ul>
+    </div>
+  );
+}
 
 /**
  * What-if scenarios (X2): pick a pressure, PREVIEW its exact impact on a copy of the plan,
@@ -49,39 +192,10 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       return;
     }
     const comparison = comparePlans(plan, after.value, today);
-    const lines: string[] = [];
-    const delta = (value: number): string =>
-      `${value >= 0 ? '+' : '−'}${money(Math.abs(value), plan)}`;
-    if (comparison.budgetDelta !== 0) lines.push(`Budget: ${delta(comparison.budgetDelta)}`);
-    if (comparison.committedDelta !== 0) {
-      lines.push(`Committed: ${delta(comparison.committedDelta)}`);
-    }
-    // Cash still to pay = committed − paid, so its delta is the difference of the two deltas.
-    const cashDelta = comparison.committedDelta - comparison.paidDelta;
-    if (cashDelta !== 0) lines.push(`Cash still to pay: ${delta(cashDelta)}`);
-    if (comparison.guestTargetDelta !== 0) {
-      lines.push(
-        `Guest target: ${comparison.guestTargetDelta > 0 ? '+' : ''}${comparison.guestTargetDelta}`,
-      );
-    }
-    const categoryChanges = comparison.categories.filter((c) => c.plannedBefore !== c.plannedAfter);
-    for (const change of categoryChanges.slice(0, 6)) {
-      lines.push(
-        `${change.name}: ${money(change.plannedBefore, plan)} → ${money(change.plannedAfter, plan)}`,
-      );
-    }
-    if (comparison.tasksRescheduled.length > 0) {
-      lines.push(`${comparison.tasksRescheduled.length} task(s) rescheduled`);
-    }
-    if (comparison.newWarnings.length > 0) {
-      lines.push(`${comparison.newWarnings.length} new warning(s) would appear`);
-    }
-    if (comparison.resolvedWarnings.length > 0) {
-      lines.push(`${comparison.resolvedWarnings.length} warning(s) would clear`);
-    }
-    if (lines.length === 0)
-      lines.push('No measurable change — this scenario does not apply to the plan as it stands.');
-    setPreview({ headline: spec?.label ?? 'Scenario', lines });
+    setPreview({
+      headline: spec?.label ?? 'Scenario',
+      lines: scenarioPreviewLines(plan, comparison),
+    });
     setNotice(null);
   }
 
@@ -120,24 +234,10 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       return;
     }
     const comparison = comparePlans(plan, after.value, today);
-    const lines: string[] = [];
-    const delta = (value: number): string =>
-      `${value >= 0 ? '+' : '−'}${money(Math.abs(value), plan)}`;
-    if (comparison.budgetDelta !== 0) lines.push(`Budget: ${delta(comparison.budgetDelta)}`);
-    if (comparison.guestTargetDelta !== 0) {
-      lines.push(
-        `Guest target: ${plan.guestTarget} → ${after.value.guestTarget} (${comparison.guestTargetDelta > 0 ? '+' : ''}${comparison.guestTargetDelta})`,
-      );
-    }
-    if (comparison.committedDelta !== 0)
-      lines.push(`Committed: ${delta(comparison.committedDelta)}`);
-    if (comparison.newWarnings.length > 0) {
-      lines.push(`${comparison.newWarnings.length} new warning(s) would appear`);
-    }
-    if (comparison.resolvedWarnings.length > 0) {
-      lines.push(`${comparison.resolvedWarnings.length} warning(s) would clear`);
-    }
-    setPreview({ headline: 'Your own assumptions', lines });
+    setPreview({
+      headline: 'Your own assumptions',
+      lines: customPreviewLines(plan, comparison, after.value.guestTarget),
+    });
     setNotice(null);
   }
 
@@ -296,33 +396,7 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
           </>
         )}
       </div>
-      {stress !== null && (
-        <div aria-live="polite">
-          <h3>
-            {stress.survives ? 'The plan survives' : 'The plan breaks'}{' '}
-            <span className="muted">(simulated — not applied)</span>
-          </h3>
-          <ul>
-            <li>
-              Guests: {plan.guestTarget} → {stress.guestTargetAfter}
-            </li>
-            <li>
-              Budget: {money(plan.budgetMinor, plan)} → {money(stress.budgetAfter, plan)}
-            </li>
-            <li>Committed after the shocks: {money(stress.committedAfter, plan)}</li>
-            {stress.overBudgetBy > 0 && <li>Over budget by: {money(stress.overBudgetBy, plan)}</li>}
-            {stress.errorCount > 0 && (
-              <li>{stress.errorCount} error-level warning(s) would appear</li>
-            )}
-            {stress.comparison.newWarnings.length > 0 && (
-              <li>{stress.comparison.newWarnings.length} new warning(s) in total</li>
-            )}
-            {stress.comparison.resolvedWarnings.length > 0 && (
-              <li>{stress.comparison.resolvedWarnings.length} warning(s) would clear</li>
-            )}
-          </ul>
-        </div>
-      )}
+      {stress !== null && <StressReportView plan={plan} stress={stress} />}
       {notice !== null && (
         <p className="muted" role="status">
           {notice}
@@ -330,38 +404,4 @@ export function ScenarioPanel({ plan }: { plan: Plan }): React.ReactNode {
       )}
     </section>
   );
-}
-
-/** Builds the engine actions for the family's own guest/budget assumptions; null when invalid. */
-function customScenarioActions(
-  plan: Plan,
-  guestsText: string,
-  budgetText: string,
-): PlanAction[] | null {
-  const guestsRaw: unknown = Number(guestsText.trim());
-  const budgetRaw = parseMajorAmount(budgetText.trim(), plan.currency);
-  if (guestsText.trim().length === 0 && budgetText.trim().length === 0) return [];
-  const guestsValid =
-    guestsText.trim().length > 0 && Number.isInteger(guestsRaw) && (guestsRaw as number) >= 1;
-  const budgetGiven = budgetText.trim().length > 0;
-  if (guestsText.trim().length > 0 && !guestsValid) return null;
-  if (budgetGiven && budgetRaw === null) return null;
-  const changes: { guestTarget?: number; budgetMinor?: number } = {};
-  if (guestsValid) changes.guestTarget = guestsRaw as number;
-  if (budgetGiven && budgetRaw !== null) changes.budgetMinor = budgetRaw;
-  if (changes.guestTarget === plan.guestTarget && changes.budgetMinor === plan.budgetMinor) {
-    return [];
-  }
-  return [{ type: 'event/update', changes }];
-}
-
-/** Runs actions on a COPY for preview; the real plan is only touched by Apply. */
-function reducePlanCopy(plan: Plan, actions: readonly PlanAction[], today: string): Result<Plan> {
-  let current = plan;
-  for (const action of actions) {
-    const next = reducePlan(current, action, { today });
-    if (!next.ok) return next;
-    current = next.value;
-  }
-  return ok(current);
 }

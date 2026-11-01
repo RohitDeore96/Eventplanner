@@ -81,14 +81,25 @@ function setupSeed(
   plan: Plan | null,
   defaults: { readonly currency: string; readonly locale: string },
 ): SetupSeed {
+  if (plan === null) {
+    return {
+      name: '',
+      occasion: 'wedding',
+      dateISO: '',
+      guests: '',
+      budget: '',
+      currency: defaults.currency,
+      locale: defaults.locale,
+    };
+  }
   return {
-    name: plan?.name ?? '',
-    occasion: plan?.occasion ?? 'wedding',
-    dateISO: plan?.dateISO ?? '',
-    guests: plan === null ? '' : String(plan.guestTarget),
-    budget: plan === null ? '' : displayMajor(plan.budgetMinor, plan.currency),
-    currency: plan?.currency ?? defaults.currency,
-    locale: plan?.locale ?? defaults.locale,
+    name: plan.name,
+    occasion: plan.occasion,
+    dateISO: plan.dateISO,
+    guests: String(plan.guestTarget),
+    budget: displayMajor(plan.budgetMinor, plan.currency),
+    currency: plan.currency,
+    locale: plan.locale,
   };
 }
 

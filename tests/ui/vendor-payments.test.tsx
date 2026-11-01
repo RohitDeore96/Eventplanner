@@ -9,7 +9,7 @@ import type { Plan } from '../../src/engine/types';
 import { budgetTotals, instalmentPayments, vendorPayments } from '../../src/engine/budget';
 import { makePlan, run, TODAY } from '../helpers';
 import { useState } from 'react';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 
 /**
  * PRIORITY 1 acceptance journey: a vendor for 1,00,000 with a 30,000 advance and a 70,000

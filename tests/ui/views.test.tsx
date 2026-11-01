@@ -11,10 +11,10 @@ import { applyAction } from '../../src/engine/history';
 import type { PlanAction } from '../../src/engine/actions';
 import { makePlan, run, TODAY } from '../helpers';
 import type { Plan } from '../../src/engine/types';
-import { BudgetView } from '../../src/ui/views/BudgetView';
+import { BudgetView } from '../../src/ui/views/budget';
 import { GuestsView } from '../../src/ui/views/GuestsView';
 import { TimelineView } from '../../src/ui/views/TimelineView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 
 const plan = run(makePlan(), {
   type: 'guest/add',

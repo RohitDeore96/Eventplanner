@@ -6,7 +6,7 @@ import { App } from '../../src/ui/App';
 import { loadWorkspace, saveWorkspace } from '../../src/state/persistence';
 import { makePlan, run } from '../helpers';
 import { Harness, fireEventSubmit } from './harness';
-import { BudgetView } from '../../src/ui/views/BudgetView';
+import { BudgetView } from '../../src/ui/views/budget';
 import { ScenarioPanel } from '../../src/ui/views/ScenarioPanel';
 
 /**

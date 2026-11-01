@@ -10,7 +10,7 @@ import type { PlanAction } from '../../src/engine/actions';
 import type { Plan } from '../../src/engine/types';
 import { makePlan, run, TODAY } from '../helpers';
 import { AssistantView } from '../../src/ui/views/AssistantView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 
 const plan: Plan = run(makePlan(), {
   type: 'guest/add',
