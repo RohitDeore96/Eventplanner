@@ -12,6 +12,17 @@ import { TimelineView } from '../views/TimelineView';
 import { VendorsView } from '../views/vendors';
 import type { TabId } from './tabs';
 
+export const VIEW_RENDERERS: Readonly<Partial<Record<TabId, (plan: Plan) => React.ReactNode>>> = {
+  timeline: (plan) => <TimelineView plan={plan} />,
+  runsheet: (plan) => <RunSheetView plan={plan} />,
+  guests: (plan) => <GuestsView plan={plan} />,
+  vendors: (plan) => <VendorsView plan={plan} />,
+  cashflow: (plan) => <CashflowView plan={plan} />,
+  assistant: (plan) => <AssistantView plan={plan} />,
+  activity: () => <ActivityView />,
+  budget: (plan) => <BudgetView plan={plan} />,
+};
+
 export function ViewSwitch({
   view,
   hasPlan,
@@ -46,39 +57,22 @@ export function ViewSwitch({
   if (!hasPlan || view === 'setup') {
     return <SetupView onCreated={onCreated} plan={hasPlan && !creatingNew ? plan : null} />;
   }
-  switch (view) {
-    case 'events':
-      return (
-        <EventsView
-          events={events}
-          activeId={activeId}
-          archivedIds={archivedIds}
-          onOpen={onOpen}
-          onDelete={onDelete}
-          onNew={onNew}
-          onDuplicate={onDuplicate}
-          onArchive={onArchive}
-          onRestore={onRestore}
-          canCreate={events.length < MAX_EVENTS}
-        />
-      );
-    case 'timeline':
-      return <TimelineView plan={plan} />;
-    case 'runsheet':
-      return <RunSheetView plan={plan} />;
-    case 'guests':
-      return <GuestsView plan={plan} />;
-    case 'vendors':
-      return <VendorsView plan={plan} />;
-    case 'cashflow':
-      return <CashflowView plan={plan} />;
-    case 'assistant':
-      return <AssistantView plan={plan} />;
-    case 'activity':
-      return <ActivityView />;
-    case 'budget':
-      return <BudgetView plan={plan} />;
-    default:
-      return <SetupView onCreated={onCreated} plan={null} />;
+  if (view === 'events') {
+    return (
+      <EventsView
+        events={events}
+        activeId={activeId}
+        archivedIds={archivedIds}
+        onOpen={onOpen}
+        onDelete={onDelete}
+        onNew={onNew}
+        onDuplicate={onDuplicate}
+        onArchive={onArchive}
+        onRestore={onRestore}
+        canCreate={events.length < MAX_EVENTS}
+      />
+    );
   }
+  const render = VIEW_RENDERERS[view];
+  return render !== undefined ? render(plan) : <SetupView onCreated={onCreated} plan={null} />;
 }
