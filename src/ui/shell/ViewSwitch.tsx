@@ -12,7 +12,7 @@ import { TimelineView } from '../views/TimelineView';
 import { VendorsView } from '../views/vendors';
 import type { TabId } from './tabs';
 
-export const VIEW_RENDERERS: Readonly<Partial<Record<TabId, (plan: Plan) => React.ReactNode>>> = {
+const VIEW_RENDERERS: Readonly<Partial<Record<TabId, (plan: Plan) => React.ReactNode>>> = {
   timeline: (plan) => <TimelineView plan={plan} />,
   runsheet: (plan) => <RunSheetView plan={plan} />,
   guests: (plan) => <GuestsView plan={plan} />,
