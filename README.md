@@ -322,6 +322,13 @@ production site was exercised the same day with committed, source-labelled respo
   whether the tests actually catch bugs, not just whether they pass.
 - `docs/METRICS.md` is **generated from real runs** (`node scripts/gen-metrics.mjs`) —
   nothing there is typed by hand, and every check it reports is one of the gates CI runs.
+- **Evidence vs. tests are separate**: ordinary test runs (`npm run test:cov`,
+  `npm run test:e2e`) validate everything but never write into the tracked evidence
+  directories, so they leave the Git tree clean. The committed evidence
+  (`docs/evidence/ai/ai-eval-results.json`, `e2e/evidence/accessibility/*.json`) is
+  regenerated deliberately with `npm run evidence:ai` and `npm run evidence:a11y`
+  (`UTSAV_WRITE_EVIDENCE=1`); CI regenerates both in explicit mode and keeps them as
+  workflow artifacts.
 
 ## Live verification
 

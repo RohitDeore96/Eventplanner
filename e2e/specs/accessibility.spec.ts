@@ -8,11 +8,17 @@ import { expect, test, type Page } from '@playwright/test';
  *
  * - axe-core scans (WCAG 2.x A/AA tags) of every major view in light AND dark themes,
  *   against a plan with real content (vendor with a paid instalment, guests, tasks).
- *   Critical/serious violations fail the run; the full raw result of every scan is
- *   written to e2e/evidence/accessibility/ and cited by docs/ACCESSIBILITY_REPORT.md.
+ *   Critical/serious violations fail the run; the full raw result of every scan can be
+ *   written to e2e/evidence/accessibility/ (cited by docs/ACCESSIBILITY_REPORT.md).
  * - A keyboard-only journey: skip link, form completion, tablist arrow keys, a
  *   destructive action, visible focus, and a trap check.
  * - Reflow at 320 px and a reduced-motion check.
+ *
+ * Evidence separation: every run VALIDATES the same scans and attaches violations to the
+ * HTML report, but only the explicit evidence mode (`UTSAV_WRITE_EVIDENCE=1`, e.g.
+ * `npm run evidence:a11y`) WRITES the tracked JSON files — ordinary E2E runs leave the
+ * tracked evidence untouched and the Git tree clean. Each JSON's timestamp records the
+ * real capture moment; every other field is deterministic for a given build.
  */
 
 const EVIDENCE_DIR = join(import.meta.dirname, '..', 'evidence', 'accessibility');
@@ -98,22 +104,25 @@ interface AxeResult {
 async function scan(page: Page, view: string, theme: 'light' | 'dark'): Promise<AxeResult> {
   const builder = new AxeBuilder({ page }).withTags(VIEW_TAGS);
   const result = (await builder.analyze()) as unknown as AxeResult;
-  mkdirSync(EVIDENCE_DIR, { recursive: true });
-  writeFileSync(
-    join(EVIDENCE_DIR, `${view}-${theme}.json`),
-    JSON.stringify(
-      {
-        view,
-        theme,
-        url: page.url(),
-        tags: VIEW_TAGS,
-        timestamp: new Date().toISOString(),
-        violations: result.violations,
-      },
-      null,
-      2,
-    ),
-  );
+  // Evidence mode only: an ordinary E2E run must not modify tracked evidence files.
+  if (process.env.UTSAV_WRITE_EVIDENCE === '1') {
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(
+      join(EVIDENCE_DIR, `${view}-${theme}.json`),
+      JSON.stringify(
+        {
+          view,
+          theme,
+          url: page.url(),
+          tags: VIEW_TAGS,
+          timestamp: new Date().toISOString(),
+          violations: result.violations,
+        },
+        null,
+        2,
+      ),
+    );
+  }
   return result;
 }
 

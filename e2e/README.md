@@ -22,6 +22,13 @@ npx playwright test --project=desktop          # one profile
 npx playwright show-report e2e/artifacts/report # open the HTML report of the last run
 ```
 
+Ordinary runs never write into the tracked `evidence/` directory — the Git tree stays
+clean. Refreshing the committed accessibility evidence is an explicit step:
+
+```bash
+npm run evidence:a11y       # re-runs accessibility.spec.ts with UTSAV_WRITE_EVIDENCE=1
+```
+
 The suite builds the app first (`vite build`) and serves the real production bundle via
 `vite preview` on port 4173 — journeys never run against the dev server. AI endpoints are
 mocked per test so runs are deterministic and free; a separate opt-in live-AI smoke
@@ -35,6 +42,8 @@ is never part of CI.
 - `evidence/` holds only what a report cites: small machine-readable results (for example
   axe-core JSON per view and theme) and screenshots captured from real runs. Every file
   here must be regenerable by a documented command in `docs/` — nothing is hand-drawn.
+- The axe JSONs are written only by the explicit evidence mode (`npm run evidence:a11y`);
+  CI regenerates them and retains the result as a workflow artifact.
 
 ## Conventions
 

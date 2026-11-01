@@ -23,6 +23,8 @@
     "preview": "vite preview",
     "api": "tsx scripts/dev-api.ts",
     "test:e2e": "playwright test",
+    "evidence:ai": "node scripts/run-with-evidence.mjs npx vitest run tests/ai/evaluation.test.ts",
+    "evidence:a11y": "node scripts/run-with-evidence.mjs npx playwright test e2e/specs/accessibility.spec.ts",
     "smoke:ai": "node scripts/live-ai-smoke.mjs"
   },
   "devDependencies": {
