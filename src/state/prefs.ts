@@ -25,6 +25,11 @@ const BUDGET_TIERS = ['value', 'balanced', 'premium'] as const;
 type Formality = (typeof FORMALITIES)[number];
 type BudgetTier = (typeof BUDGET_TIERS)[number];
 
+/** Select choices for the assistant's preference form: '' means "not set" (the schema
+ * allows it too). Published so the form parses its select value instead of asserting. */
+export const FORMALITY_CHOICES: readonly (Formality | '')[] = ['', ...FORMALITIES];
+export const BUDGET_TIER_CHOICES: readonly (BudgetTier | '')[] = ['', ...BUDGET_TIERS];
+
 export interface EventPreferences {
   readonly vibe: string;
   readonly formality: Formality | '';

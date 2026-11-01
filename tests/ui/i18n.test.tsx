@@ -89,6 +89,8 @@ const EN_KEYS: readonly string[] = [
   'header.resetConfirm',
   'header.resetCancel',
   'header.language',
+  'session.notice',
+  'session.advice',
   'readiness.onTrack',
   'readiness.atRisk',
   'readiness.needsAttention',

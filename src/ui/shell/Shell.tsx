@@ -186,7 +186,7 @@ export function Shell({
         {workspace.recovery !== null && (
           <RecoveryNotice recovery={workspace.recovery} onSessionContinue={onSessionContinue} />
         )}
-        <SessionNotice show={sessionOnly} />
+        <SessionNotice show={sessionOnly} lang={lang} />
         {droppedNotice !== null && (
           <p className="alert" role="status">
             <strong>

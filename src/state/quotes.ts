@@ -35,7 +35,8 @@ function byteLength(text: string): number {
   return utf8.encode(text).length;
 }
 
-const QUOTE_STATUSES = ['review', 'shortlisted', 'accepted', 'rejected'] as const;
+/** Runtime status set: the state module's own closed enum, shared with the quote UI. */
+export const QUOTE_STATUSES = ['review', 'shortlisted', 'accepted', 'rejected'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
 const savedQuoteSchema = z

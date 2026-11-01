@@ -30,6 +30,13 @@ jobs:
           KNIP_DISABLE_RAW_TRANSFER: '1'
       - name: Tests with coverage
         run: npm run test:cov
+      - name: AI evaluation evidence (explicit mode)
+        run: npm run evidence:ai
+      - name: Upload AI evaluation evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-evaluation-evidence
+          path: docs/evidence/ai/ai-eval-results.json
       - name: Build
         run: npm run build
       - name: Bundle budget (gzipped JS under 250 KB)
@@ -55,6 +62,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Real-browser E2E (production build, desktop + mobile)
         run: npm run test:e2e
+      - name: Accessibility evidence (explicit mode)
+        run: npm run evidence:a11y
+      - name: Upload accessibility evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-evidence
+          path: e2e/evidence/accessibility/
       - name: Upload traces on failure
         if: failure()
         uses: actions/upload-artifact@v4

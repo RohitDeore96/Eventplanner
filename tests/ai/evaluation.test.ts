@@ -31,7 +31,10 @@ import type { Plan } from '../../src/engine/types';
  * separately by the opt-in `npm run smoke:ai` (requires GEMINI_API_KEY; it skips
  * honestly when the key is absent and was NOT run in this environment).
  *
- * Results are written machine-readably to docs/evidence/ai/ai-eval-results.json.
+ * Evidence separation: this test VALIDATES the same 24 scenarios on every run but only
+ * WRITES the machine-readable record to docs/evidence/ai/ai-eval-results.json when the
+ * explicit evidence mode is on (`UTSAV_WRITE_EVIDENCE=1`, e.g. `npm run evidence:ai`) —
+ * ordinary test runs leave the tracked evidence untouched and the Git tree clean.
  */
 
 interface Check {
@@ -752,11 +755,14 @@ describe('AI usefulness evaluation (deterministic, mocked model fixtures)', () =
       })),
     };
 
-    mkdirSync('docs/evidence/ai', { recursive: true });
-    writeFileSync(
-      join('docs/evidence/ai', 'ai-eval-results.json'),
-      JSON.stringify(report, null, 2),
-    );
+    // Evidence mode only: an ordinary test run must not modify tracked evidence files.
+    if (process.env.UTSAV_WRITE_EVIDENCE === '1') {
+      mkdirSync('docs/evidence/ai', { recursive: true });
+      writeFileSync(
+        join('docs/evidence/ai', 'ai-eval-results.json'),
+        JSON.stringify(report, null, 2),
+      );
+    }
 
     expect(failedScenarios, `failing scenarios:\n${JSON.stringify(report, null, 2)}`).toBe(0);
     expect(totalScenarios).toBeGreaterThanOrEqual(20);

@@ -1,4 +1,4 @@
-import { createPlan } from '../../../engine/create';
+import { createPlan, parseOccasion } from '../../../engine/create';
 import { currencyExponent, parseMajorAmount } from '../../../engine/money';
 import { currencyChangeError } from '../../../engine/reducers/event';
 import type { Occasion, Plan } from '../../../engine/types';
@@ -111,11 +111,15 @@ function buildPlan(
   plan: Plan | null,
 ): ReturnType<typeof createPlan> {
   const budgetMinor = parseMajorAmount(text(data, 'budget'), currency);
+  // Proven before it is typed: the engine's own occasion gate, with the engine's own
+  // rejection (same code, message and field) — no unchecked assertion at this boundary.
+  const occasion = parseOccasion(text(data, 'occasion'));
+  if (!occasion.ok) return occasion;
   return createPlan(
     {
       id: plan?.id ?? `ev-${Date.now().toString(36)}`,
       name: text(data, 'name'),
-      occasion: text(data, 'occasion') as Occasion,
+      occasion: occasion.value,
       dateISO: text(data, 'dateISO'),
       currency,
       locale,

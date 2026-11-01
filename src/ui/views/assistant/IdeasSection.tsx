@@ -3,11 +3,14 @@ import type { Plan } from '../../../engine/types';
 import { budgetTotals } from '../../../engine/budget';
 import { aiClient, type AiReply } from '../../../lib/aiClient';
 import {
+  BUDGET_TIER_CHOICES,
   EMPTY_PREFERENCES,
+  FORMALITY_CHOICES,
   loadPreferences,
   savePreferences,
   type EventPreferences,
 } from '../../../state/prefs';
+import { parseEnum } from '../form';
 
 type IdeasReply = AiReply<{
   themes: string[];
@@ -106,7 +109,10 @@ export function IdeasSection({ plan }: { plan: Plan }) {
             id="ideas-formality"
             value={prefs.formality}
             onChange={(event) => {
-              updatePrefs({ formality: event.target.value as EventPreferences['formality'] });
+              // Proven before it is typed: the select is user input, and an unknown
+              // value would poison the saved record (the loader would drop it whole).
+              const formality = parseEnum(event.target.value, FORMALITY_CHOICES);
+              if (formality !== null) updatePrefs({ formality });
             }}
           >
             <option value="">Not set</option>
@@ -121,7 +127,9 @@ export function IdeasSection({ plan }: { plan: Plan }) {
             id="ideas-tier"
             value={prefs.budgetTier}
             onChange={(event) => {
-              updatePrefs({ budgetTier: event.target.value as EventPreferences['budgetTier'] });
+              // Proven before it is typed: same reason as the formality select above.
+              const budgetTier = parseEnum(event.target.value, BUDGET_TIER_CHOICES);
+              if (budgetTier !== null) updatePrefs({ budgetTier });
             }}
           >
             <option value="">Not set</option>

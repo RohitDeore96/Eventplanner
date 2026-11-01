@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PlanAction } from '../../../engine/actions';
+import { BOOKING_STATUSES } from '../../../engine/enums';
 import { parseMajorAmount } from '../../../engine/money';
 import type { BookingStatus, Plan } from '../../../engine/types';
-import { money } from '../../../lib/format';
+import { checkEnum } from '../../../engine/validate';
 import { usePlan } from '../../../state/store';
 import { onQuotesChanged } from '../../../state/quotes';
 import { text } from '../form';
@@ -10,6 +11,7 @@ import { STATUS_OPTIONS } from './shared';
 import { QuoteBox } from './quote/QuoteBox';
 import { QuotationCompare } from './quote/QuotationCompare';
 import { VendorCard } from './VendorCard';
+import { VendorChecklist } from './VendorChecklist';
 
 /** Per-category vendor checklist: which vendor types to book, with booking status. */
 export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
@@ -39,45 +41,7 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
 
   return (
     <>
-      <section className="card" aria-labelledby="checklist-title">
-        <h2 id="checklist-title">Booking checklist</h2>
-        <table tabIndex={0}>
-          <caption className="visually-hidden">Vendor categories with booking progress</caption>
-          <thead>
-            <tr>
-              <th scope="col">Category</th>
-              <th scope="col">Planned</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {plan.categories
-              .filter((c) => c.key !== 'contingency')
-              .map((category) => {
-                const vendor = plan.vendors.find(
-                  (v) => v.categoryId === category.id && v.status !== 'cancelled',
-                );
-                const label =
-                  vendor === undefined
-                    ? 'Not started'
-                    : (STATUS_OPTIONS.find((s) => s.value === vendor.status)?.label ??
-                      vendor.status);
-                return (
-                  <tr key={category.id}>
-                    <th scope="row">{category.name}</th>
-                    <td>{money(category.plannedMinor, plan)}</td>
-                    <td>
-                      <span className={`badge ${vendor?.status === 'booked' ? 'success' : ''}`}>
-                        <span aria-hidden="true">{vendor?.status === 'booked' ? '✓' : '•'}</span>{' '}
-                        {label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </section>
+      <VendorChecklist plan={plan} />
 
       <section className="card" aria-labelledby="addvendor-title">
         <h2 id="addvendor-title">Add a vendor</h2>
@@ -87,7 +51,18 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
             event.preventDefault();
             const form = event.currentTarget;
             const data = new FormData(form);
-            const status = text(data, 'status') as BookingStatus;
+            // Same closed set, same wording the engine's own checkEnum produces for this
+            // field — a tampered value surfaces exactly the rejection it always did.
+            const status = checkEnum(
+              text(data, 'status'),
+              BOOKING_STATUSES,
+              'status',
+              'Booking status',
+            );
+            if (!status.ok) {
+              setNotice(status.error.message);
+              return;
+            }
             const priceText = text(data, 'price').trim();
             const committed =
               priceText.length > 0 ? parseMajorAmount(priceText, plan.currency) : null;
@@ -100,8 +75,8 @@ export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
               contactPerson: text(data, 'person'),
               phone: text(data, 'phone'),
               email: text(data, 'email'),
-              status,
-              committedMinor: status === 'booked' ? committed : null,
+              status: status.value,
+              committedMinor: status.value === 'booked' ? committed : null,
             };
             const outcome = store.apply(action);
             if (outcome.ok) {

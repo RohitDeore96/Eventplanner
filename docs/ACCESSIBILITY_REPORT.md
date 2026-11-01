@@ -113,8 +113,12 @@ events and patch previews. Screen-reader testing with NVDA/VoiceOver remains ope
 npm run build
 npm run test:e2e                       # includes accessibility.spec.ts (6 tests x 2 profiles)
 npx playwright show-report e2e/artifacts/report
+npm run evidence:a11y                  # refresh the committed per-view JSON evidence
 node scripts/capture-a11y-evidence.mjs # screenshots below (build + preview on :4198 first)
 ```
+
+The per-view JSONs are written only by the explicit evidence mode (`UTSAV_WRITE_EVIDENCE=1`);
+ordinary test runs validate the same scans without touching the tracked files.
 
 Screenshots (real runs, committed): `e2e/evidence/accessibility/keyboard-focus-tablist.png`,
 `budget-dark-theme.png`, `reflow-320px-vendors.png`.

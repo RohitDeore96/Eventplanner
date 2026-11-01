@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { OCCASIONS } from '../../engine/enums';
 import type { Occasion, Plan } from '../../engine/types';
 import { localeDefaults } from '../../lib/format';
 import { savePlan } from '../../state/persistence';
 import { usePlan } from '../../state/store';
+import { parseEnum } from './form';
 import { IntakeBox, type Prefill } from './IntakeBox';
 import { dispatchPrefill, resolveSubmission, setupSeed } from './setup/setupSubmit';
 
@@ -95,7 +97,10 @@ export function SetupView({ onCreated, plan }: { onCreated: () => void; plan: Pl
               name="occasion"
               value={occasion}
               onChange={(event) => {
-                setOccasion(event.target.value as Occasion);
+                // Proven before it is typed: the select is user input, so a value that
+                // is not one of the occasion options cannot reach the plan state.
+                const occasion = parseEnum(event.target.value, OCCASIONS);
+                if (occasion !== null) setOccasion(occasion);
               }}
             >
               {OCCASION_OPTIONS.map((option) => (
