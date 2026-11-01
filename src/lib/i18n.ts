@@ -3,7 +3,14 @@
  * speaks the family's language when English is not comfortable. Scope is honest: chrome
  * and recurring actions only; the deeper forms stay English for now and every missing
  * string falls back to English rather than showing a gap.
+ *
+ * The default store is resolved through the shared `effectiveStorage()` resolver (inside
+ * each try — the accessor itself can throw in private mode), so session-only mode (the
+ * recovery notice's "continue for this session") routes the language choice to the
+ * volatile store too: it lasts exactly as long as the session, like every other change.
  */
+
+import { effectiveStorage } from '../state/sessionStore';
 
 export type Lang = 'en' | 'hi' | 'mr';
 
@@ -107,13 +114,11 @@ function isLang(value: string): value is Lang {
 
 /**
  * The language preference survives reloads; an unreadable or blocked store just means the
- * session default. The default storage is resolved INSIDE the try: private-mode browsers
- * can make the `window.localStorage` accessor itself throw, and a preference must never
- * crash the app over that.
+ * session default — a preference must never crash the app over that.
  */
 export function loadLang(storage?: Storage): Lang {
   try {
-    const stored = (storage ?? window.localStorage).getItem(STORAGE_KEY);
+    const stored = effectiveStorage(storage).getItem(STORAGE_KEY);
     return stored !== null && isLang(stored) ? stored : 'en';
   } catch {
     return 'en';
@@ -122,7 +127,7 @@ export function loadLang(storage?: Storage): Lang {
 
 export function storeLang(lang: Lang, storage?: Storage): void {
   try {
-    (storage ?? window.localStorage).setItem(STORAGE_KEY, lang);
+    effectiveStorage(storage).setItem(STORAGE_KEY, lang);
   } catch {
     /* private mode: the choice lasts this session only */
   }

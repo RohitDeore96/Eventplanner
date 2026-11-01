@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import '../schemas/zodRuntime.js';
 import { quoteFieldsSchema } from '../schemas/ai';
+import { effectiveStorage } from './sessionStore';
 
 /**
  * Saved vendor quotations, one library per plan, kept beside (not inside) the plan: a quote
@@ -11,6 +12,11 @@ import { quoteFieldsSchema } from '../schemas/ai';
  * Lifecycle (M7.5): a saved quote starts under review; the family may shortlist or reject
  * it; acceptance requires confirmation and marks the quote so it can never be accepted
  * twice. Drafts exist only as component state before the explicit save.
+ *
+ * The default store is resolved through the shared `effectiveStorage()` resolver, so
+ * session-only mode (the recovery notice's "continue for this session") routes every read,
+ * write and removal to the volatile store: after that choice the real localStorage is
+ * never even accessed here, and no quotation outlives the tab.
  */
 
 const QUOTES_SCHEMA_VERSION = 2;
@@ -79,8 +85,9 @@ function notify(): void {
 
 function loadAllQuotes(storage: Storage | undefined): SavedQuote[] {
   try {
-    // Resolved inside the try: the localStorage accessor itself can throw (private mode).
-    const raw = (storage ?? window.localStorage).getItem(STORAGE_KEY);
+    // Resolved inside the try: the accessor itself can throw (private mode), and in
+    // session-only mode this must reach the volatile store, never the real one.
+    const raw = effectiveStorage(storage).getItem(STORAGE_KEY);
     if (raw === null || byteLength(raw) > MAX_STORE_BYTES) return [];
     const parsed: unknown = JSON.parse(raw);
     // v1 files parse against the v2 schema: the defaults fill the new fields.
@@ -95,7 +102,7 @@ function writeAllQuotes(quotes: readonly SavedQuote[], storage: Storage | undefi
   try {
     const text = JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes });
     if (byteLength(text) > MAX_STORE_BYTES) return false;
-    (storage ?? window.localStorage).setItem(STORAGE_KEY, text);
+    effectiveStorage(storage).setItem(STORAGE_KEY, text);
     return true;
   } catch {
     return false;
@@ -169,7 +176,7 @@ export function deleteQuote(id: string, storage?: Storage): void {
   try {
     const all = loadAllQuotes(storage);
     const kept = all.filter((quote) => quote.id !== id);
-    (storage ?? window.localStorage).setItem(
+    effectiveStorage(storage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );
@@ -184,7 +191,7 @@ export function deleteQuotesFor(planId: string, storage?: Storage): void {
   try {
     const all = loadAllQuotes(storage);
     const kept = all.filter((quote) => quote.planId !== planId);
-    (storage ?? window.localStorage).setItem(
+    effectiveStorage(storage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );

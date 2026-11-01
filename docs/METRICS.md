@@ -7,9 +7,9 @@ Nothing here is typed by hand. CI regenerates and re-checks this file.
 | --- | --- |
 | Typecheck | 0 errors |
 | Lint (typescript-eslint strictTypeChecked) | 0 findings |
-| Tests | 796 passed across 72 files |
-| Coverage | 96.65% lines, 94.96% statements, 96.59% functions, 84.8% branches |
-| Bundle | 116.3 KB gzipped JavaScript |
+| Tests | 803 passed across 73 files |
+| Coverage | 96.65% lines, 94.96% statements, 96.59% functions, 84.69% branches |
+| Bundle | 116.2 KB gzipped JavaScript |
 | Repo size | 1.58 MB (limit 10 MB) |
 | npm audit (runtime deps) | clean at high severity |
 

@@ -34,7 +34,10 @@ config  <-  engine  <-  schemas  <-  api (Vercel functions)
   (`src/state/sessionStore.ts`: an in-memory store that dies with the tab, with a visible
   status line while it is active).
 - Sidecars keyed by event id: quotations (`src/state/quotes.ts`) and preferences
-  (`src/state/prefs.ts`, `utsav.prefs.v1`).
+  (`src/state/prefs.ts`, `utsav.prefs.v1`). Both, plus the language preference
+  (`src/lib/i18n.ts`), resolve their default storage through the shared `effectiveStorage()`
+  resolver, so the session-only continuation covers every read, write and removal they
+  make — the real localStorage is never touched while it is active.
 
 ## Data flow
 
