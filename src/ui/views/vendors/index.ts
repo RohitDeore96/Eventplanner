@@ -3,4 +3,5 @@
  * sub-components from sibling modules; only the entry component and the payment-kind
  * labels (shared with CashflowView) are part of the public contract.
  */
-export { KIND_LABELS, VendorsView } from './VendorsView';
+export { KIND_LABELS } from './shared';
+export { VendorsView } from './VendorsView';

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { InstalmentInput, PlanAction } from '../../../engine/actions';
 import { instalmentPayments, vendorPayments } from '../../../engine/budget';
-import { currencyExponent, parseMajorAmount } from '../../../engine/money';
+import { parseMajorAmount } from '../../../engine/money';
 import type { BookingStatus, Instalment, PaymentKind, Plan, Vendor } from '../../../engine/types';
 import { PAYMENT_KINDS } from '../../../engine/enums';
 import type { QuoteFields } from '../../../schemas/ai';
@@ -25,28 +25,7 @@ import {
   riskFlags,
 } from '../../../lib/quoteCompare';
 import { text } from '../form';
-/** Minor -> major for small inline inputs, with the plan currency's own exponent. */
-function displayMajor(minor: number, plan: Plan): string {
-  const exponent = currencyExponent(plan.currency) ?? 2;
-  return String(Math.round(minor / 10 ** exponent));
-}
-
-const STATUS_OPTIONS: readonly { readonly value: BookingStatus; readonly label: string }[] = [
-  { value: 'not_started', label: 'Not started' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'quoted', label: 'Quotation received' },
-  { value: 'booked', label: 'Booked' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-export const KIND_LABELS: Record<PaymentKind, string> = {
-  advance: 'Advance',
-  instalment: 'Instalment',
-  milestone: 'Milestone',
-  final: 'Final payment',
-  balance: 'Balance',
-  custom: 'Custom',
-};
+import { KIND_LABELS, STATUS_OPTIONS, displayMajor } from './shared';
 
 /** Per-category vendor checklist: which vendor types to book, with booking status. */
 export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
