@@ -53,14 +53,7 @@ export function AddActivityForm({
         </div>
         <div>
           <label htmlFor="rs-start">Start</label>
-          <input
-            id="rs-start"
-            name="start"
-            type="time"
-            required
-            defaultValue="09:00"
-            step={300}
-          />
+          <input id="rs-start" name="start" type="time" required defaultValue="09:00" step={300} />
         </div>
         <div>
           <label htmlFor="rs-end">End</label>
