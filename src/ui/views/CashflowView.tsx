@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { cashflow } from '../../engine/cashflow';
 import type { Plan } from '../../engine/types';
 import { money } from '../../lib/format';
-import { KIND_LABELS } from './VendorsView';
+import { KIND_LABELS } from './vendors';
 
 /**
  * X8 cash-flow calendar: the year at a glance — which month carries which payments, what

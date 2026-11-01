@@ -14,7 +14,7 @@ import type { Plan } from '../../src/engine/types';
 import { BudgetView } from '../../src/ui/views/BudgetView';
 import { GuestsView } from '../../src/ui/views/GuestsView';
 import { TimelineView } from '../../src/ui/views/TimelineView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 
 const plan = run(makePlan(), {
   type: 'guest/add',

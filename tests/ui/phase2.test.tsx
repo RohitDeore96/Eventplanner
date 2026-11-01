@@ -8,7 +8,7 @@ import { makePlan, run } from '../helpers';
 import { Harness } from './harness';
 import { BudgetView } from '../../src/ui/views/BudgetView';
 import { RunSheetView } from '../../src/ui/views/RunSheetView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 
 /**
  * Phase 2 UI integration: the expense form links vendors and instalments through the real

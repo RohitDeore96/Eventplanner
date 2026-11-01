@@ -6,7 +6,7 @@ import { App } from '../../src/ui/App';
 import { Harness, fireEventSubmit } from './harness';
 import { EventsView } from '../../src/ui/views/EventsView';
 import { RunSheetView } from '../../src/ui/views/RunSheetView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 import { ScenarioPanel } from '../../src/ui/views/ScenarioPanel';
 import { makePlan, run } from '../helpers';
 import { errorCode } from '../helpers';

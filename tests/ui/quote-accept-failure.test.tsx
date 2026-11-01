@@ -7,7 +7,7 @@ import { PlanContext, type Store } from '../../src/state/store';
 import { initPlanState, planReducer, type PlanState } from '../../src/state/planState';
 import { applyAction } from '../../src/engine/history';
 import { catId, makePlan, TODAY } from '../helpers';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 import { loadQuotes, saveQuote, setQuoteStatus } from '../../src/state/quotes';
 import type { QuoteFields } from '../../src/schemas/ai';
 import type { Plan } from '../../src/engine/types';

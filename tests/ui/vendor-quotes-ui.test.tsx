@@ -7,7 +7,7 @@ import { initPlanState, planReducer, type PlanState } from '../../src/state/plan
 import { applyAction } from '../../src/engine/history';
 import { makePlan, TODAY } from '../helpers';
 import { useState } from 'react';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 import { loadQuotes } from '../../src/state/quotes';
 import type { Plan } from '../../src/engine/types';
 

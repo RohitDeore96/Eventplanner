@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { InstalmentInput, PlanAction } from '../../engine/actions';
-import { instalmentPayments, vendorPayments } from '../../engine/budget';
-import { currencyExponent, parseMajorAmount } from '../../engine/money';
-import type { BookingStatus, Instalment, PaymentKind, Plan, Vendor } from '../../engine/types';
-import { PAYMENT_KINDS } from '../../engine/enums';
-import type { QuoteFields } from '../../schemas/ai';
-import { money } from '../../lib/format';
-import { aiClient } from '../../lib/aiClient';
-import { usePlan } from '../../state/store';
+import type { InstalmentInput, PlanAction } from '../../../engine/actions';
+import { instalmentPayments, vendorPayments } from '../../../engine/budget';
+import { currencyExponent, parseMajorAmount } from '../../../engine/money';
+import type { BookingStatus, Instalment, PaymentKind, Plan, Vendor } from '../../../engine/types';
+import { PAYMENT_KINDS } from '../../../engine/enums';
+import type { QuoteFields } from '../../../schemas/ai';
+import { money } from '../../../lib/format';
+import { aiClient } from '../../../lib/aiClient';
+import { usePlan } from '../../../state/store';
 import {
   deleteQuote,
   loadQuotes,
@@ -16,15 +16,15 @@ import {
   setQuoteStatus,
   updateQuote,
   type SavedQuote,
-} from '../../state/quotes';
+} from '../../../state/quotes';
 import {
   acceptActions,
   effectiveMinor,
   inquiryMessage,
   missingFields,
   riskFlags,
-} from '../../lib/quoteCompare';
-import { text } from './form';
+} from '../../../lib/quoteCompare';
+import { text } from '../form';
 /** Minor -> major for small inline inputs, with the plan currency's own exponent. */
 function displayMajor(minor: number, plan: Plan): string {
   const exponent = currencyExponent(plan.currency) ?? 2;

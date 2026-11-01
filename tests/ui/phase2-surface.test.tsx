@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Harness, fireEventSubmit } from './harness';
 import { BudgetView } from '../../src/ui/views/BudgetView';
 import { RunSheetView } from '../../src/ui/views/RunSheetView';
-import { VendorsView } from '../../src/ui/views/VendorsView';
+import { VendorsView } from '../../src/ui/views/vendors';
 import { ScenarioPanel } from '../../src/ui/views/ScenarioPanel';
 import { AssistantView } from '../../src/ui/views/AssistantView';
 import { planFacts } from '../../src/lib/facts';

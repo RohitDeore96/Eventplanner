@@ -24,7 +24,7 @@ import { SetupView } from './views/SetupView';
 import { TimelineView } from './views/TimelineView';
 import { RunSheetView } from './views/RunSheetView';
 import { AssistantView } from './views/AssistantView';
-import { VendorsView } from './views/VendorsView';
+import { VendorsView } from './views/vendors';
 import { CashflowView } from './views/CashflowView';
 import { ActivityView } from './views/ActivityView';
 import { EventsView } from './views/EventsView';
