@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { z } from 'zod';
 import '../../src/schemas/zodRuntime.js';
 import { clientIp, isRateLimited, pruneBuckets } from './rateLimit.js';
+import { isJsonContentType } from './mediaType.js';
 
 /**
  * Route plumbing shared by every endpoint: method allow-list, content-type, same-origin,
@@ -125,19 +126,6 @@ function sameOrigin(req: ApiRequest): boolean {
     return parsed.protocol === `${proto.split(',')[0]?.trim() ?? 'https'}:`;
   }
   return true;
-}
-
-/**
- * JSON body media type check. The media type alone decides, before any parameter
- * (RFC 9110: types are case-insensitive, parameters are legitimate), so
- * `application/json; charset=utf-8` is accepted while lookalikes such as
- * `application/jsonp`, `application/json5` or a bare `text/plain` are not — a substring
- * test would wave all of those through or depend on the client's letter casing.
- */
-export function isJsonContentType(header: string | undefined): boolean {
-  if (header === undefined) return false;
-  const mediaType = header.split(';')[0]?.trim().toLowerCase() ?? '';
-  return mediaType === 'application/json';
 }
 
 function readBody(req: ApiRequest): Promise<string | null> {

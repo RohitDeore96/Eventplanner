@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ApiRequest, ApiResponse } from '../../api/_lib/http';
-import { ApiError, createHandler, isJsonContentType, runErrorResponse } from '../../api/_lib/http';
+import { isJsonContentType } from '../../api/_lib/mediaType';
+import { ApiError, createHandler, runErrorResponse } from '../../api/_lib/http';
 import { z } from 'zod';
 
 /**
@@ -74,6 +75,8 @@ describe('isJsonContentType', () => {
     ['APPLICATION/JSON', true],
     ['Application/JSON ;charset="utf-8"', true],
     ['application/json;charset=UTF-8', true],
+    ['application/json; charset="utf-8"; foo=bar', true],
+    ['application/json;charset="a=b"', true],
   ])('accepts %j', (header, expected) => {
     expect(isJsonContentType(header)).toBe(expected);
   });
@@ -88,6 +91,16 @@ describe('isJsonContentType', () => {
     'application/xml',
     'not-a-media-type',
     'text application/json',
+    // Malformed parameters fail closed: empty segments, nameless/empty values,
+    // non-token names, duplicated names and unterminated quoted strings.
+    'application/json;',
+    'application/json;;charset=utf-8',
+    'application/json; =utf-8',
+    'application/json; charset',
+    'application/json; charset=',
+    'application/json; char set=utf-8',
+    'application/json; charset=utf-8; charset=utf-16',
+    'application/json; charset="utf-8',
   ])('rejects %j', (header) => {
     expect(isJsonContentType(header)).toBe(false);
   });
@@ -106,14 +119,29 @@ describe('guard: content-type gate', () => {
     expect(res.json()).toMatchObject({ status: 415, body: { error: 'UNSUPPORTED_MEDIA_TYPE' } });
   });
 
-  it.each(['text/plain', 'application/jsonp', 'not-a-media-type'])(
-    'rejects %s with 415',
-    async (header) => {
-      const res = mockRes();
-      await handler(mockReq({ 'content-type': header }), res);
-      expect(res.json()).toMatchObject({ status: 415, body: { error: 'UNSUPPORTED_MEDIA_TYPE' } });
-    },
-  );
+  it.each([
+    'text/plain',
+    'application/jsonp',
+    'not-a-media-type',
+    'application/json; charset=',
+    'application/json; charset',
+  ])('rejects %s with 415', async (header) => {
+    const res = mockRes();
+    await handler(mockReq({ 'content-type': header }), res);
+    expect(res.json()).toMatchObject({ status: 415, body: { error: 'UNSUPPORTED_MEDIA_TYPE' } });
+  });
+
+  it('still answers a charset-parameter request through the full guard chain', async () => {
+    const res = mockRes();
+    await handler(
+      mockReq({
+        'content-type': 'application/json;charset=UTF-8',
+        origin: 'https://utsav.example',
+      }),
+      res,
+    );
+    expect(res.json()).toMatchObject({ status: 200, body: { ok: true } });
+  });
 });
 
 describe('runErrorResponse: the typed seam keeps every legacy response', () => {
