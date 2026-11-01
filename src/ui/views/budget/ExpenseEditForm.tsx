@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { parseMajorAmount } from '../../../engine/money';
-import type { Plan } from '../../../engine/types';
+import type { Expense, Plan } from '../../../engine/types';
 import { usePlan } from '../../../state/store';
 import { text } from '../form';
 import { nameOf } from './shared';
@@ -17,13 +17,32 @@ function ExpenseEditForm({
   onDone: () => void;
   onNotice: (notice: string | null) => void;
 }) {
-  const store = usePlan();
+  // The wrapper calls no hooks at all: it only resolves the expense and mounts the fields
+  // component when it exists. The form's hook order is therefore the same on every render,
+  // including when the expense is missing or removed while the form is open.
   const expense = plan.expenses.find((x) => x.id === expenseId);
   if (expense === undefined) return null;
+  return <ExpenseEditFields plan={plan} expense={expense} onDone={onDone} onNotice={onNotice} />;
+}
+
+/** Hooks and markup of the edit form; mounted only while the expense exists. */
+function ExpenseEditFields({
+  plan,
+  expense,
+  onDone,
+  onNotice,
+}: {
+  plan: Plan;
+  expense: Expense;
+  onDone: () => void;
+  onNotice: (notice: string | null) => void;
+}) {
+  const store = usePlan();
   const [vendorId, setVendorId] = useState(expense.vendorId ?? '');
   const [instalmentId, setInstalmentId] = useState(expense.instalmentId ?? '');
   const selectedVendor =
     vendorId === '' ? null : (plan.vendors.find((v) => v.id === vendorId) ?? null);
+  const expenseId = expense.id;
   return (
     <form
       className="row"
