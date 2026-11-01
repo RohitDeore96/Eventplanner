@@ -2,7 +2,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { parseOccasion } from '../../src/engine/create';
-import { BOOKING_STATUSES, DIETARY_TAGS, OCCASIONS, PAYMENT_KINDS, RSVPS } from '../../src/engine/enums';
+import {
+  BOOKING_STATUSES,
+  DIETARY_TAGS,
+  OCCASIONS,
+  PAYMENT_KINDS,
+  RSVPS,
+} from '../../src/engine/enums';
 import type { Plan } from '../../src/engine/types';
 import { GuestRow } from '../../src/ui/views/guests/GuestRows';
 import { readDietary } from '../../src/ui/views/guests/shared';
@@ -20,6 +26,8 @@ import { makePlan, run } from '../helpers';
  * reach the plan or a saved record. These tests pin the guards AND the tampered-value
  * behaviour (unreachable through the real UI, reachable through a tampered DOM).
  */
+
+const noop = (): void => undefined;
 
 describe('parseEnum (shared form guard)', () => {
   it('accepts exactly the allowed domain values and rejects everything else', () => {
@@ -51,7 +59,9 @@ describe('parseOccasion (engine create-path gate)', () => {
     expect(rejected.ok).toBe(false);
     if (!rejected.ok) {
       expect(rejected.error.code).toBe('INVALID_OCCASION');
-      expect(rejected.error.message).toBe('Choose one of: wedding, birthday, community, milestone.');
+      expect(rejected.error.message).toBe(
+        'Choose one of: wedding, birthday, community, milestone.',
+      );
       expect(rejected.error.field).toBe('occasion');
     }
     expect(parseOccasion(42).ok).toBe(false);
@@ -86,11 +96,11 @@ describe('tampered form values never reach the plan (Finding 1)', () => {
         {(plan) => {
           current = plan;
           const guest = plan.guests[0];
-          return guest === undefined ? null : <GuestRow guest={guest} onEdit={() => {}} />;
+          return guest === undefined ? null : <GuestRow guest={guest} onEdit={noop} />;
         }}
       </Harness>,
     );
-    const select = screen.getByLabelText('RSVP for Meera') as HTMLSelectElement;
+    const select = screen.getByLabelText<HTMLSelectElement>('RSVP for Meera');
     fireEvent.change(select, { target: { value: 'maybe' } });
     expect(current.guests[0]?.rsvp).toBe('yes'); // unchanged — no corrupting state
     fireEvent.change(select, { target: { value: 'no' } });
@@ -117,10 +127,12 @@ describe('tampered form values never reach the plan (Finding 1)', () => {
         }}
       </Harness>,
     );
-    const select = screen.getByLabelText('Booking status') as HTMLSelectElement;
+    const select = screen.getByLabelText<HTMLSelectElement>('Booking status');
     fireEvent.change(select, { target: { value: 'bogus' } });
     expect(
-      screen.getByText('Booking status must be one of: not_started, contacted, quoted, booked, cancelled.'),
+      screen.getByText(
+        'Booking status must be one of: not_started, contacted, quoted, booked, cancelled.',
+      ),
     ).toBeInTheDocument();
     expect(current.vendors[0]?.status).toBe('not_started');
     fireEvent.change(select, { target: { value: 'contacted' } });
@@ -129,36 +141,25 @@ describe('tampered form values never reach the plan (Finding 1)', () => {
   });
 
   it('setup occasion select: an invalid option cannot enter the event state', () => {
-    let current: Plan | null = null;
     render(
-      <Harness seed={makePlan()}>
-        {(plan) => {
-          current = plan;
-          return <SetupView plan={plan} onCreated={() => {}} />;
-        }}
-      </Harness>,
+      <Harness seed={makePlan()}>{(plan) => <SetupView plan={plan} onCreated={noop} />}</Harness>,
     );
-    const select = screen.getByLabelText('Occasion') as HTMLSelectElement;
+    const select = screen.getByLabelText<HTMLSelectElement>('Occasion');
     expect(select.value).toBe('wedding');
     fireEvent.change(select, { target: { value: 'housewarming' } });
     expect(select.value).toBe('wedding'); // controlled state rejected the foreign value
     fireEvent.change(select, { target: { value: 'birthday' } });
     expect(select.value).toBe('birthday'); // valid input behaves exactly as before
-    void current;
   });
 
   it('assistant preference selects: an invalid value cannot poison the saved record', () => {
-    render(
-      <Harness seed={makePlan()}>
-        {(plan) => <IdeasSection plan={plan} />}
-      </Harness>,
-    );
-    const formality = screen.getByLabelText('Formality') as HTMLSelectElement;
+    render(<Harness seed={makePlan()}>{(plan) => <IdeasSection plan={plan} />}</Harness>);
+    const formality = screen.getByLabelText<HTMLSelectElement>('Formality');
     fireEvent.change(formality, { target: { value: 'shabby-chic' } });
     expect(formality.value).toBe(''); // stays "Not set" — nothing invalid was saved
     fireEvent.change(formality, { target: { value: 'formal' } });
     expect(formality.value).toBe('formal'); // valid input behaves exactly as before
-    const tier = screen.getByLabelText('Budget tier') as HTMLSelectElement;
+    const tier = screen.getByLabelText<HTMLSelectElement>('Budget tier');
     fireEvent.change(tier, { target: { value: 'deluxe' } });
     expect(tier.value).toBe('');
     fireEvent.change(tier, { target: { value: 'premium' } });
