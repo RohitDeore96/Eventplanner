@@ -67,20 +67,30 @@ export interface CreatedPlan {
   readonly notes: string[];
 }
 
+/**
+ * Runtime occasion gate for values typed as text at their source (forms, AI, storage):
+ * accepts only the closed occasion set and returns the create path's own rejection
+ * otherwise. `createPlan` uses it, and the setup form calls it directly so its select
+ * value is proven before it is typed as an `Occasion` — no unchecked assertion.
+ */
+export function parseOccasion(value: unknown): Result<Occasion> {
+  return typeof value === 'string' && (OCCASIONS as readonly string[]).includes(value)
+    ? ok(value as Occasion) // proven by the includes() check above (same idiom as checkEnum)
+    : fail(
+        'INVALID_OCCASION',
+        'Choose one of: wedding, birthday, community, milestone.',
+        'occasion',
+      );
+}
+
 /** Validates the event basics, splits the budget with largest-remainder rounding, and adds milestones. */
 export function createPlan(input: NewEventInput, today: ISODate): Result<CreatedPlan> {
   const id = checkId(input.id, 'id');
   if (!id.ok) return id;
   const name = checkName(input.name, 'name', 'Event name');
   if (!name.ok) return name;
-  const occasionRaw: unknown = input.occasion;
-  if (typeof occasionRaw !== 'string' || !(OCCASIONS as readonly string[]).includes(occasionRaw)) {
-    return fail(
-      'INVALID_OCCASION',
-      'Choose one of: wedding, birthday, community, milestone.',
-      'occasion',
-    );
-  }
+  const occasion = parseOccasion(input.occasion);
+  if (!occasion.ok) return occasion;
   const date = checkDate(input.dateISO, 'dateISO');
   if (!date.ok) return date;
   if ((daysBetween(today, input.dateISO) ?? 0) < 0) {
@@ -107,7 +117,7 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
   const guests = checkGuestCount(input.guestTarget, 'guestTarget');
   if (!guests.ok) return guests;
 
-  const splits = DEFAULT_SPLITS[input.occasion];
+  const splits = DEFAULT_SPLITS[occasion.value];
   const amounts = allocateByWeights(
     input.budgetMinor,
     splits.map((s) => s.bps),
@@ -120,7 +130,7 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
     );
 
   const milestones = generateMilestones({
-    occasion: input.occasion,
+    occasion: occasion.value,
     dateISO: input.dateISO,
     guests: input.guestTarget,
     today,
@@ -131,7 +141,7 @@ export function createPlan(input: NewEventInput, today: ISODate): Result<Created
   const plan: Plan = {
     id: input.id,
     name: name.value,
-    occasion: input.occasion,
+    occasion: occasion.value,
     dateISO: input.dateISO,
     currency: input.currency,
     locale: input.locale,

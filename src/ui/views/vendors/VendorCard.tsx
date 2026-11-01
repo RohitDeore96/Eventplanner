@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { PlanAction } from '../../../engine/actions';
 import { instalmentPayments } from '../../../engine/budget';
+import { BOOKING_STATUSES } from '../../../engine/enums';
 import { parseMajorAmount } from '../../../engine/money';
-import type { BookingStatus, Plan, Vendor } from '../../../engine/types';
+import type { Plan, Vendor } from '../../../engine/types';
+import { checkEnum } from '../../../engine/validate';
 import { usePlan } from '../../../state/store';
 import { text } from '../form';
 import { AddInstalmentForm } from './AddInstalmentForm';
@@ -88,11 +90,23 @@ export function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): Re
             id={`${vendor.id}-status`}
             value={vendor.status}
             onChange={(event) => {
+              // Proven before it is typed: the select is user input, and a tampered
+              // value surfaces the same rejection the engine itself produces.
+              const status = checkEnum(
+                event.target.value,
+                BOOKING_STATUSES,
+                'status',
+                'Booking status',
+              );
+              if (!status.ok) {
+                setNotice(status.error.message);
+                return;
+              }
               apply(
                 {
                   type: 'vendor/update',
                   id: vendor.id,
-                  status: event.target.value as BookingStatus,
+                  status: status.value,
                 },
                 'Status updated.',
               );

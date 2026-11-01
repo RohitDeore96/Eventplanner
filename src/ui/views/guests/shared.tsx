@@ -1,5 +1,6 @@
 import type { DietaryTag, Rsvp } from '../../../engine/types';
 import { DIETARY_TAGS } from '../../../engine/enums';
+import { parseEnum } from '../form';
 
 /** Shared guest-domain vocabulary and the dietary checkbox group used by every guest form. */
 
@@ -54,5 +55,10 @@ export function DietaryPicker({
 }
 
 export function readDietary(formData: FormData, guestId: string): DietaryTag[] {
-  return formData.getAll(`${guestId}-dietary`).map(String) as DietaryTag[];
+  // Checkbox values are user input: keep only real dietary tags (a File entry is never
+  // one). The engine still validates the whole action afterwards (defence in depth).
+  return formData.getAll(`${guestId}-dietary`).flatMap((value) => {
+    const tag = typeof value === 'string' ? parseEnum(value, DIETARY_TAGS) : null;
+    return tag === null ? [] : [tag];
+  });
 }

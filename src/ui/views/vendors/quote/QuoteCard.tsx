@@ -1,5 +1,6 @@
 import type { Plan } from '../../../../engine/types';
-import type { SavedQuote } from '../../../../state/quotes';
+import { QUOTE_STATUSES, type SavedQuote } from '../../../../state/quotes';
+import { parseEnum } from '../../form';
 import { quoteCardRows } from './quoteCardRows';
 
 const QUOTE_STATUS_LABELS: Readonly<Record<SavedQuote['status'], string>> = {
@@ -48,11 +49,12 @@ function QuoteStatusSelect({
         value={quote.status}
         disabled={quote.status === 'accepted'}
         onChange={(event) => {
-          const value = event.target.value as SavedQuote['status'];
-          if (value !== quote.status) onStatus(value);
+          // Proven before it is typed: the select is user input.
+          const value = parseEnum(event.target.value, QUOTE_STATUSES);
+          if (value !== null && value !== quote.status) onStatus(value);
         }}
       >
-        {(Object.keys(QUOTE_STATUS_LABELS) as readonly SavedQuote['status'][])
+        {QUOTE_STATUSES
           // 'accepted' is only reachable through the engine-gated Accept button (booking);
           // a manual path here would lock the quote without a booking, and moving an
           // accepted quote back would defeat the never-accepted-twice guard.

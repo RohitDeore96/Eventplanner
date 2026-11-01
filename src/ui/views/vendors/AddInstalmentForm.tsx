@@ -3,6 +3,7 @@ import type { InstalmentInput } from '../../../engine/actions';
 import { PAYMENT_KINDS } from '../../../engine/enums';
 import { parseMajorAmount } from '../../../engine/money';
 import type { PaymentKind, Plan, Vendor } from '../../../engine/types';
+import { parseEnum } from '../form';
 import { KIND_LABELS } from './shared';
 
 export function AddInstalmentForm({
@@ -46,7 +47,9 @@ export function AddInstalmentForm({
           id={`${vendor.id}-kind`}
           value={kind}
           onChange={(event) => {
-            setKind(event.target.value as PaymentKind);
+            // Proven before it is typed: the select is user input.
+            const kind = parseEnum(event.target.value, PAYMENT_KINDS);
+            if (kind !== null) setKind(kind);
           }}
         >
           {PAYMENT_KINDS.map((option) => (

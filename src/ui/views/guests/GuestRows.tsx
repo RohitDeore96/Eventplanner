@@ -1,6 +1,7 @@
-import type { Guest, Rsvp } from '../../../engine/types';
+import type { Guest } from '../../../engine/types';
+import { RSVPS } from '../../../engine/enums';
 import { usePlan } from '../../../state/store';
-import { text } from '../form';
+import { parseEnum, text } from '../form';
 import { DietaryPicker, DIETARY_LABELS, RSVP_OPTIONS, readDietary } from './shared';
 
 /** The editing row: name, RSVP, plus-ones, group and dietary needs in one form. */
@@ -16,11 +17,15 @@ export function GuestEditRow({ guest, onDone }: { guest: Guest; onDone: () => vo
             event.preventDefault();
             const data = new FormData(event.currentTarget);
             const plusOnes = Number(data.get('plusOnes') ?? 0);
+            // Proven before it is typed: the select is user input. An invalid value
+            // keeps the form open exactly as the engine's own rejection did.
+            const rsvp = parseEnum(text(data, 'rsvp'), RSVPS);
+            if (rsvp === null) return;
             const outcome = store.apply({
               type: 'guest/update',
               id: guest.id,
               name: text(data, 'name'),
-              rsvp: text(data, 'rsvp') as Rsvp,
+              rsvp,
               plusOnes: Number.isInteger(plusOnes) ? plusOnes : 0,
               dietary: readDietary(data, guest.id),
               group: text(data, 'group'),
@@ -100,13 +105,17 @@ export function GuestRow({ guest, onEdit }: { guest: Guest; onEdit: () => void }
         <select
           aria-label={`RSVP for ${guest.name}`}
           value={guest.rsvp}
-          onChange={(event) =>
+          onChange={(event) => {
+            // Proven before it is typed: the select is user input; an invalid value
+            // leaves the guest untouched exactly as the engine's rejection did.
+            const rsvp = parseEnum(event.target.value, RSVPS);
+            if (rsvp === null) return;
             store.apply({
               type: 'guest/update',
               id: guest.id,
-              rsvp: event.target.value as Rsvp,
-            })
-          }
+              rsvp,
+            });
+          }}
         >
           {RSVP_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
