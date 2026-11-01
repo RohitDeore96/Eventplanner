@@ -55,9 +55,10 @@ const prefsFileSchema = z
   })
   .strict();
 
-function loadAll(storage: Storage): PrefsRecord[] {
+function loadAll(storage: Storage | undefined): PrefsRecord[] {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    // Resolved inside the try: the localStorage accessor itself can throw (private mode).
+    const raw = (storage ?? window.localStorage).getItem(STORAGE_KEY);
     if (raw === null || raw.length > MAX_STORE_BYTES) return [];
     const parsed: unknown = JSON.parse(raw);
     const file = prefsFileSchema.safeParse(parsed);
@@ -67,21 +68,18 @@ function loadAll(storage: Storage): PrefsRecord[] {
   }
 }
 
-function writeAll(records: readonly PrefsRecord[], storage: Storage): boolean {
+function writeAll(records: readonly PrefsRecord[], storage: Storage | undefined): boolean {
   try {
     const text = JSON.stringify({ schemaVersion: PREFS_SCHEMA_VERSION, prefs: records });
     if (text.length > MAX_STORE_BYTES) return false;
-    storage.setItem(STORAGE_KEY, text);
+    (storage ?? window.localStorage).setItem(STORAGE_KEY, text);
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadPreferences(
-  planId: string,
-  storage: Storage = window.localStorage,
-): EventPreferences {
+export function loadPreferences(planId: string, storage?: Storage): EventPreferences {
   const found = loadAll(storage).find((record) => record.planId === planId);
   if (found === undefined) return EMPTY_PREFERENCES;
   const { planId: _planId, ...rest } = found;
@@ -91,17 +89,17 @@ export function loadPreferences(
 export function savePreferences(
   planId: string,
   preferences: EventPreferences,
-  storage: Storage = window.localStorage,
+  storage?: Storage,
 ): boolean {
   const all = loadAll(storage).filter((record) => record.planId !== planId);
   const next = [...all, { planId, ...preferences }].slice(-MAX_RECORDS);
   return writeAll(next, storage);
 }
 
-export function deletePreferences(planId: string, storage: Storage = window.localStorage): void {
+export function deletePreferences(planId: string, storage?: Storage): void {
   try {
     const all = loadAll(storage).filter((record) => record.planId !== planId);
-    storage.setItem(
+    (storage ?? window.localStorage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: PREFS_SCHEMA_VERSION, prefs: all }),
     );

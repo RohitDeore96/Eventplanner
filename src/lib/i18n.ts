@@ -105,18 +105,24 @@ function isLang(value: string): value is Lang {
   return value === 'en' || value === 'hi' || value === 'mr';
 }
 
-export function loadLang(storage: Storage = window.localStorage): Lang {
+/**
+ * The language preference survives reloads; an unreadable or blocked store just means the
+ * session default. The default storage is resolved INSIDE the try: private-mode browsers
+ * can make the `window.localStorage` accessor itself throw, and a preference must never
+ * crash the app over that.
+ */
+export function loadLang(storage?: Storage): Lang {
   try {
-    const stored = storage.getItem(STORAGE_KEY);
+    const stored = (storage ?? window.localStorage).getItem(STORAGE_KEY);
     return stored !== null && isLang(stored) ? stored : 'en';
   } catch {
     return 'en';
   }
 }
 
-export function storeLang(lang: Lang, storage: Storage = window.localStorage): void {
+export function storeLang(lang: Lang, storage?: Storage): void {
   try {
-    storage.setItem(STORAGE_KEY, lang);
+    (storage ?? window.localStorage).setItem(STORAGE_KEY, lang);
   } catch {
     /* private mode: the choice lasts this session only */
   }

@@ -362,6 +362,74 @@ describe('persistence: recovery information for unusable stored data', () => {
   });
 });
 
+describe('persistence: storage access failures (stage-2 reliability)', () => {
+  /** A Storage that cannot even be read — private mode, blocked storage, corrupted profile. */
+  function inaccessible(): Storage {
+    return {
+      getItem: () => {
+        throw new Error('SecurityError');
+      },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+  }
+
+  it('reports inaccessible storage as unavailable, never as an empty workspace', () => {
+    const workspace = loadWorkspace(inaccessible());
+    expect(workspace.plans).toEqual([]);
+    expect(workspace.recovery).toMatchObject({ reason: 'unavailable', raw: '' });
+    const state = loadSavedState(inaccessible());
+    expect(state.plan).toBeNull();
+    expect(state.recovery?.reason).toBe('unavailable');
+  });
+
+  it('keeps truly empty storage distinct from inaccessible storage', () => {
+    const empty = loadWorkspace(memoryStorage());
+    expect(empty).toMatchObject({ plans: [], activeId: null, droppedInvalid: 0 });
+    expect(empty.recovery).toBeNull();
+  });
+
+  it('reports unsupported non-record JSON (bare values and lists) as unreadable', () => {
+    for (const raw of ['42', '"just a string"', 'true', 'null', '[1,2,3]']) {
+      const state = loadSavedState(memoryStorage({ 'utsav.plans.v1': raw }));
+      expect(state.plan).toBeNull();
+      expect(state.recovery).toMatchObject({ reason: 'unreadable', raw });
+    }
+  });
+
+  it('reports failed migrations and oversized data distinctly, raw text kept', () => {
+    const future = memoryStorage({
+      'utsav.plans.v1': JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, plans: [] }),
+    });
+    expect(loadWorkspace(future).recovery?.reason).toBe('newer_version');
+    const huge = memoryStorage({ 'utsav.plans.v1': 'x'.repeat(400_001) });
+    expect(loadWorkspace(huge).recovery?.reason).toBe('too_large');
+  });
+
+  it('never lets a save escape as an exception when storage refuses writes', () => {
+    const noWrites: Storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      getLength: 0,
+    } as unknown as Storage;
+    const status = saveWorkspace([plan], plan.id, [], noWrites);
+    expect(status.ok).toBe(false);
+    expect(status.reason).toContain('refused');
+    // savePlan reads first (unavailable -> no saved events) then still reports honestly.
+    const upsert = savePlan(plan, noWrites);
+    expect(upsert.ok).toBe(false);
+    expect(upsert.reason).toContain('refused');
+  });
+});
+
 describe('multi-event workspace (R8)', () => {
   const other = makePlan({ id: 'ev2', name: 'Diwali party', budgetMinor: 50_000_000 });
 

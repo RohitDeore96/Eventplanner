@@ -77,9 +77,10 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-function loadAllQuotes(storage: Storage): SavedQuote[] {
+function loadAllQuotes(storage: Storage | undefined): SavedQuote[] {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    // Resolved inside the try: the localStorage accessor itself can throw (private mode).
+    const raw = (storage ?? window.localStorage).getItem(STORAGE_KEY);
     if (raw === null || byteLength(raw) > MAX_STORE_BYTES) return [];
     const parsed: unknown = JSON.parse(raw);
     // v1 files parse against the v2 schema: the defaults fill the new fields.
@@ -90,18 +91,18 @@ function loadAllQuotes(storage: Storage): SavedQuote[] {
   }
 }
 
-function writeAllQuotes(quotes: readonly SavedQuote[], storage: Storage): boolean {
+function writeAllQuotes(quotes: readonly SavedQuote[], storage: Storage | undefined): boolean {
   try {
     const text = JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes });
     if (byteLength(text) > MAX_STORE_BYTES) return false;
-    storage.setItem(STORAGE_KEY, text);
+    (storage ?? window.localStorage).setItem(STORAGE_KEY, text);
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadQuotes(planId: string, storage: Storage = window.localStorage): SavedQuote[] {
+export function loadQuotes(planId: string, storage?: Storage): SavedQuote[] {
   return loadAllQuotes(storage).filter((quote) => quote.planId === planId);
 }
 
@@ -110,7 +111,7 @@ export function saveQuote(
     validityDate?: string | null;
     note?: string;
   },
-  storage: Storage = window.localStorage,
+  storage?: Storage,
 ): SavedQuote | null {
   // Read the WHOLE library (every plan), not just this plan's quotes, or saving for one
   // plan would silently drop another plan's quotations.
@@ -132,11 +133,7 @@ export function saveQuote(
   return written ? record : null;
 }
 
-export function setQuoteStatus(
-  id: string,
-  status: QuoteStatus,
-  storage: Storage = window.localStorage,
-): boolean {
+export function setQuoteStatus(id: string, status: QuoteStatus, storage?: Storage): boolean {
   const all = loadAllQuotes(storage);
   const next = all.map((quote) => (quote.id === id ? { ...quote, status } : quote));
   const changed = next.some((quote) => quote.id === id && quote.status === status);
@@ -150,7 +147,7 @@ export function setQuoteStatus(
 export function updateQuote(
   id: string,
   changes: { validityDate?: string | null; note?: string },
-  storage: Storage = window.localStorage,
+  storage?: Storage,
 ): boolean {
   const all = loadAllQuotes(storage);
   if (!all.some((quote) => quote.id === id)) return false; // unknown id: report, don't no-op
@@ -168,11 +165,11 @@ export function updateQuote(
   return written;
 }
 
-export function deleteQuote(id: string, storage: Storage = window.localStorage): void {
+export function deleteQuote(id: string, storage?: Storage): void {
   try {
     const all = loadAllQuotes(storage);
     const kept = all.filter((quote) => quote.id !== id);
-    storage.setItem(
+    (storage ?? window.localStorage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );
@@ -183,11 +180,11 @@ export function deleteQuote(id: string, storage: Storage = window.localStorage):
 }
 
 /** Removes every quotation saved for one event (used when that event is deleted). */
-export function deleteQuotesFor(planId: string, storage: Storage = window.localStorage): void {
+export function deleteQuotesFor(planId: string, storage?: Storage): void {
   try {
     const all = loadAllQuotes(storage);
     const kept = all.filter((quote) => quote.planId !== planId);
-    storage.setItem(
+    (storage ?? window.localStorage).setItem(
       STORAGE_KEY,
       JSON.stringify({ schemaVersion: QUOTES_SCHEMA_VERSION, quotes: kept }),
     );

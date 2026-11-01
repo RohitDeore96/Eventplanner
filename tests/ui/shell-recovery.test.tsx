@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/ui/App';
-import { loadWorkspace, saveWorkspace } from '../../src/state/persistence';
+import { clearSavedPlan, loadWorkspace, saveWorkspace } from '../../src/state/persistence';
 import { makePlan, run } from '../helpers';
 import { Harness, fireEventSubmit } from './harness';
 import { BudgetView } from '../../src/ui/views/budget';
@@ -168,7 +168,10 @@ describe('persistence failure paths (M13.3)', () => {
     expect(status.reason).toContain('up to 12');
   });
 
-  it('starts fresh when storage itself is unavailable', () => {
+  it('reports storage that refuses to be read instead of pretending it is empty', () => {
+    // Stage-2 reliability: an inaccessible store used to come back as a plain empty
+    // workspace; it must be distinguishable so the UI can say the family's events
+    // could not be checked (they may still be in there).
     const throwing = {
       getItem: () => {
         throw new Error('private mode');
@@ -178,7 +181,52 @@ describe('persistence failure paths (M13.3)', () => {
     } as unknown as Storage;
     const workspace = loadWorkspace(throwing);
     expect(workspace.plans).toHaveLength(0);
-    expect(workspace.recovery).toBeNull();
+    expect(workspace.recovery?.reason).toBe('unavailable');
+  });
+
+  it('survives a browser that throws the moment window.localStorage is touched', () => {
+    // Private-mode browsers can make the localStorage ACCESSOR itself throw; the
+    // persistence layer resolves its default inside the try, so nothing escapes.
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    try {
+      expect(() => loadWorkspace()).not.toThrow();
+      expect(loadWorkspace().recovery?.reason).toBe('unavailable');
+      expect(() => {
+        clearSavedPlan();
+      }).not.toThrow();
+      const status = saveWorkspace([makePlan({ id: 'ev1' })], 'ev1');
+      expect(status.ok).toBe(false);
+      expect(status.reason).toContain('refused');
+    } finally {
+      if (descriptor !== undefined) Object.defineProperty(window, 'localStorage', descriptor);
+      else delete (window as { localStorage?: unknown }).localStorage;
+    }
+  });
+
+  it('shows the storage-unavailable recovery card without a download offer', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    try {
+      render(<App />);
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(screen.getByText(/storage is unavailable/)).toBeInTheDocument();
+      // Nothing could be read, so there is no copy to download.
+      expect(screen.queryByRole('button', { name: 'Download a copy' })).toBeNull();
+    } finally {
+      if (descriptor !== undefined) Object.defineProperty(window, 'localStorage', descriptor);
+      else delete (window as { localStorage?: unknown }).localStorage;
+    }
   });
 });
 
