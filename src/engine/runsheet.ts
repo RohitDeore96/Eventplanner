@@ -1,6 +1,11 @@
 import { fail, ok, type Result } from './result.js';
 import type { Plan, RunSheetEntry } from './types.js';
 import { checkDate, checkId, checkName, checkNote } from './validate.js';
+import { minutesOf } from './runsheetSchedule.js';
+
+// The read models (conflicts, order, span) are shared with the run-sheet view; keep the
+// established import path stable.
+export { minutesOf, runSheetConflicts, orderedRunSheet, runSheetSpan } from './runsheetSchedule.js';
 
 /**
  * Event-day run sheet (M7): one ordered list of activities with times, owners and places.
@@ -18,12 +23,6 @@ function checkTime(value: unknown, field: string, label: string): Result<string>
   return typeof value === 'string' && TIME_PATTERN.test(value)
     ? ok(value)
     : fail('INVALID_TIME', `${label} must be a time as HH:MM (24-hour), for example 09:30.`, field);
-}
-
-/** Minutes since midnight; only valid after checkTime. */
-export function minutesOf(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
 }
 
 function checkShortText(value: unknown, field: string, label: string): Result<string> {
@@ -202,53 +201,4 @@ export function moveRunSheetEntry(plan: Plan, id: string, toIndex: number): Resu
   if (entry === undefined) return fail('ENTRY_NOT_FOUND', 'That activity no longer exists.', 'id');
   next.splice(toIndex, 0, entry);
   return ok({ ...plan, runSheet: next });
-}
-
-export interface RunSheetConflict {
-  readonly firstId: string;
-  readonly secondId: string;
-  readonly dateISO: string;
-}
-
-/**
- * Overlapping activities on the same day: shown to the user for deliberate correction —
- * never silently moved (11.3). Same-vendor double-booking is also surfaced.
- */
-export function runSheetConflicts(entries: readonly RunSheetEntry[]): RunSheetConflict[] {
-  const conflicts: RunSheetConflict[] = [];
-  const seen = new Set<string>();
-  for (let i = 0; i < entries.length; i += 1) {
-    for (let j = i + 1; j < entries.length; j += 1) {
-      const a = entries[i];
-      const b = entries[j];
-      // The loop bounds guarantee both entries exist; the date guard is what matters.
-      if (a === undefined || b === undefined) continue;
-      if (a.dateISO !== b.dateISO) continue;
-      const overlap =
-        minutesOf(a.startTime) < minutesOf(b.endTime) &&
-        minutesOf(b.startTime) < minutesOf(a.endTime);
-      const sameOwner = a.ownerId !== null && b.ownerId !== null && a.ownerId === b.ownerId;
-      if (overlap || sameOwner) {
-        const key = [a.id, b.id].sort().join('|');
-        if (!seen.has(key)) {
-          seen.add(key);
-          conflicts.push({ firstId: a.id, secondId: b.id, dateISO: a.dateISO });
-        }
-      }
-    }
-  }
-  return conflicts;
-}
-
-/** Stable display order: by date, then start time, then insertion order. */
-export function orderedRunSheet(entries: readonly RunSheetEntry[]): readonly RunSheetEntry[] {
-  return [...entries].sort(
-    (a, b) =>
-      a.dateISO.localeCompare(b.dateISO) || minutesOf(a.startTime) - minutesOf(b.startTime) || 0,
-  );
-}
-
-/** Total scheduled span in minutes, for the day summary (never money, so no cap worry). */
-export function runSheetSpan(entries: readonly RunSheetEntry[]): number {
-  return entries.reduce((acc, e) => acc + (minutesOf(e.endTime) - minutesOf(e.startTime)), 0);
 }

@@ -27,7 +27,7 @@ const expensePlan = (): Plan =>
     note: 'venue advance',
   });
 
-/** Dispatches expense/delete through the real store, as any other view could. */
+/** Dispatches expense/delete through the real store, as every other view could. */
 function DeleteExpense({ id }: { id: string }): React.ReactNode {
   const store = usePlan();
   return (
