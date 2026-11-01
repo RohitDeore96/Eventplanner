@@ -12,6 +12,54 @@ import { VendorEditForm } from './VendorEditForm';
 import { VendorMoneySummary } from './VendorMoneySummary';
 import { VendorPaymentHistory } from './VendorPaymentHistory';
 
+/** The muted contact line under the vendor name; empty fields contribute nothing. */
+function contactLine(vendor: Vendor): string {
+  return [
+    vendor.contactPerson.length > 0 ? vendor.contactPerson : null,
+    vendor.phone.length > 0 ? vendor.phone : null,
+    vendor.email.length > 0 ? vendor.email : null,
+    vendor.contactNote.length > 0 ? vendor.contactNote : null,
+  ]
+    .filter((part) => part !== null)
+    .join(' · ');
+}
+
+/** The agreed-price quick form; a blank field clears the price. */
+function AgreedPriceForm({
+  vendor,
+  plan,
+  onApply,
+}: {
+  vendor: Vendor;
+  plan: Plan;
+  onApply: (action: PlanAction, successMessage: string) => void;
+}) {
+  return (
+    <form
+      className="row"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const priceText = text(new FormData(event.currentTarget), 'agreed').trim();
+        const committed = priceText.length > 0 ? parseMajorAmount(priceText, plan.currency) : null;
+        onApply({ type: 'vendor/update', id: vendor.id, committedMinor: committed }, 'Saved.');
+      }}
+    >
+      <div>
+        <label htmlFor={`${vendor.id}-agreed`}>Agreed price (blank clears it)</label>
+        <input
+          id={`${vendor.id}-agreed`}
+          name="agreed"
+          inputMode="decimal"
+          defaultValue={
+            vendor.committedMinor === null ? '' : displayMajor(vendor.committedMinor, plan)
+          }
+        />
+      </div>
+      <button type="submit">Save price</button>
+    </form>
+  );
+}
+
 /** One vendor: details (editable), financial summary, schedule, payment history. */
 export function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): React.ReactNode {
   const store = usePlan();
@@ -31,10 +79,7 @@ export function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): Re
       <h3 id={`vendor-${vendor.id}`}>{vendor.name}</h3>
       <p className="muted">
         {category?.name ?? 'Unknown category'}
-        {vendor.contactPerson.length > 0 ? ` · ${vendor.contactPerson}` : ''}
-        {vendor.phone.length > 0 ? ` · ${vendor.phone}` : ''}
-        {vendor.email.length > 0 ? ` · ${vendor.email}` : ''}
-        {vendor.contactNote.length > 0 ? ` · ${vendor.contactNote}` : ''}
+        {contactLine(vendor).length > 0 ? ` · ${contactLine(vendor)}` : ''}
       </p>
       <div className="row">
         <div>
@@ -60,29 +105,7 @@ export function VendorCard({ plan, vendor }: { plan: Plan; vendor: Vendor }): Re
             ))}
           </select>
         </div>
-        <form
-          className="row"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const priceText = text(new FormData(event.currentTarget), 'agreed').trim();
-            const committed =
-              priceText.length > 0 ? parseMajorAmount(priceText, plan.currency) : null;
-            apply({ type: 'vendor/update', id: vendor.id, committedMinor: committed }, 'Saved.');
-          }}
-        >
-          <div>
-            <label htmlFor={`${vendor.id}-agreed`}>Agreed price (blank clears it)</label>
-            <input
-              id={`${vendor.id}-agreed`}
-              name="agreed"
-              inputMode="decimal"
-              defaultValue={
-                vendor.committedMinor === null ? '' : displayMajor(vendor.committedMinor, plan)
-              }
-            />
-          </div>
-          <button type="submit">Save price</button>
-        </form>
+        <AgreedPriceForm vendor={vendor} plan={plan} onApply={apply} />
         <button
           type="button"
           className="subtle"

@@ -9,9 +9,8 @@ import { deletePreferences } from '../../state/prefs';
 import { deleteQuotesFor } from '../../state/quotes';
 import { PlanContext, usePlanStore } from '../../state/store';
 import { ErrorBoundary } from './ErrorBoundary';
-import { HeaderControls } from './HeaderControls';
-import { Readiness } from './Readiness';
 import { RecoveryNotice } from './RecoveryNotice';
+import { Masthead } from './Masthead';
 import { TabList } from './TabList';
 import type { TabId } from './tabs';
 import { ViewSwitch } from './ViewSwitch';
@@ -157,44 +156,18 @@ export function Shell({ workspace }: { workspace: Workspace }) {
       <a className="skip-link" href="#main">
         {translate(lang, 'a11y.skip')}
       </a>
-      <header className="masthead">
-        <div className="masthead-inner">
-          <div className="brand">
-            <img src="/logo.png" alt="" width={40} height={40} />
-            <div>
-              {/* Single page heading: the product name. Styled by .brand .name. */}
-              <h1 className="name">Utsav</h1>
-              <p className="tagline">Every utsav, one connected plan.</p>
-            </div>
-          </div>
-          {hasPlan && <Readiness plan={current} lang={lang} />}
-          <HeaderControls
-            store={store}
-            hasPlan={hasPlan}
-            lang={lang}
-            onLang={(next) => {
-              setLang(next);
-              storeLang(next);
-            }}
-          />
-        </div>
-        {saveNotice !== null && (
-          <p className="alert" role="status">
-            <strong>
-              <span aria-hidden="true">⚠️</span> {saveNotice}
-            </strong>{' '}
-            Your plan is still open — export JSON to keep a copy, or free up browser storage and
-            make a change to autosave again.
-          </p>
-        )}
-        {actionNotice !== null && (
-          <p className="alert" role="status">
-            <strong>
-              <span aria-hidden="true">✓</span> {actionNotice}
-            </strong>
-          </p>
-        )}
-      </header>
+      <Masthead
+        store={store}
+        hasPlan={hasPlan}
+        lang={lang}
+        onLang={(next) => {
+          setLang(next);
+          storeLang(next);
+        }}
+        current={current}
+        saveNotice={saveNotice}
+        actionNotice={actionNotice}
+      />
       <div className="layout">
         {workspace.recovery !== null && <RecoveryNotice recovery={workspace.recovery} />}
         {droppedNotice !== null && (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { dryRunPatch, type PatchAction, type PlanPatch } from '../../engine/patch';
+import type { PlanComparison } from '../../engine/scenario';
 import type { Plan } from '../../engine/types';
 import { localToday, money } from '../../lib/format';
 import { planFacts } from '../../lib/facts';
@@ -12,6 +13,74 @@ import { usePlan } from '../../state/store';
  * the family sees the exact before/after -> accept (one undo step) or reject.
  * The AI never writes the plan directly.
  */
+/** The dry-run preview: category deltas, task changes and the apply/reject decision. */
+function PatchPreview({
+  plan,
+  pending,
+  dry,
+  blockedBy,
+  onApply,
+  onReject,
+}: {
+  plan: Plan;
+  pending: { patch: PlanPatch; blocked: boolean };
+  dry: PlanComparison;
+  blockedBy: readonly { readonly message: string }[];
+  onApply: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div aria-live="polite">
+      <h3>{pending.patch.summary}</h3>
+      <table tabIndex={0}>
+        <caption className="visually-hidden">Before and after for each category</caption>
+        <thead>
+          <tr>
+            <th scope="col">Category</th>
+            <th scope="col">Planned before</th>
+            <th scope="col">Planned after</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dry.categories
+            .filter((row) => row.plannedBefore !== row.plannedAfter)
+            .map((row) => (
+              <tr key={row.categoryId}>
+                <th scope="row">{row.name}</th>
+                <td>{money(row.plannedBefore, plan)}</td>
+                <td>{money(row.plannedAfter, plan)}</td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+      {dry.tasksAdded.length > 0 && <p>Tasks added: {dry.tasksAdded.join(', ')}</p>}
+      {dry.tasksRescheduled.length > 0 && (
+        <p>
+          Rescheduled: {dry.tasksRescheduled.map((task) => `${task.title} → ${task.to}`).join(', ')}
+        </p>
+      )}
+      {pending.blocked ? (
+        <div className="alert error" role="alert">
+          <strong>
+            <span aria-hidden="true">⛔</span> Blocked: this suggestion would break the plan's
+            budget rules.
+          </strong>
+          <p className="fix">{blockedBy[0]?.message}</p>
+        </div>
+      ) : (
+        <div className="row">
+          <button type="button" className="primary" onClick={onApply}>
+            Apply these changes
+          </button>
+          <button type="button" onClick={onReject}>
+            Reject
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AiPatchPanel({ plan }: { plan: Plan }) {
   const store = usePlan();
   const today = localToday();
@@ -87,72 +156,20 @@ export function AiPatchPanel({ plan }: { plan: Plan }) {
         )}
       </div>
       {dry?.ok && pending !== null && (
-        <div aria-live="polite">
-          <h3>{pending.patch.summary}</h3>
-          <table tabIndex={0}>
-            <caption className="visually-hidden">Before and after for each category</caption>
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col">Planned before</th>
-                <th scope="col">Planned after</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dry.value.comparison.categories
-                .filter((row) => row.plannedBefore !== row.plannedAfter)
-                .map((row) => (
-                  <tr key={row.categoryId}>
-                    <th scope="row">{row.name}</th>
-                    <td>{money(row.plannedBefore, plan)}</td>
-                    <td>{money(row.plannedAfter, plan)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          {dry.value.comparison.tasksAdded.length > 0 && (
-            <p>Tasks added: {dry.value.comparison.tasksAdded.join(', ')}</p>
-          )}
-          {dry.value.comparison.tasksRescheduled.length > 0 && (
-            <p>
-              Rescheduled:{' '}
-              {dry.value.comparison.tasksRescheduled
-                .map((task) => `${task.title} → ${task.to}`)
-                .join(', ')}
-            </p>
-          )}
-          {pending.blocked ? (
-            <div className="alert error" role="alert">
-              <strong>
-                <span aria-hidden="true">⛔</span> Blocked: this suggestion would break the plan's
-                budget rules.
-              </strong>
-              <p className="fix">{dry.value.blockedBy[0]?.message}</p>
-            </div>
-          ) : (
-            <div className="row">
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  store.dispatch({ kind: 'patch', patch: pending.patch });
-                  setPending(null);
-                  setNotice('Applied. One undo step — use Undo above to take it back.');
-                }}
-              >
-                Apply these changes
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPending(null);
-                }}
-              >
-                Reject
-              </button>
-            </div>
-          )}
-        </div>
+        <PatchPreview
+          plan={plan}
+          pending={pending}
+          dry={dry.value.comparison}
+          blockedBy={dry.value.blockedBy}
+          onApply={() => {
+            store.dispatch({ kind: 'patch', patch: pending.patch });
+            setPending(null);
+            setNotice('Applied. One undo step — use Undo above to take it back.');
+          }}
+          onReject={() => {
+            setPending(null);
+          }}
+        />
       )}
     </section>
   );
