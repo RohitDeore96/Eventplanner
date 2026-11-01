@@ -230,6 +230,98 @@ describe('persistence failure paths (M13.3)', () => {
   });
 });
 
+/**
+ * Stage-2 recovery journeys: the recovery card must stay truthful at every step —
+ * "Start fresh" may only reload when the browser actually allowed the clear, a refused
+ * clear is said out loud instead of looping the card forever, and "continue for this
+ * session" runs the app on the persistence module's volatile store so the real (broken)
+ * storage is never touched, let alone overwritten.
+ */
+describe('recovery journeys (stage-2)', () => {
+  it('says so when the browser refuses to clear, keeps the data, and offers the session path', async () => {
+    localStorage.setItem('utsav.plans.v1', '{corrupt');
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+    // The refusal is stated; nothing was deleted; the session continuation appears.
+    expect(
+      screen.getByText(/refused to clear the saved data, so nothing was deleted/),
+    ).toBeInTheDocument();
+    expect(localStorage.getItem('utsav.plans.v1')).toBe('{corrupt');
+    expect(screen.getByRole('button', { name: 'Continue for this session' })).toBeInTheDocument();
+  });
+
+  it('continue for this session: the app runs in memory and the real storage is never touched', async () => {
+    // The session store is module state, so this journey runs on a fresh module graph;
+    // the statically imported App (and its persistence) stay untouched for other tests.
+    vi.resetModules();
+    const [{ App: FreshApp }, p, session] = await Promise.all([
+      import('../../src/ui/App'),
+      import('../../src/state/persistence'),
+      import('../../src/state/sessionStore'),
+    ]);
+    localStorage.setItem('utsav.plans.v1', '{still broken');
+    // The browser allows reads but refuses to clear — the trapped state the old
+    // "Start fresh" looped on forever.
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const user = userEvent.setup();
+    render(<FreshApp />);
+    expect(screen.getByText(/not readable/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download a copy' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue for this session' })).toBeNull();
+    // Start fresh cannot clear: the refusal is stated and the session path appears.
+    await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+    expect(
+      screen.getByText(/refused to clear the saved data, so nothing was deleted/),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Continue for this session' }));
+    // The card is gone, the session-only banner is up, and the stored bytes survived.
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText(/changes last only for this session/)).toBeInTheDocument();
+    expect(localStorage.getItem('utsav.plans.v1')).toBe('{still broken');
+    expect(session.isSessionOnlyStorage()).toBe(true);
+    // Planning keeps working: the demo event saves into the session store…
+    await user.click(screen.getByRole('button', { name: 'Load demo event' }));
+    await waitFor(() => {
+      expect(p.loadWorkspace().plans).toHaveLength(1);
+    });
+    expect(p.loadWorkspace().plans[0]?.name).toContain('Asha & Dev wedding');
+    // …while the real storage still holds exactly what it held before.
+    expect(localStorage.getItem('utsav.plans.v1')).toBe('{still broken');
+  });
+
+  it('repeated reloads with inaccessible storage keep showing the honest card', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      for (let reload = 0; reload < 2; reload += 1) {
+        const { unmount } = render(<App />);
+        expect(screen.getByText(/storage is unavailable/)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Download a copy' })).toBeNull();
+        // Start fresh cannot clear what it cannot read: the truthful fallback appears.
+        await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+        expect(screen.getByText(/refused to clear the saved data/)).toBeInTheDocument();
+        unmount();
+      }
+    } finally {
+      if (descriptor !== undefined) Object.defineProperty(window, 'localStorage', descriptor);
+      else delete (window as { localStorage?: unknown }).localStorage;
+    }
+  });
+});
+
 describe('allocation Set flow (M10.1 UI)', () => {
   it('sets a new allocation and rejects a malformed one with the honest message', async () => {
     const user = userEvent.setup();
