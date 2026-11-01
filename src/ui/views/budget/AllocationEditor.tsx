@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { parseMajorAmount } from '../../../engine/money';
+import { currencyExponent, parseMajorAmount } from '../../../engine/money';
 import type { Plan } from '../../../engine/types';
 import { money } from '../../../lib/format';
 import { usePlan } from '../../../state/store';
@@ -20,8 +20,11 @@ function AllocationEditor({
   function draftFor(categoryId: string, plannedMinor: number): string {
     const existing = drafts[categoryId];
     if (existing !== undefined) return existing;
-    const exponent = plan.currency === 'JPY' ? 0 : 2;
-    return String(Math.round(plannedMinor / 10 ** currencyExponentOf(plan.currency, exponent)));
+    // Major units for the input display; the exponent comes from the engine's single currency
+    // table (the `?? 2` is unreachable for plans built by buildPlan, which rejects unknown
+    // codes, and only keeps this display defined if a hand-built plan ever carries one).
+    const exponent = currencyExponent(plan.currency) ?? 2;
+    return String(Math.round(plannedMinor / 10 ** exponent));
   }
 
   return (
@@ -128,11 +131,4 @@ function AllocationEditor({
       </table>
     </section>
   );
-}
-
-function currencyExponentOf(currency: string, fallback: number): number {
-  // Inline exponent lookup for the input display only; money math stays in the engine.
-  if (currency === 'JPY') return 0;
-  if (currency === 'KWD') return 3;
-  return fallback;
 }
