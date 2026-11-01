@@ -18,7 +18,7 @@ import { deleteQuotesFor } from '../state/quotes';
 import { exportCsv, exportJson, exportSummary, exportTextFile } from '../lib/export';
 import { LANGS, loadLang, storeLang, translate, type Lang } from '../lib/i18n';
 import { PlanContext, usePlanStore } from '../state/store';
-import { BudgetView } from './views/BudgetView';
+import { BudgetView } from './views/budget';
 import { GuestsView } from './views/GuestsView';
 import { SetupView } from './views/SetupView';
 import { TimelineView } from './views/TimelineView';
