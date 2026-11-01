@@ -1,80 +1,6 @@
 import type { Plan } from '../../../../engine/types';
-import { money } from '../../../../lib/format';
-import {
-  effectiveMinor,
-  inquiryMessage,
-  missingFields,
-  riskFlags,
-} from '../../../../lib/quoteCompare';
 import type { SavedQuote } from '../../../../state/quotes';
-
-/** The advance cell: percent, plus the amount when the effective price is known. */
-function advanceLabel(fields: SavedQuote['fields'], effective: number | null, plan: Plan): string {
-  if (fields.advancePercent === null) return 'Not stated';
-  if (effective === null) return `${fields.advancePercent}%`;
-  const amount = Math.round((effective * fields.advancePercent) / 100);
-  return `${fields.advancePercent}% (${money(amount, plan)})`;
-}
-
-/** The vs-budget cell: under/over with exact amounts, never colour alone. */
-function budgetLabel(gap: number | null, plan: Plan): string {
-  if (gap === null) return '—';
-  return gap >= 0 ? `${money(gap, plan)} under` : `${money(-gap, plan)} over`;
-}
-
-/** The comparison numbers for one quotation, computed outside JSX. */
-function quoteCardRows(
-  plan: Plan,
-  quote: SavedQuote,
-): {
-  readonly rows: readonly { readonly label: string; readonly value: string }[];
-  readonly effective: number | null;
-  readonly flags: readonly string[];
-  readonly missing: readonly string[];
-} {
-  const fields = quote.fields;
-  const effective = effectiveMinor(fields, plan.guestTarget);
-  const category = plan.categories.find((c) => c.id === quote.categoryId);
-  const perGuest =
-    effective === null || plan.guestTarget === 0 ? null : Math.round(effective / plan.guestTarget);
-  const budgetGap =
-    effective === null || category === undefined ? null : category.plannedMinor - effective;
-  return {
-    effective,
-    flags: riskFlags(fields, plan),
-    missing: missingFields(fields),
-    rows: [
-      {
-        label: 'Stated total',
-        value: statedText(fields.totalPriceMinor, (total) => money(total, plan)),
-      },
-      {
-        label: `Effective for ${plan.guestTarget} guests`,
-        value: effective === null ? 'Cannot compute' : money(effective, plan),
-      },
-      { label: 'Cost per guest', value: perGuest === null ? '—' : money(perGuest, plan) },
-      { label: 'Vs category budget', value: budgetLabel(budgetGap, plan) },
-      { label: 'Advance', value: advanceLabel(fields, effective, plan) },
-      {
-        label: 'Tax included',
-        value: yesNoLabel(fields.taxIncluded),
-      },
-      {
-        label: 'Min. guests',
-        value: statedText(fields.guestMinimum, String),
-      },
-    ],
-  };
-}
-
-/** "Not stated" for optional values; shared wording across the comparison rows. */
-function statedText<T>(value: T | null, render: (value: T) => string): string {
-  return value === null ? 'Not stated' : render(value);
-}
-
-function yesNoLabel(value: boolean | null): string {
-  return value === null ? 'Not stated' : value ? 'Yes' : 'No';
-}
+import { quoteCardRows } from './quoteCardRows';
 
 const QUOTE_STATUS_LABELS: Readonly<Record<SavedQuote['status'], string>> = {
   review: 'Under review',
@@ -180,7 +106,7 @@ export function QuoteCard({
   onDetail: (changes: { validityDate?: string | null; note?: string }) => void;
   onRemove: () => void;
 }): React.ReactNode {
-  const { rows, effective, flags, missing } = quoteCardRows(plan, quote);
+  const { rows, effective, flags, missing, inquiry } = quoteCardRows(plan, quote);
   const category = plan.categories.find((c) => c.id === quote.categoryId);
 
   return (
@@ -236,12 +162,7 @@ export function QuoteCard({
       <QuoteAlerts missing={missing} flags={flags} />
       <details>
         <summary>Draft an inquiry about the missing terms</summary>
-        <textarea
-          readOnly
-          rows={5}
-          value={inquiryMessage(quote.fields, missing)}
-          aria-label="Draft inquiry message"
-        />
+        <textarea readOnly rows={5} value={inquiry} aria-label="Draft inquiry message" />
       </details>
       <div className="row">
         <button
