@@ -1,89 +1,22 @@
 import { MAX_INSTALMENTS_PER_VENDOR, MAX_VENDORS } from '../../config/limits.js';
-import { BOOKING_STATUSES, PAYMENT_KINDS } from '../enums.js';
+import { PAYMENT_KINDS } from '../enums.js';
 import { fail, ok, type Result } from '../result.js';
 import type { InstalmentInput } from '../actions.js';
 import type { BookingStatus, Instalment, Plan, Vendor } from '../types.js';
 import { checkAmount, checkDate, checkEnum, checkId, checkName, checkNote } from '../validate.js';
+import {
+  checkBooking,
+  checkContactField,
+  checkEmail,
+  checkPhone,
+  checkStatusInput,
+  sameName,
+  type NewVendor,
+} from './vendorValidate.js';
 
 function firstFailure(results: readonly Result<unknown>[]): Result<never> | undefined {
   for (const result of results) if (!result.ok) return result;
   return undefined;
-}
-
-const sameName = (a: string, b: string): boolean =>
-  a.trim().toLowerCase() === b.trim().toLowerCase();
-
-function checkBooking(status: BookingStatus, committedMinor: number | null): Result<null> {
-  if (committedMinor !== null) {
-    const amount = checkAmount(committedMinor, 'committedMinor', 'Agreed price');
-    if (!amount.ok) return amount;
-  }
-  return status === 'booked' && committedMinor === null
-    ? fail(
-        'BOOKED_NEEDS_PRICE',
-        'Enter the agreed price before marking a vendor as booked.',
-        'committedMinor',
-      )
-    : ok(null);
-}
-
-/** Validates status and agreed price that arrive from untrusted input. */
-function checkStatusInput(
-  status: unknown,
-  committedMinor: unknown,
-): Result<{ status: BookingStatus; committedMinor: number | null }> {
-  const checked = checkEnum(status, BOOKING_STATUSES, 'status', 'Booking status');
-  if (!checked.ok) return checked;
-  if (committedMinor === null || committedMinor === undefined)
-    return ok({ status: checked.value, committedMinor: null });
-  const amount = checkAmount(committedMinor, 'committedMinor', 'Agreed price');
-  return amount.ok ? ok({ status: checked.value, committedMinor: amount.value }) : amount;
-}
-
-interface NewVendor {
-  readonly id: string;
-  readonly categoryId: string;
-  readonly name: string;
-  readonly contactNote: string;
-  readonly contactPerson?: string;
-  readonly phone?: string;
-  readonly email?: string;
-  readonly status: BookingStatus;
-  readonly committedMinor: number | null;
-}
-
-/** Optional contact details: trimmed text with length caps; empty string when absent. */
-function checkContactField(value: unknown, field: string, label: string): Result<string> {
-  if (value === undefined || value === null) return ok('');
-  if (typeof value !== 'string') return fail('INVALID_TEXT', `${label} must be text.`, field);
-  const trimmed = value.trim();
-  return trimmed.length > 120
-    ? fail('TEXT_TOO_LONG', `${label} must be 120 characters or fewer.`, field)
-    : ok(trimmed);
-}
-
-function checkPhone(value: unknown): Result<string> {
-  if (value === undefined || value === null) return ok('');
-  if (typeof value !== 'string') return fail('INVALID_TEXT', 'Phone must be text.', 'phone');
-  const trimmed = value.trim();
-  if (trimmed.length > 40) {
-    return fail('TEXT_TOO_LONG', 'Phone must be 40 characters or fewer.', 'phone');
-  }
-  return ok(trimmed);
-}
-
-function checkEmail(value: unknown): Result<string> {
-  if (value === undefined || value === null) return ok('');
-  if (typeof value !== 'string') return fail('INVALID_TEXT', 'Email must be text.', 'email');
-  const trimmed = value.trim();
-  if (trimmed.length > 120) {
-    return fail('TEXT_TOO_LONG', 'Email must be 120 characters or fewer.', 'email');
-  }
-  // Only a light shape check: a full RFC parser rejects real-world addresses.
-  if (trimmed.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    return fail('INVALID_EMAIL', 'That email address does not look right.', 'email');
-  }
-  return ok(trimmed);
 }
 
 export function addVendor(plan: Plan, input: NewVendor): Result<Plan> {
