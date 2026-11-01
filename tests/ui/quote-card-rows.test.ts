@@ -60,7 +60,7 @@ describe('quotation card rows', () => {
     );
     const byLabel = Object.fromEntries(card.rows.map((row) => [row.label, row.value]));
     expect(byLabel['Stated total']).toBe('Not stated');
-    expect(byLabel['Advance']).toBe('Not stated');
+    expect(byLabel.Advance).toBe('Not stated');
     expect(byLabel['Tax included']).toBe('Not stated');
     expect(byLabel['Min. guests']).toBe('Not stated');
     expect(byLabel['Cost per guest']).toBe('—');
@@ -71,7 +71,7 @@ describe('quotation card rows', () => {
   it('shows the advance amount when the effective price is known', () => {
     const card = quoteCardRows(plan, quote({}));
     const byLabel = Object.fromEntries(card.rows.map((row) => [row.label, row.value]));
-    expect(byLabel['Advance']).toMatch(/^30% \(/);
+    expect(byLabel.Advance).toMatch(/^30% \(/);
   });
 
   it('derives the missing list and the inquiry draft from the same fields', () => {

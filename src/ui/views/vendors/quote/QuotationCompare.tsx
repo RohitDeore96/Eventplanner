@@ -28,6 +28,8 @@ export function QuotationCompare({
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [notice, setNotice] = useState<string | null>(null);
   // Re-read the library whenever the version changes — without remounting, so notices stay.
+  // `version` is a deliberate re-sync trigger: its value is intentionally unused in the body.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const all = useMemo(() => loadQuotes(plan.id), [plan.id, version]);
   const quotes =
     categoryFilter === 'all' ? all : all.filter((quote) => quote.categoryId === categoryFilter);

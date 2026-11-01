@@ -40,6 +40,9 @@ export function IdeasSection({ plan }: { plan: Plan }) {
   const [prefs, setPrefs] = useState<EventPreferences>(EMPTY_PREFERENCES);
   const [prefsNotice, setPrefsNotice] = useState<string | null>(null);
   useEffect(() => {
+    // Re-sync from the external per-event preference store when the event changes; the
+    // setState carries the loaded value, exactly like a store subscription callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPrefs(loadPreferences(plan.id));
   }, [plan.id]);
 

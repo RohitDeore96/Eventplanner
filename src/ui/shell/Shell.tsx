@@ -48,6 +48,9 @@ export function Shell({ workspace }: { workspace: Workspace }) {
     if (!hasPlan) return;
     const plans = events.map((p) => (p.id === activeId ? current : p));
     const status = saveWorkspace(plans, activeId, archivedIds);
+    // The notice reports the result of the external-system write (localStorage) — the
+    // setState here IS the synchronization outcome, not derived state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSaveNotice(status.ok ? null : (status.reason ?? 'Your latest change was not saved.'));
   }, [current, hasPlan, events, activeId, archivedIds]);
 
