@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { parseOccasion } from '../../src/engine/create';
 import {
@@ -10,12 +11,15 @@ import {
   RSVPS,
 } from '../../src/engine/enums';
 import type { Plan } from '../../src/engine/types';
-import { GuestRow } from '../../src/ui/views/guests/GuestRows';
+import { GuestEditRow, GuestRow } from '../../src/ui/views/guests/GuestRows';
 import { readDietary } from '../../src/ui/views/guests/shared';
 import { parseEnum } from '../../src/ui/views/form';
+import { fireEventSubmit } from './harness';
 import { IdeasSection } from '../../src/ui/views/assistant/IdeasSection';
 import { SetupView } from '../../src/ui/views/SetupView';
+import { AddInstalmentForm } from '../../src/ui/views/vendors/AddInstalmentForm';
 import { VendorCard } from '../../src/ui/views/vendors/VendorCard';
+import { VendorsView } from '../../src/ui/views/vendors/VendorsView';
 import { Harness } from './harness';
 import { makePlan, run } from '../helpers';
 
@@ -164,5 +168,85 @@ describe('tampered form values never reach the plan (Finding 1)', () => {
     expect(tier.value).toBe('');
     fireEvent.change(tier, { target: { value: 'premium' } });
     expect(tier.value).toBe('premium');
+  });
+  it('guest edit form: a tampered RSVP keeps the form open and the guest untouched', () => {
+    const seed = run(makePlan(), {
+      type: 'guest/add',
+      id: 'g1',
+      name: 'Meera',
+      rsvp: 'yes',
+      plusOnes: 0,
+      dietary: [],
+      group: 'Family',
+    });
+    let current: Plan = seed;
+    let done = false;
+    render(
+      <Harness seed={seed}>
+        {(plan) => {
+          current = plan;
+          const guest = plan.guests[0];
+          return guest === undefined ? null : (
+            <GuestEditRow guest={guest} onDone={() => (done = true)} />
+          );
+        }}
+      </Harness>,
+    );
+    fireEvent.change(screen.getByLabelText('RSVP'), { target: { value: 'maybe' } });
+    fireEventSubmit(screen.getByLabelText('Name'));
+    expect(done).toBe(false); // the form stays open, exactly as the engine rejection did
+    expect(current.guests[0]?.rsvp).toBe('yes'); // the guest is untouched
+    // The valid-submit path of this form is exercised by the dietary and core-workflow
+    // suites; the inline RSVP test above proves the valid guard path.
+  });
+
+  it('add-vendor form: a tampered status surfaces the engine rejection and adds nothing', async () => {
+    const user = userEvent.setup();
+    let current: Plan = makePlan();
+    render(
+      <Harness seed={makePlan()}>
+        {(plan) => {
+          current = plan;
+          return <VendorsView plan={plan} />;
+        }}
+      </Harness>,
+    );
+    await user.type(screen.getByLabelText('Vendor name'), 'Sharma Caterers');
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'bogus' } });
+    await user.click(screen.getByRole('button', { name: 'Add vendor' }));
+    expect(
+      screen.getByText(
+        'Booking status must be one of: not_started, contacted, quoted, booked, cancelled.',
+      ),
+    ).toBeInTheDocument();
+    expect(current.vendors).toHaveLength(0);
+  });
+
+  it('payment-kind select: a foreign value cannot enter the instalment form state', () => {
+    const seed = run(makePlan(), {
+      type: 'vendor/add',
+      id: 'v1',
+      categoryId: makePlan().categories[0]?.id ?? 'c1',
+      name: 'Sharma Caterers',
+      contactNote: '',
+      status: 'booked',
+      committedMinor: 1_000_000,
+    });
+    render(
+      <Harness seed={seed}>
+        {(plan) => {
+          const vendor = plan.vendors[0];
+          return vendor === undefined ? null : (
+            <AddInstalmentForm plan={plan} vendor={vendor} onAdd={noop} />
+          );
+        }}
+      </Harness>,
+    );
+    const kind = screen.getByLabelText<HTMLSelectElement>('Add payment');
+    expect(kind.value).toBe('advance');
+    fireEvent.change(kind, { target: { value: 'deposit' } });
+    expect(kind.value).toBe('advance'); // unchanged
+    fireEvent.change(kind, { target: { value: 'final' } });
+    expect(kind.value).toBe('final'); // valid input behaves exactly as before
   });
 });
