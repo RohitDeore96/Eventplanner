@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PlanAction } from '../../../engine/actions';
-import { instalmentPayments, vendorPayments } from '../../../engine/budget';
+import { instalmentPayments } from '../../../engine/budget';
 import { parseMajorAmount } from '../../../engine/money';
 import type { BookingStatus, Plan, Vendor } from '../../../engine/types';
 import type { QuoteFields } from '../../../schemas/ai';
@@ -25,8 +25,11 @@ import {
 } from '../../../lib/quoteCompare';
 import { text } from '../form';
 import { AddInstalmentForm } from './AddInstalmentForm';
+import { VendorEditForm } from './VendorEditForm';
+import { VendorMoneySummary } from './VendorMoneySummary';
+import { VendorPaymentHistory } from './VendorPaymentHistory';
 import { InstalmentRow } from './InstalmentRow';
-import { KIND_LABELS, STATUS_OPTIONS, displayMajor } from './shared';
+import { STATUS_OPTIONS, displayMajor } from './shared';
 
 /** Per-category vendor checklist: which vendor types to book, with booking status. */
 export function VendorsView({ plan }: { plan: Plan }): React.ReactNode {
@@ -1078,172 +1081,5 @@ function QuoteCard({
         </button>
       </div>
     </div>
-  );
-}
-
-/** Money summary from the engine's own aggregates (M5.4). */
-function VendorMoneySummary({ plan, vendor }: { plan: Plan; vendor: Vendor }): React.ReactNode {
-  const paidByInstalment = instalmentPayments(plan.expenses);
-  const paidToVendor = vendorPayments(plan.expenses).get(vendor.id) ?? 0;
-  const scheduledTotal = vendor.schedule.reduce((acc, i) => acc + i.amountMinor, 0);
-  const nextDue = vendor.schedule
-    .filter((i) => (paidByInstalment.get(i.id) ?? 0) < i.amountMinor)
-    .map((i) => i.dueISO)
-    .sort()[0];
-  const unscheduled =
-    vendor.committedMinor !== null && scheduledTotal !== vendor.committedMinor
-      ? Math.max(0, vendor.committedMinor - scheduledTotal)
-      : null;
-  return (
-    <>
-      <h4>Money summary</h4>
-      <p className="muted">
-        Agreed {vendor.committedMinor === null ? 'not set' : money(vendor.committedMinor, plan)} ·
-        scheduled {scheduledTotal === 0 ? 'nothing yet' : money(scheduledTotal, plan)} · paid{' '}
-        {money(paidToVendor, plan)} · still to pay{' '}
-        {money(Math.max(0, (vendor.committedMinor ?? 0) - paidToVendor), plan)}
-        {nextDue !== undefined ? ` · next payment due ${nextDue}` : ''}
-      </p>
-      {unscheduled !== null && unscheduled > 0 && (
-        <p className="muted">
-          Unscheduled balance: {money(unscheduled, plan)} of the agreed price has no instalment yet.
-        </p>
-      )}
-    </>
-  );
-}
-
-/** Payment history: every recorded expense for this vendor, with its instalment link. */
-function VendorPaymentHistory({ plan, vendor }: { plan: Plan; vendor: Vendor }): React.ReactNode {
-  const history = plan.expenses.filter((e) => e.vendorId === vendor.id);
-  if (history.length === 0) {
-    return (
-      <>
-        <h4>Payment history</h4>
-        <p className="muted">No payments recorded for this vendor yet.</p>
-      </>
-    );
-  }
-  return (
-    <>
-      <h4>Payment history</h4>
-      <table tabIndex={0}>
-        <caption className="visually-hidden">Payments recorded for {vendor.name}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Amount</th>
-            <th scope="col">Against</th>
-            <th scope="col">Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          {history.map((expense) => (
-            <tr key={expense.id}>
-              <td>{expense.dateISO}</td>
-              <td>{money(expense.amountMinor, plan)}</td>
-              <td>
-                {expense.instalmentId === null
-                  ? 'Not linked to an instalment'
-                  : KIND_LABELS[
-                      vendor.schedule.find((i) => i.id === expense.instalmentId)?.kind ?? 'custom'
-                    ]}
-              </td>
-              <td>{expense.note || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
-  );
-}
-
-/** Editable vendor details: name, contact person, phone, email, note (M5.1). */
-function VendorEditForm({
-  vendor,
-  onDone,
-}: {
-  vendor: Vendor;
-  onDone: () => void;
-}): React.ReactNode {
-  const store = usePlan();
-  const [notice, setNotice] = useState<string | null>(null);
-  return (
-    <form
-      className="row"
-      aria-label={`Edit details for ${vendor.name}`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        const outcome = store.apply({
-          type: 'vendor/update',
-          id: vendor.id,
-          name: text(data, 'name'),
-          contactPerson: text(data, 'person'),
-          phone: text(data, 'phone'),
-          email: text(data, 'email'),
-          contactNote: text(data, 'note'),
-        });
-        setNotice(outcome.ok ? 'Details saved.' : (outcome.message ?? 'Details were not saved.'));
-        if (outcome.ok) onDone();
-      }}
-    >
-      <div>
-        <label htmlFor={`${vendor.id}-ed-name`}>Vendor name</label>
-        <input
-          id={`${vendor.id}-ed-name`}
-          name="name"
-          defaultValue={vendor.name}
-          required
-          maxLength={80}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-ed-person`}>Contact person</label>
-        <input
-          id={`${vendor.id}-ed-person`}
-          name="person"
-          defaultValue={vendor.contactPerson}
-          maxLength={120}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-ed-phone`}>Phone</label>
-        <input
-          id={`${vendor.id}-ed-phone`}
-          name="phone"
-          type="tel"
-          defaultValue={vendor.phone}
-          maxLength={40}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-ed-email`}>Email</label>
-        <input
-          id={`${vendor.id}-ed-email`}
-          name="email"
-          type="email"
-          defaultValue={vendor.email}
-          maxLength={120}
-        />
-      </div>
-      <div>
-        <label htmlFor={`${vendor.id}-ed-note`}>Contact note</label>
-        <input
-          id={`${vendor.id}-ed-note`}
-          name="note"
-          defaultValue={vendor.contactNote}
-          maxLength={500}
-        />
-      </div>
-      <button type="submit" className="primary">
-        Save details
-      </button>
-      {notice !== null && (
-        <p className="muted" role="status">
-          {notice}
-        </p>
-      )}
-    </form>
   );
 }
