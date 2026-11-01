@@ -39,6 +39,24 @@ export default tseslint.config(
     },
   },
   {
+    // Production code only: every function in src/ stays at 240 lines or fewer
+    // (measured maximum after the 2026-11 structure pass: 239 in src/ui).
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    rules: {
+      'max-lines-per-function': ['error', 240],
+    },
+  },
+  {
+    // The UI layer is composed of small, focused components: complexity 11 is the
+    // measured maximum after the 2026-11 structure pass (three view functions sit
+    // at exactly 11). The engine keeps the global limit of 15 — its reducers are
+    // financial logic where a forced split would risk behaviour changes.
+    files: ['src/ui/**'],
+    rules: {
+      complexity: ['error', 11],
+    },
+  },
+  {
     // Serverless functions: console.error is the only channel into the platform logs,
     // and it never reaches the client (errors return typed codes only).
     files: ['api/**/*.ts'],
